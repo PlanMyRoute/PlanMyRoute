@@ -1,0 +1,6 @@
+projectKey=PlanMyRoute_Backend
+serverUrl=http://localhost:9000
+serverVersion=25.11.0.114957
+dashboardUrl=http://localhost:9000/dashboard?id=PlanMyRoute_Backend
+ceTaskId=aa19e3c5-63fe-445e-acc1-2ccef43f0a8b
+ceTaskUrl=http://localhost:9000/api/ce/task?id=aa19e3c5-63fe-445e-acc1-2ccef43f0a8b

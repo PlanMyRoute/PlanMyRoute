@@ -1,0 +1,17 @@
+{
+  "name": "@planmyroute/types",
+  "version": "2.1.0",
+  "description": "",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc"
+  },
+  "devDependencies": {
+    "supabase": "^2.65.5",
+    "typescript": "^5.9.3"
+  }
+}

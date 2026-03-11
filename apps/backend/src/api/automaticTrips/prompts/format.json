@@ -1,0 +1,27 @@
+{
+  "description": "Descripción breve del itinerario",
+  "accomodationstop": [
+    {
+      "name": "Nombre del hotel, hostal, camping, etc.",
+      "address": "Dirección completa o 'Ciudad, Provincia, País'",
+      "description": "Breve descripción del alojamiento",
+      "estimated_arrival": horas_estimada_de_llegada,
+      "nights": número_de_noches,
+      "url": "URL del alojamiento (opcional)",
+      "contact": "Información de contacto del alojamiento (opcional)"
+    }
+  ],
+  "activitystop": [
+    {
+        "name": "Nombre de la actividad o lugar a visitar",
+        "address": "Dirección completa o 'Ciudad, Provincia, País'",
+        "description": "Breve descripción de la actividad o lugar",
+        "category": "Categoría de la actividad (por ejemplo, 'museo', 'aventura', 'comer', etc.)",
+        "entry_price": "Precio de entrada o 'Gratis' si no aplica",
+        "booking_required": valor_booleano,
+        "estimated_arrival": horas_estimada_de_llegada,
+        "estimated_duration": duración_estimada_en_horas,
+        "url": "URL de la actividad o lugar (opcional)",
+    }
+  ]
+}

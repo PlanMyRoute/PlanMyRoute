@@ -1,0 +1,32 @@
+{
+  "folders": [
+    {
+      "name": "root",
+      "path": "."
+    },
+    {
+      "name": "frontend",
+      "path": "apps/frontend"
+    },
+    {
+      "name": "backend",
+      "path": "apps/backend"
+    },
+    {
+      "name": "shared",
+      "path": "packages/types"
+    }
+  ],
+  "settings": {
+    "terminal.integrated.defaultProfile.windows": "PowerShell",
+    "terminal.integrated.profiles.windows": {
+      "PowerShell": {
+        "source": "PowerShell"
+      }
+    }
+  },
+  "launch": {
+    "version": "0.2.0",
+    "configurations": []
+  }
+}
