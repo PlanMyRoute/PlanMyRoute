@@ -1,3 +1,4 @@
+import { ApiError, apiFetch } from '@/constants/api';
 import { Trip } from '@planmyroute/types';
 
 type FetchOptions = {
@@ -20,12 +21,10 @@ export class TripService {
    */
   static async getTrips(opts?: FetchOptions): Promise<Trip[]> {
     try {
-      const response = await fetch(`${process.env.EXPO_PUBLIC_API_URL}/api/trip${buildQuery(opts?.query)}`, {
-        headers: opts?.token ? { Authorization: `Bearer ${opts.token}` } : undefined,
+      return await apiFetch<Trip[]>(`/api/trip${buildQuery(opts?.query)}`, {
+        token: opts?.token,
         signal: opts?.signal,
       });
-      if (!response.ok) throw new Error('Error fetching trips');
-      return await response.json();
     } catch (error) {
       console.error('Error in getTrips:', error);
       throw error;
@@ -37,12 +36,10 @@ export class TripService {
    */
   static async getUserTrips(userId: string, opts?: FetchOptions): Promise<Trip[]> {
     try {
-      const response = await fetch(`${process.env.EXPO_PUBLIC_API_URL}/api/travelers/${userId}/trips${buildQuery(opts?.query)}`, {
-        headers: opts?.token ? { Authorization: `Bearer ${opts.token}` } : undefined,
+      return await apiFetch<Trip[]>(`/api/travelers/${userId}/trips${buildQuery(opts?.query)}`, {
+        token: opts?.token,
         signal: opts?.signal,
       });
-      if (!response.ok) throw new Error('Error fetching user trips');
-      return await response.json();
     } catch (error) {
       console.error('Error in getUserTrips:', error);
       throw error;
@@ -54,23 +51,10 @@ export class TripService {
    */
   static async getTripById(id: string, opts?: FetchOptions): Promise<Trip> {
     try {
-      const response = await fetch(`${process.env.EXPO_PUBLIC_API_URL}/api/trip/${id}`, {
-        headers: opts?.token ? { Authorization: `Bearer ${opts.token}` } : undefined,
+      return await apiFetch<Trip>(`/api/trip/${id}`, {
+        token: opts?.token,
         signal: opts?.signal,
       });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        console.error('getTripById error response:', {
-          status: response.status,
-          statusText: response.statusText,
-          errorData,
-        });
-        throw new Error(`Error ${response.status}: ${errorData.error || response.statusText}`);
-      }
-
-      const data = await response.json();
-      return data;
     } catch (error) {
       console.error('Error in getTripById:', error);
       throw error;
@@ -87,49 +71,39 @@ export class TripService {
     token?: string
   ): Promise<any> {
     try {
-      let response
+      let result;
       if (iaTrip) {
         trip.description = ""; // IA will generate description
-        response = await fetch(`${process.env.EXPO_PUBLIC_API_URL}/api/automatic-trips/${userId}/generate-trip`, {
+        result = await apiFetch<any>(`/api/automatic-trips/${userId}/generate-trip`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
           },
+          token,
           body: JSON.stringify(trip),
         });
       } else {
-        const url = `${process.env.EXPO_PUBLIC_API_URL}/api/travelers/${userId}/trip`;
-        response = await fetch(url, {
+        result = await apiFetch<any>(`/api/travelers/${userId}/trip`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
           },
+          token,
           body: JSON.stringify(trip),
         });
       }
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
-        console.error('Error response from server:', errorData);
-
-        // Si es un error 403, incluir toda la información del backend
-        if (response.status === 403) {
-          const error: any = new Error(errorData.error || 'Límite alcanzado');
-          error.status = 403;
-          error.requiresPremium = errorData.requiresPremium;
-          error.usedCount = errorData.usedCount;
-          error.maxCount = errorData.maxCount;
-          error.error = errorData.error;
-          throw error;
-        }
-
-        throw new Error(errorData.error || 'Error creating trip');
-      }
-
-      return await response.json();
+      return result;
     } catch (error) {
+      if (error instanceof ApiError && error.status === 403 && error.body && typeof error.body === 'object') {
+        const body = error.body as Record<string, any>;
+        const premiumError: any = new Error(body.error || error.message || 'Límite alcanzado');
+        premiumError.status = 403;
+        premiumError.requiresPremium = body.requiresPremium;
+        premiumError.usedCount = body.usedCount;
+        premiumError.maxCount = body.maxCount;
+        premiumError.error = body.error;
+        throw premiumError;
+      }
       console.error('Error in createTrip:', error);
       throw error;
     }
@@ -140,16 +114,14 @@ export class TripService {
    */
   static async updateTrip(id: string, trip: Partial<Trip>, userId: string, token?: string): Promise<Trip> {
     try {
-      const response = await fetch(`${process.env.EXPO_PUBLIC_API_URL}/api/travelers/${userId}/trip/${id}`, {
+      return await apiFetch<Trip>(`/api/travelers/${userId}/trip/${id}`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
+        token,
         body: JSON.stringify(trip),
       });
-      if (!response.ok) throw new Error('Error updating trip');
-      return await response.json();
     } catch (error) {
       console.error('Error in updateTrip:', error);
       throw error;
@@ -161,11 +133,10 @@ export class TripService {
    */
   static async deleteTrip(id: string, userId: string, token?: string): Promise<void> {
     try {
-      const response = await fetch(`${process.env.EXPO_PUBLIC_API_URL}/api/travelers/${userId}/trip/${id}`, {
+      await apiFetch<void>(`/api/travelers/${userId}/trip/${id}`, {
         method: 'DELETE',
-        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+        token,
       });
-      if (!response.ok) throw new Error('Error deleting trip');
     } catch (error) {
       console.error('Error in deleteTrip:', error);
       throw error;
@@ -174,13 +145,10 @@ export class TripService {
 
   static async getNumberOfStops(tripId: string, opts?: FetchOptions): Promise<any[]> {
     try {
-      // Backend exposes stops for a trip at /itinerary/trip/:tripId/stops
-      const response = await fetch(`${process.env.EXPO_PUBLIC_API_URL}/api/itinerary/trip/${tripId}/stops`, {
-        headers: opts?.token ? { Authorization: `Bearer ${opts.token}` } : undefined,
+      return await apiFetch<any[]>(`/api/itinerary/trip/${tripId}/stops`, {
+        token: opts?.token,
         signal: opts?.signal,
       });
-      if (!response.ok) throw new Error('Error fetching stops');
-      return await response.json();
     } catch (error) {
       console.error('Error in getNumberOfStops:', error);
       throw error;
@@ -190,12 +158,10 @@ export class TripService {
   // =============== TRAVELERS CONTROLLERS ===============
   static async getTravelersInTrip(tripId: string, opts?: FetchOptions): Promise<any[]> {
     try {
-      const response = await fetch(`${process.env.EXPO_PUBLIC_API_URL}/api/travelers/trip/${tripId}`, {
-        headers: opts?.token ? { Authorization: `Bearer ${opts.token}` } : undefined,
+      return await apiFetch<any[]>(`/api/travelers/trip/${tripId}`, {
+        token: opts?.token,
         signal: opts?.signal,
       });
-      if (!response.ok) throw new Error('Error fetching travelers in trip');
-      return await response.json();
     } catch (error) {
       console.error('Error in getTravelersInTrip:', error);
       throw error;
@@ -235,15 +201,23 @@ export class TripService {
     };
   }> {
     try {
-      const response = await fetch(`${process.env.EXPO_PUBLIC_API_URL}/api/trip/${tripId}/access-level`, {
-        headers: opts?.token ? { Authorization: `Bearer ${opts.token}` } : undefined,
+      return await apiFetch<{
+        role: 'owner' | 'editor' | 'viewer' | 'guest';
+        tripStatus: 'planning' | 'going' | 'completed';
+        isGuest: boolean;
+        isCompleted: boolean;
+        permissions: {
+          canView: boolean;
+          canEdit: boolean;
+          canDelete: boolean;
+          canManageTravelers: boolean;
+          canChangeRoles: boolean;
+          canLeave: boolean;
+        };
+      }>(`/api/trip/${tripId}/access-level`, {
+        token: opts?.token,
         signal: opts?.signal,
       });
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: 'Error fetching access level' }));
-        throw new Error(errorData.error || 'Error fetching access level');
-      }
-      return await response.json();
     } catch (error) {
       console.error('Error in getTripAccessLevel:', error);
       throw error;
@@ -255,14 +229,10 @@ export class TripService {
    */
   static async leaveTrip(userId: string, tripId: string, token?: string): Promise<void> {
     try {
-      const response = await fetch(`${process.env.EXPO_PUBLIC_API_URL}/api/travelers/${userId}/trip/${tripId}/leave`, {
+      await apiFetch<void>(`/api/travelers/${userId}/trip/${tripId}/leave`, {
         method: 'DELETE',
-        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+        token,
       });
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: 'Error leaving trip' }));
-        throw new Error(errorData.error || 'Error leaving trip');
-      }
     } catch (error) {
       console.error('Error in leaveTrip:', error);
       throw error;
@@ -280,19 +250,14 @@ export class TripService {
     token?: string
   ): Promise<any> {
     try {
-      const response = await fetch(`${process.env.EXPO_PUBLIC_API_URL}/api/travelers/${targetUserId}/trip/${tripId}/role`, {
+      return await apiFetch<any>(`/api/travelers/${targetUserId}/trip/${tripId}/role`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
+        token,
         body: JSON.stringify({ role, actorUserId }),
       });
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: 'Error changing role' }));
-        throw new Error(errorData.error || 'Error changing role');
-      }
-      return await response.json();
     } catch (error) {
       console.error('Error in changeUserRole:', error);
       throw error;
@@ -304,14 +269,10 @@ export class TripService {
    */
   static async kickUser(actorUserId: string, targetUserId: string, tripId: string, token?: string): Promise<void> {
     try {
-      const response = await fetch(`${process.env.EXPO_PUBLIC_API_URL}/api/travelers/${targetUserId}/trip/${tripId}/kick?actorUserId=${actorUserId}`, {
+      await apiFetch<void>(`/api/travelers/${targetUserId}/trip/${tripId}/kick?actorUserId=${actorUserId}`, {
         method: 'DELETE',
-        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+        token,
       });
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: 'Error kicking user' }));
-        throw new Error(errorData.error || 'Error kicking user');
-      }
     } catch (error) {
       console.error('Error in kickUser:', error);
       throw error;
@@ -325,12 +286,10 @@ export class TripService {
    */
   static async getVehiclesInTrip(tripId: string, opts?: FetchOptions): Promise<any[]> {
     try {
-      const response = await fetch(`${process.env.EXPO_PUBLIC_API_URL}/api/trip/${tripId}/vehicles`, {
-        headers: opts?.token ? { Authorization: `Bearer ${opts.token}` } : undefined,
+      return await apiFetch<any[]>(`/api/trip/${tripId}/vehicles`, {
+        token: opts?.token,
         signal: opts?.signal,
       });
-      if (!response.ok) throw new Error('Error fetching vehicles in trip');
-      return await response.json();
     } catch (error) {
       console.error('Error in getVehiclesInTrip:', error);
       throw error;
@@ -347,14 +306,10 @@ export class TripService {
     token?: string
   ): Promise<void> {
     try {
-      const response = await fetch(`${process.env.EXPO_PUBLIC_API_URL}/api/travelers/${userId}/trip/${tripId}/vehicle/${vehicleId}`, {
+      await apiFetch<void>(`/api/travelers/${userId}/trip/${tripId}/vehicle/${vehicleId}`, {
         method: 'DELETE',
-        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+        token,
       });
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: 'Error removing vehicle from trip' }));
-        throw new Error(errorData.error || 'Error removing vehicle from trip');
-      }
     } catch (error) {
       console.error('Error in removeVehicleFromTrip:', error);
       throw error;
@@ -503,3 +458,4 @@ export class RouteService {
     }
   }
 }
+

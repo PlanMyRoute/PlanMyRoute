@@ -3,6 +3,8 @@ import { User } from '@planmyroute/types';
 import { useQuery } from '@tanstack/react-query';
 import { UserService } from '../services/userService';
 
+const USER_STALE_TIME = 60_000;
+
 type UseUsersResult = {
     data: User | User[] | null;
     isLoading: boolean;
@@ -45,6 +47,8 @@ export function useUser(
             () => UserService.getUserById(userId, { token: finalToken || undefined }) :
             () => UserService.getUserByUsername(username as string, { token: finalToken || undefined }),
         enabled: enabled && (Boolean(userId) || Boolean(username)),
+        staleTime: USER_STALE_TIME,
+        retry: 1,
     });
 
     const data = queryUser.data ?? null;
@@ -86,6 +90,8 @@ export function useProfile(
             }
         },
         enabled: enabled && Boolean(identifier),
+        staleTime: USER_STALE_TIME,
+        retry: (failureCount, error) => failureCount < 2 && !error.message.includes('No identifier provided'),
     });
 
     const data = queryProfile.data ?? null;
@@ -112,6 +118,7 @@ export function useSearchUsers(
         queryFn: () => UserService.searchUsersByUsername(trimmedQuery, { token: options?.token }),
         enabled: enabled && trimmedQuery.length > 0,
         staleTime: 1000 * 30, // Cache for 30 seconds
+        retry: 1,
     });
 
     const data = querySearchUsers.data ?? null;

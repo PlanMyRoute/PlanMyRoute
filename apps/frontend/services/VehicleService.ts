@@ -1,3 +1,4 @@
+import { apiFetch } from '@/constants/api';
 // services/vehicleService.ts
 import { Vehicle as SharedVehicle, VehicleType as SharedVehicleType, TablesUpdate } from '@planmyroute/types';
 
@@ -32,17 +33,10 @@ export class VehicleService {
    */
   static async getUserVehicles(userId: string, opts?: FetchOptions): Promise<Vehicle[]> {
     try {
-      const response = await fetch(`${process.env.EXPO_PUBLIC_API_URL}/api/users/${userId}/vehicles`, {
-        headers: opts?.token ? { Authorization: `Bearer ${opts.token}` } : undefined,
+      return await apiFetch<Vehicle[]>(`/api/users/${userId}/vehicles`, {
+        token: opts?.token,
         signal: opts?.signal,
       });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Error fetching vehicles');
-      }
-
-      return await response.json();
     } catch (error) {
       console.error('Error fetching vehicles:', error);
       throw error;
@@ -58,22 +52,15 @@ export class VehicleService {
     opts?: FetchOptions
   ): Promise<Vehicle> {
     try {
-      const response = await fetch(`${process.env.EXPO_PUBLIC_API_URL}/api/users/${userId}/vehicles`, {
+      return await apiFetch<Vehicle>(`/api/users/${userId}/vehicles`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          ...(opts?.token ? { Authorization: `Bearer ${opts.token}` } : {}),
         },
+        token: opts?.token,
         body: JSON.stringify(payload),
         signal: opts?.signal,
       });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Error creating vehicle');
-      }
-
-      return await response.json();
     } catch (error) {
       console.error('Error creating vehicle:', error);
       throw error;
@@ -90,22 +77,15 @@ export class VehicleService {
     opts?: FetchOptions
   ): Promise<Vehicle> {
     try {
-      const response = await fetch(`${process.env.EXPO_PUBLIC_API_URL}/api/users/${userId}/vehicles/${vehicleId}`, {
+      return await apiFetch<Vehicle>(`/api/users/${userId}/vehicles/${vehicleId}`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
-          ...(opts?.token ? { Authorization: `Bearer ${opts.token}` } : {}),
         },
+        token: opts?.token,
         body: JSON.stringify(payload),
         signal: opts?.signal,
       });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Error updating vehicle');
-      }
-
-      return await response.json();
     } catch (error) {
       console.error('Error updating vehicle:', error);
       throw error;
@@ -117,16 +97,11 @@ export class VehicleService {
    */
   static async deleteVehicle(userId: string, vehicleId: string, opts?: FetchOptions): Promise<void> {
     try {
-      const response = await fetch(`${process.env.EXPO_PUBLIC_API_URL}/api/users/${userId}/vehicles/${vehicleId}`, {
+      await apiFetch<void>(`/api/users/${userId}/vehicles/${vehicleId}`, {
         method: 'DELETE',
-        headers: opts?.token ? { Authorization: `Bearer ${opts.token}` } : undefined,
+        token: opts?.token,
         signal: opts?.signal,
       });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Error deleting vehicle');
-      }
     } catch (error) {
       console.error('Error deleting vehicle:', error);
       throw error;

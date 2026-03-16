@@ -1,3 +1,4 @@
+import { apiFetch } from '@/constants/api';
 import { useAuth } from '@/context/AuthContext';
 import { useQuery } from '@tanstack/react-query';
 
@@ -26,7 +27,7 @@ export interface StopPriceResponse {
  * @param enabled Si está habilitado (default: true)
  */
 export function useStopPrice(
-    stopId: string | number, 
+    stopId: string | number,
     stopData?: any,
     enabled: boolean = true
 ) {
@@ -56,22 +57,17 @@ export function useStopPrice(
     const query = useQuery<StopPriceResponse, Error>({
         queryKey: ['stopPrice', stopId],
         queryFn: async () => {
-            const response = await fetch(
-                `${process.env.EXPO_PUBLIC_API_URL}/api/stop/${stopId}/price`,
-                {
-                    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-                }
-            );
-
-            if (!response.ok) {
+            try {
+                return await apiFetch<StopPriceResponse>(`/api/stop/${stopId}/price`, {
+                    token,
+                });
+            } catch {
                 return {
                     stopId: String(stopId),
                     name: '',
                     priceInfo: null
                 };
             }
-
-            return await response.json();
         },
         enabled: !!stopId && enabled && !localPriceInfo,
         staleTime: 1000 * 60 * 60, // 1 hora
@@ -85,3 +81,4 @@ export function useStopPrice(
         refetch: () => query.refetch(),
     };
 }
+

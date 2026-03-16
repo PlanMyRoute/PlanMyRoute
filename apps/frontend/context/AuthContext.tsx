@@ -1,6 +1,6 @@
+import { Session, User } from '@supabase/supabase-js';
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { Platform } from 'react-native';
-import { Session, User } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase'; // Ajusta la ruta si es necesario
 
 // Define la forma de tu contexto
@@ -33,13 +33,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       setSession(session);
       setUser(session?.user ?? null);
       setIsLoading(false);
-      
-      // Mostrar token en consola si está disponible
-      if (session?.access_token) {
-        console.log('🔐 JWT TOKEN:', session.access_token);
-        console.log('📋 Para usar en Postman, agrega este header:');
-        console.log('   Authorization: Bearer ' + session.access_token);
-      }
     });
 
     // Escucha cambios en la autenticación (login, logout)
@@ -48,13 +41,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         setSession(session);
         setUser(session?.user ?? null);
         setIsLoading(false);
-        
-        // Mostrar token en consola cuando se inicia sesión
-        if (session?.access_token) {
-          console.log('🔐 JWT TOKEN:', session.access_token);
-          console.log('📋 Para usar en Postman, agrega este header:');
-          console.log('   Authorization: Bearer ' + session.access_token);
-        }
 
         // Manejar nuevos usuarios de Google
         if (event === 'SIGNED_IN' && session?.user) {
@@ -73,7 +59,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const handleGoogleSignIn = async (authUser: User) => {
     try {
       console.log('🔍 Verificando usuario de Google:', authUser.email);
-      
+
       // Verificar si el usuario ya existe en la tabla user
       const { data: existingUser, error: fetchError } = await supabase
         .from('user')
@@ -93,7 +79,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         console.log('👤 Nuevo usuario de Google detectado');
         console.log('⏳ El trigger de la base de datos creará el perfil automáticamente cuando se confirme el email');
         console.log('📍 Usuario necesitará completar su username');
-        
+
         // Marcar que necesita completar perfil (username es obligatorio)
         if (typeof window !== 'undefined') {
           window.localStorage.setItem('needsCompleteProfile', 'true');
@@ -101,7 +87,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         }
       } else {
         console.log('✅ Usuario de Google ya existe en la base de datos');
-        
+
         // Verificar si tiene username, si no lo tiene, redirigir a complete-profile
         if (!existingUser.username || existingUser.username === '') {
           console.log('⚠️ Usuario existe pero no tiene username');
@@ -112,7 +98,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         } else {
           console.log('✅ Usuario tiene username:', existingUser.username);
         }
-        
+
         // Actualizar foto de perfil si cambió
         if (authUser.user_metadata?.avatar_url && existingUser.img !== authUser.user_metadata.avatar_url) {
           console.log('🖼️ Actualizando foto de perfil...');
@@ -146,9 +132,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     });
 
     // Solo usar redirect URL si estamos en web de producción (no app nativa)
-    const isWebProduction = Platform.OS === 'web' && 
-      typeof window !== 'undefined' && 
-      !window.location.href.includes('localhost') && 
+    const isWebProduction = Platform.OS === 'web' &&
+      typeof window !== 'undefined' &&
+      !window.location.href.includes('localhost') &&
       !window.location.href.match(/192\.168\.\d+\.\d+/);
     const emailRedirectTo = isWebProduction ? 'https://www.planmyroute.es/auth/callback' : undefined;
 
@@ -163,17 +149,17 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         emailRedirectTo: emailRedirectTo, // URL de redirección para producción
       }
     });
-    
+
     if (authError) {
       console.error('❌ Error en Auth signup:', authError);
       throw authError;
     }
-    
+
     console.log('✅ Usuario creado en Auth. Código OTP enviado.');
     console.log('📧 Se ha enviado un código de 6 dígitos a:', email);
     console.log('🔍 Usuario creado con ID:', authData.user?.id);
     console.log('🔍 Metadatos guardados:', authData.user?.user_metadata);
-    
+
     return authData;
   };
 
@@ -190,7 +176,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       token: token.trim(),
       type: 'email'
     });
-    
+
     if (error) {
       console.error('❌ Error al verificar OTP:', {
         message: error.message,
@@ -200,7 +186,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       });
       throw error;
     }
-    
+
     console.log('✅ Email verificado correctamente:', data);
     return data;
   };
@@ -220,26 +206,26 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
     console.log('✅ Código OTP reenviado correctamente');
   };
-  
+
   const signOut = async () => {
     console.log('=== signOut llamado ===');
     try {
       // Intentar cerrar sesión en Supabase con timeout
-      const timeoutPromise = new Promise((_, reject) => 
+      const timeoutPromise = new Promise((_, reject) =>
         setTimeout(() => reject(new Error('Timeout')), 3000)
       );
-      
+
       const signOutPromise = supabase.auth.signOut();
-      
+
       await Promise.race([signOutPromise, timeoutPromise]).catch((error) => {
         console.warn('Advertencia en signOut (puede ser timeout):', error.message);
       });
-      
+
       // Forzar limpieza local del estado
       console.log('Limpiando estado local...');
       setUser(null);
       setSession(null);
-      
+
       console.log('signOut completado');
     } catch (error) {
       console.error('Error en signOut:', error);
@@ -251,12 +237,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const signInWithGoogle = async () => {
     // Solo usar redirect URL si estamos en web de producción (no app nativa)
-    const isWebProduction = Platform.OS === 'web' && 
-      typeof window !== 'undefined' && 
-      !window.location.href.includes('localhost') && 
+    const isWebProduction = Platform.OS === 'web' &&
+      typeof window !== 'undefined' &&
+      !window.location.href.includes('localhost') &&
       !window.location.href.match(/192\.168\.\d+\.\d+/);
-    const redirectUrl = isWebProduction 
-      ? 'https://www.planmyroute.es/auth/callback' 
+    const redirectUrl = isWebProduction
+      ? 'https://www.planmyroute.es/auth/callback'
       : undefined; // Expo manejará el deep link automáticamente
 
     const { error } = await supabase.auth.signInWithOAuth({

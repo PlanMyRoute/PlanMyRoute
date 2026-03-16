@@ -6,6 +6,8 @@ import { TripService } from '../services/tripService';
 import { UserService } from '../services/userService';
 import { useNotificationsByTrip } from './useNotifications';
 
+const TRIP_STALE_TIME = 30_000;
+
 type UseTripsResult = {
   data: Trip | Trip[] | null;
   loading: boolean;
@@ -31,12 +33,22 @@ export function useTrips(
       return TripService.getUserTrips(user.id, { token: finalToken || undefined });
     },
     enabled: enabled && !tripId && Boolean(user?.id),
+    staleTime: TRIP_STALE_TIME,
+    retry: (failureCount, error) => {
+      if (error.message.includes('Usuario no autenticado')) {
+        return false;
+      }
+
+      return failureCount < 2;
+    },
   });
 
   const queryTrip = useQuery<Trip, Error>({
     queryKey: ['trip', tripId ?? ''],
     queryFn: () => TripService.getTripById(tripId as string, { token: finalToken || undefined }),
     enabled: enabled && Boolean(tripId),
+    staleTime: TRIP_STALE_TIME,
+    retry: (failureCount, error) => failureCount < 2 && !error.message.includes('Usuario no autenticado'),
   });
 
   const data = tripId ? (queryTrip.data ?? null) : (queryTrips.data ?? null);
@@ -62,6 +74,7 @@ export function useTripStopsCount(tripId?: string | null, options?: { enabled?: 
     queryKey: ['trip', tripId, 'stops'],
     queryFn: () => TripService.getNumberOfStops(tripId as string, { token: token || undefined }),
     enabled,
+    staleTime: TRIP_STALE_TIME,
   });
 
   return {
@@ -194,6 +207,7 @@ export function useTravelers(tripId?: string | null, options?: { token?: string;
     queryKey: ['travelers', tripId ?? ''],
     queryFn: () => TripService.getTravelersInTrip(tripId as string, { token: finalToken || undefined }),
     enabled,
+    staleTime: TRIP_STALE_TIME,
   });
 }
 
@@ -252,6 +266,7 @@ export function useTravelersWithPending(
       },
       enabled: enabled && Boolean(userId),
       staleTime: 5 * 60 * 1000, // Cache por 5 minutos
+      retry: 1,
     })),
   });
 
@@ -323,6 +338,8 @@ export function usePastTrips(userId?: string, options?: { token?: string; enable
       return pastTrips;
     },
     enabled: enabled && Boolean(targetUserId),
+    staleTime: TRIP_STALE_TIME,
+    retry: (failureCount, error) => failureCount < 2 && !error.message.includes('Usuario no especificado'),
   });
 }
 
@@ -348,6 +365,8 @@ export function useActiveTrips(options?: { token?: string; enabled?: boolean }) 
       return { going, planning };
     },
     enabled: enabled && Boolean(user?.id),
+    staleTime: TRIP_STALE_TIME,
+    retry: (failureCount, error) => failureCount < 2 && !error.message.includes('Usuario no autenticado'),
   });
 }
 
@@ -366,6 +385,7 @@ export function useUserRoleInTrip(tripId: string, options?: { token?: string; en
       return await TripService.getUserRoleInTrip(user.id, tripId, { token: finalToken || undefined });
     },
     enabled: enabled && Boolean(user?.id) && Boolean(tripId),
+    staleTime: TRIP_STALE_TIME,
   });
 }
 

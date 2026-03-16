@@ -1,3 +1,4 @@
+import { apiFetch } from '@/constants/api';
 import { Accommodation, Activity, Refuel, Route, Stop } from '@planmyroute/types';
 
 type FetchOptions = {
@@ -16,12 +17,10 @@ export class ItineraryService {
      */
     static async getRoutesByTripId(tripId: string, opts?: FetchOptions): Promise<Route[]> {
         try {
-            const response = await fetch(`${process.env.EXPO_PUBLIC_API_URL}/api/route/trip/${tripId}`, {
-                headers: opts?.token ? { Authorization: `Bearer ${opts.token}` } : undefined,
+            return await apiFetch<Route[]>(`/api/route/trip/${tripId}`, {
+                token: opts?.token,
                 signal: opts?.signal,
             });
-            if (!response.ok) throw new Error('Error fetching routes');
-            return await response.json();
         } catch (error) {
             console.error('Error in getRoutesByTripId:', error);
             throw error;
@@ -33,12 +32,10 @@ export class ItineraryService {
      */
     static async getRouteWithStops(routeId: string, opts?: FetchOptions): Promise<Route & { stops: Stop[] }> {
         try {
-            const response = await fetch(`${process.env.EXPO_PUBLIC_API_URL}/api/route/${routeId}/with-stops`, {
-                headers: opts?.token ? { Authorization: `Bearer ${opts.token}` } : undefined,
+            return await apiFetch<Route & { stops: Stop[] }>(`/api/route/${routeId}/with-stops`, {
+                token: opts?.token,
                 signal: opts?.signal,
             });
-            if (!response.ok) throw new Error('Error fetching route with stops');
-            return await response.json();
         } catch (error) {
             console.error('Error in getRouteWithStops:', error);
             throw error;
@@ -50,16 +47,14 @@ export class ItineraryService {
      */
     static async createRoute(routeData: Partial<Route>, token?: string): Promise<Route> {
         try {
-            const response = await fetch(`${process.env.EXPO_PUBLIC_API_URL}/api/route`, {
+            return await apiFetch<Route>(`/api/route`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    ...(token ? { Authorization: `Bearer ${token}` } : {}),
                 },
+                token,
                 body: JSON.stringify(routeData),
             });
-            if (!response.ok) throw new Error('Error creating route');
-            return await response.json();
         } catch (error) {
             console.error('Error in createRoute:', error);
             throw error;
@@ -71,11 +66,10 @@ export class ItineraryService {
      */
     static async deleteRoute(routeId: string, token?: string): Promise<void> {
         try {
-            const response = await fetch(`${process.env.EXPO_PUBLIC_API_URL}/api/route/${routeId}`, {
+            await apiFetch<void>(`/api/route/${routeId}`, {
                 method: 'DELETE',
-                headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+                token,
             });
-            if (!response.ok) throw new Error('Error deleting route');
         } catch (error) {
             console.error('Error in deleteRoute:', error);
             throw error;
@@ -89,12 +83,10 @@ export class ItineraryService {
      */
     static async getStopsByTripId(tripId: string, opts?: FetchOptions): Promise<Stop[]> {
         try {
-            const response = await fetch(`${process.env.EXPO_PUBLIC_API_URL}/api/itinerary/trip/${tripId}/stops`, {
-                headers: opts?.token ? { Authorization: `Bearer ${opts.token}` } : undefined,
+            return await apiFetch<Stop[]>(`/api/itinerary/trip/${tripId}/stops`, {
+                token: opts?.token,
                 signal: opts?.signal,
             });
-            if (!response.ok) throw new Error('Error fetching stops');
-            return await response.json();
         } catch (error) {
             console.error('Error in getStopsByTripId:', error);
             throw error;
@@ -106,12 +98,10 @@ export class ItineraryService {
      */
     static async getStopById(stopId: string, opts?: FetchOptions): Promise<Stop> {
         try {
-            const response = await fetch(`${process.env.EXPO_PUBLIC_API_URL}/api/stop/${stopId}`, {
-                headers: opts?.token ? { Authorization: `Bearer ${opts.token}` } : undefined,
+            return await apiFetch<Stop>(`/api/stop/${stopId}`, {
+                token: opts?.token,
                 signal: opts?.signal,
             });
-            if (!response.ok) throw new Error('Error fetching stop');
-            return await response.json();
         } catch (error) {
             console.error('Error in getStopById:', error);
             throw error;
@@ -123,30 +113,14 @@ export class ItineraryService {
      */
     static async createStop(tripId: string, stopData: Partial<Stop>, token?: string): Promise<Stop> {
         try {
-            const response = await fetch(`${process.env.EXPO_PUBLIC_API_URL}/api/trip/${tripId}/stop`, {
+            const result = await apiFetch<Stop>(`/api/trip/${tripId}/stop`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    ...(token ? { Authorization: `Bearer ${token}` } : {}),
                 },
+                token,
                 body: JSON.stringify(stopData),
             });
-
-            if (!response.ok) {
-                // Intentar obtener el mensaje de error del servidor
-                let errorMessage = 'Error creating stop';
-                try {
-                    const errorData = await response.json();
-                    errorMessage = errorData.error || errorData.message || errorMessage;
-                } catch (e) {
-                    // Si no se puede parsear el JSON, usar el statusText
-                    errorMessage = response.statusText || errorMessage;
-                }
-                console.error('Error del servidor:', errorMessage);
-                throw new Error(errorMessage);
-            }
-
-            const result = await response.json();
             console.log('Parada creada exitosamente:', result);
             return result;
         } catch (error) {
@@ -164,28 +138,14 @@ export class ItineraryService {
         token?: string
     ): Promise<any> {
         try {
-            const response = await fetch(`${process.env.EXPO_PUBLIC_API_URL}/api/trip/${tripId}/stop/activity`, {
+            const result = await apiFetch<any>(`/api/trip/${tripId}/stop/activity`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    ...(token ? { Authorization: `Bearer ${token}` } : {}),
                 },
+                token,
                 body: JSON.stringify(data),
             });
-
-            if (!response.ok) {
-                let errorMessage = 'Error creating activity stop';
-                try {
-                    const errorData = await response.json();
-                    errorMessage = errorData.error || errorData.message || errorMessage;
-                } catch (e) {
-                    errorMessage = response.statusText || errorMessage;
-                }
-                console.error('Error del servidor:', errorMessage);
-                throw new Error(errorMessage);
-            }
-
-            const result = await response.json();
             console.log('Parada de actividad creada exitosamente:', result);
             return result;
         } catch (error) {
@@ -203,28 +163,14 @@ export class ItineraryService {
         token?: string
     ): Promise<any> {
         try {
-            const response = await fetch(`${process.env.EXPO_PUBLIC_API_URL}/api/trip/${tripId}/stop/accommodation`, {
+            const result = await apiFetch<any>(`/api/trip/${tripId}/stop/accommodation`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    ...(token ? { Authorization: `Bearer ${token}` } : {}),
                 },
+                token,
                 body: JSON.stringify(data),
             });
-
-            if (!response.ok) {
-                let errorMessage = 'Error creating accommodation stop';
-                try {
-                    const errorData = await response.json();
-                    errorMessage = errorData.error || errorData.message || errorMessage;
-                } catch (e) {
-                    errorMessage = response.statusText || errorMessage;
-                }
-                console.error('Error del servidor:', errorMessage);
-                throw new Error(errorMessage);
-            }
-
-            const result = await response.json();
             console.log('Parada de alojamiento creada exitosamente:', result);
             return result;
         } catch (error) {
@@ -242,28 +188,14 @@ export class ItineraryService {
         token?: string
     ): Promise<any> {
         try {
-            const response = await fetch(`${process.env.EXPO_PUBLIC_API_URL}/api/trip/${tripId}/stop/refuel`, {
+            const result = await apiFetch<any>(`/api/trip/${tripId}/stop/refuel`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    ...(token ? { Authorization: `Bearer ${token}` } : {}),
                 },
+                token,
                 body: JSON.stringify(data),
             });
-
-            if (!response.ok) {
-                let errorMessage = 'Error creating refuel stop';
-                try {
-                    const errorData = await response.json();
-                    errorMessage = errorData.error || errorData.message || errorMessage;
-                } catch (e) {
-                    errorMessage = response.statusText || errorMessage;
-                }
-                console.error('Error del servidor:', errorMessage);
-                throw new Error(errorMessage);
-            }
-
-            const result = await response.json();
             console.log('Parada de repostaje creada exitosamente:', result);
             return result;
         } catch (error) {
@@ -277,33 +209,14 @@ export class ItineraryService {
      */
     static async updateStop(stopId: string, stopData: Partial<Stop>, tripId: string, token?: string): Promise<Stop> {
         try {
-            const response = await fetch(`${process.env.EXPO_PUBLIC_API_URL}/api/trip/${tripId}/stop/${stopId}`, {
+            return await apiFetch<Stop>(`/api/trip/${tripId}/stop/${stopId}`, {
                 method: 'PATCH',
                 headers: {
                     'Content-Type': 'application/json',
-                    ...(token ? { Authorization: `Bearer ${token}` } : {}),
                 },
+                token,
                 body: JSON.stringify(stopData),
             });
-
-            if (!response.ok) {
-                let errorMessage = 'Error updating stop';
-                try {
-                    const errorData = await response.json();
-                    errorMessage = errorData.error || errorData.message || errorMessage;
-                } catch (e) {
-                    errorMessage = response.statusText || errorMessage;
-                }
-                // No loguear errores de validación (origen/destino/intermedia)
-                if (!errorMessage.includes('Origen') &&
-                    !errorMessage.includes('Destino') &&
-                    !errorMessage.includes('intermedia')) {
-                    console.error('Error del servidor al actualizar stop:', errorMessage);
-                }
-                throw new Error(errorMessage);
-            }
-
-            return await response.json();
         } catch (error) {
             // No loguear errores de validación (origen/destino/intermedia)
             if (!(error as Error)?.message?.includes('Origen') &&
@@ -325,28 +238,14 @@ export class ItineraryService {
         token?: string
     ): Promise<any> {
         try {
-            const response = await fetch(`${process.env.EXPO_PUBLIC_API_URL}/api/trip/${tripId}/stop/activity/${stopId}`, {
+            const result = await apiFetch<any>(`/api/trip/${tripId}/stop/activity/${stopId}`, {
                 method: 'PATCH',
                 headers: {
                     'Content-Type': 'application/json',
-                    ...(token ? { Authorization: `Bearer ${token}` } : {}),
                 },
+                token,
                 body: JSON.stringify({ stopData: {}, activityData }),
             });
-
-            if (!response.ok) {
-                let errorMessage = 'Error updating activity stop';
-                try {
-                    const errorData = await response.json();
-                    errorMessage = errorData.error || errorData.message || errorMessage;
-                } catch (e) {
-                    errorMessage = response.statusText || errorMessage;
-                }
-                console.error('Error del servidor:', errorMessage);
-                throw new Error(errorMessage);
-            }
-
-            const result = await response.json();
             console.log('Parada de actividad actualizada exitosamente:', result);
             return result;
         } catch (error) {
@@ -365,28 +264,14 @@ export class ItineraryService {
         token?: string
     ): Promise<any> {
         try {
-            const response = await fetch(`${process.env.EXPO_PUBLIC_API_URL}/api/trip/${tripId}/stop/accommodation/${stopId}`, {
+            const result = await apiFetch<any>(`/api/trip/${tripId}/stop/accommodation/${stopId}`, {
                 method: 'PATCH',
                 headers: {
                     'Content-Type': 'application/json',
-                    ...(token ? { Authorization: `Bearer ${token}` } : {}),
                 },
+                token,
                 body: JSON.stringify({ stopData: {}, accommodationData }),
             });
-
-            if (!response.ok) {
-                let errorMessage = 'Error updating accommodation stop';
-                try {
-                    const errorData = await response.json();
-                    errorMessage = errorData.error || errorData.message || errorMessage;
-                } catch (e) {
-                    errorMessage = response.statusText || errorMessage;
-                }
-                console.error('Error del servidor:', errorMessage);
-                throw new Error(errorMessage);
-            }
-
-            const result = await response.json();
             console.log('Parada de alojamiento actualizada exitosamente:', result);
             return result;
         } catch (error) {
@@ -405,28 +290,14 @@ export class ItineraryService {
         token?: string
     ): Promise<any> {
         try {
-            const response = await fetch(`${process.env.EXPO_PUBLIC_API_URL}/api/trip/${tripId}/stop/refuel/${stopId}`, {
+            const result = await apiFetch<any>(`/api/trip/${tripId}/stop/refuel/${stopId}`, {
                 method: 'PATCH',
                 headers: {
                     'Content-Type': 'application/json',
-                    ...(token ? { Authorization: `Bearer ${token}` } : {}),
                 },
+                token,
                 body: JSON.stringify({ stopData: {}, refuelData }),
             });
-
-            if (!response.ok) {
-                let errorMessage = 'Error updating refuel stop';
-                try {
-                    const errorData = await response.json();
-                    errorMessage = errorData.error || errorData.message || errorMessage;
-                } catch (e) {
-                    errorMessage = response.statusText || errorMessage;
-                }
-                console.error('Error del servidor:', errorMessage);
-                throw new Error(errorMessage);
-            }
-
-            const result = await response.json();
             console.log('Parada de repostaje actualizada exitosamente:', result);
             return result;
         } catch (error) {
@@ -440,11 +311,10 @@ export class ItineraryService {
      */
     static async deleteStop(stopId: string, tripId: string, token?: string): Promise<void> {
         try {
-            const response = await fetch(`${process.env.EXPO_PUBLIC_API_URL}/api/trip/${tripId}/stop/${stopId}`, {
+            await apiFetch<void>(`/api/trip/${tripId}/stop/${stopId}`, {
                 method: 'DELETE',
-                headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+                token,
             });
-            if (!response.ok) throw new Error('Error deleting stop');
         } catch (error) {
             console.error('Error in deleteStop:', error);
             throw error;
@@ -461,12 +331,10 @@ export class ItineraryService {
         opts?: FetchOptions
     ): Promise<Array<Route & { stops: Stop[] }>> {
         try {
-            const response = await fetch(`${process.env.EXPO_PUBLIC_API_URL}/api/itinerary/trip/${tripId}`, {
-                headers: opts?.token ? { Authorization: `Bearer ${opts.token}` } : undefined,
+            return await apiFetch<Array<Route & { stops: Stop[] }>>(`/api/itinerary/trip/${tripId}`, {
+                token: opts?.token,
                 signal: opts?.signal,
             });
-            if (!response.ok) throw new Error('Error fetching trip itinerary');
-            return await response.json();
         } catch (error) {
             console.error('Error in getTripItinerary:', error);
             throw error;
@@ -493,20 +361,11 @@ export class ItineraryService {
                 type: file.mimeType,
             } as any);
 
-            const response = await fetch(`${process.env.EXPO_PUBLIC_API_URL}/api/stop/${stopId}/attachments`, {
+            const result = await apiFetch<{ data: { id: string; path: string; url: string } }>(`/api/stop/${stopId}/attachments`, {
                 method: 'POST',
-                headers: {
-                    Authorization: `Bearer ${token}`,
-                },
+                token,
                 body: formData,
             });
-
-            if (!response.ok) {
-                const error = await response.json();
-                throw new Error(error.error || 'Error al subir archivo');
-            }
-
-            const result = await response.json();
             return result.data;
         } catch (error) {
             console.error('Error in uploadReservationFile:', error);
@@ -531,36 +390,23 @@ export class ItineraryService {
         created_at: string;
     }>> {
         try {
-            console.log('📍 getStopAttachments llamado:', {
-                stopId,
-                hasToken: !!token,
-                tokenLength: token?.length,
-                url: `${process.env.EXPO_PUBLIC_API_URL}/api/stop/${stopId}/attachments`
+            const result = await apiFetch<{
+                data: Array<{
+                    id: string;
+                    stop_id: number;
+                    file_path: string;
+                    file_name: string;
+                    file_type: string;
+                    file_size: number;
+                    url: string;
+                    created_at: string;
+                }>
+            }>(`/api/stop/${stopId}/attachments`, {
+                token,
             });
-
-            const response = await fetch(`${process.env.EXPO_PUBLIC_API_URL}/api/stop/${stopId}/attachments`, {
-                headers: {
-                    Authorization: `Bearer ${token}`,
-                },
-            });
-
-            console.log('📥 Respuesta recibida:', {
-                status: response.status,
-                ok: response.ok,
-                statusText: response.statusText
-            });
-
-            if (!response.ok) {
-                const errorText = await response.text();
-                console.error('❌ Response error:', response.status, errorText);
-                throw new Error(`Error ${response.status}: ${errorText}`);
-            }
-
-            const result = await response.json();
-            console.log('✅ Resultado parseado:', { hasData: !!result.data, count: result.data?.length });
             return result.data || [];
         } catch (error) {
-            console.error('❌ Error in getStopAttachments:', error);
+            console.error('Error in getStopAttachments:', error);
             throw error;
         }
     }
@@ -570,16 +416,10 @@ export class ItineraryService {
      */
     static async deleteAttachment(attachmentId: string, token: string): Promise<void> {
         try {
-            const response = await fetch(`${process.env.EXPO_PUBLIC_API_URL}/api/attachments/${attachmentId}`, {
+            await apiFetch<void>(`/api/attachments/${attachmentId}`, {
                 method: 'DELETE',
-                headers: {
-                    Authorization: `Bearer ${token}`,
-                },
+                token,
             });
-
-            if (!response.ok) {
-                throw new Error('Error al eliminar adjunto');
-            }
         } catch (error) {
             console.error('Error in deleteAttachment:', error);
             throw error;
@@ -718,3 +558,4 @@ export class GeocodingService {
         }
     }
 }
+

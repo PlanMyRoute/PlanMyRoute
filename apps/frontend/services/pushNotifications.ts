@@ -1,3 +1,5 @@
+import { API_URL, apiFetch } from '@/constants/api';
+import Constants from 'expo-constants';
 import * as Device from 'expo-device';
 import * as Notifications from 'expo-notifications';
 
@@ -17,6 +19,11 @@ export async function registerForPushNotificationsAsync(userId: string, authToke
         if (!Device.isDevice) {
             console.warn('⚠️ Push notifications are not supported on emulators/simulators');
             return { success: false, token: null, error: 'Device not supported' };
+        }
+
+        if (Constants.executionEnvironment === 'storeClient') {
+            console.warn('⚠️ Push notifications are not available in Expo Go (SDK 53+). Use a development build instead.');
+            return { success: false, token: null, error: 'Expo Go not supported' };
         }
 
         const { status: existingStatus } = await Notifications.getPermissionsAsync();
@@ -48,22 +55,16 @@ export async function registerForPushNotificationsAsync(userId: string, authToke
         // Send token to backend if authToken and userId are provided
         if (authToken && userId) {
             try {
-                console.log(`📤 Sending push token to backend: ${process.env.EXPO_PUBLIC_API_URL}/user/${userId}/push-token`);
-                const response = await fetch(`${process.env.EXPO_PUBLIC_API_URL}/user/${userId}/push-token`, {
+                console.log(`📤 Sending push token to backend: ${API_URL}/api/user/${userId}/push-token`);
+                await apiFetch<void>(`/api/user/${userId}/push-token`, {
                     method: 'PATCH',
                     headers: {
                         'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${authToken}`,
                     },
+                    token: authToken,
                     body: JSON.stringify({ expoPushToken }),
                 });
-
-                if (!response.ok) {
-                    const errorText = await response.text();
-                    console.error('❌ Failed to send push token to backend:', response.status, errorText);
-                } else {
-                    console.log('✅ Push token sent to backend successfully');
-                }
+                console.log('✅ Push token sent to backend successfully');
             } catch (err) {
                 console.warn('⚠️ Failed to send push token to backend', err);
             }
@@ -79,15 +80,16 @@ export async function registerForPushNotificationsAsync(userId: string, authToke
 export async function unregisterPushToken(userId: string, authToken?: string) {
     if (!authToken || !userId) return;
     try {
-        await fetch(`${process.env.EXPO_PUBLIC_API_URL}/user/${userId}/push-token`, {
+        await apiFetch<void>(`/api/user/${userId}/push-token`, {
             method: 'PATCH',
             headers: {
                 'Content-Type': 'application/json',
-                'Authorization': `Bearer ${authToken}`,
             },
+            token: authToken,
             body: JSON.stringify({ expoPushToken: null }),
         });
     } catch (err) {
         console.warn('⚠️ Failed to unregister push token', err);
     }
 }
+

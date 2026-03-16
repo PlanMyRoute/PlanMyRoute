@@ -1,3 +1,4 @@
+import { apiFetch } from '@/constants/api';
 
 interface TripReview {
     id: string;
@@ -29,15 +30,9 @@ export class ReviewService {
      */
     static async canReviewTrip(tripId: string, token: string): Promise<{ canReview: boolean; reason?: string }> {
         try {
-            const response = await fetch(`${process.env.EXPO_PUBLIC_API_URL}/api/reviews/trip/${tripId}/check`, {
-                headers: {
-                    Authorization: `Bearer ${token}`,
-                },
+            const result = await apiFetch<{ data: { canReview: boolean; reason?: string } }>(`/api/reviews/trip/${tripId}/check`, {
+                token,
             });
-
-            if (!response.ok) throw new Error('Error al verificar permisos de reseña');
-
-            const result = await response.json();
             return result.data;
         } catch (error) {
             console.error('Error checking review permission:', error);
@@ -50,21 +45,14 @@ export class ReviewService {
      */
     static async createReview(data: CreateReviewData, token: string): Promise<TripReview> {
         try {
-            const response = await fetch(`${process.env.EXPO_PUBLIC_API_URL}/api/reviews`, {
+            const result = await apiFetch<{ data: TripReview }>(`/api/reviews`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    Authorization: `Bearer ${token}`,
                 },
+                token,
                 body: JSON.stringify(data),
             });
-
-            if (!response.ok) {
-                const error = await response.json();
-                throw new Error(error.error || 'Error al crear la reseña');
-            }
-
-            const result = await response.json();
             return result.data;
         } catch (error) {
             console.error('Error creating review:', error);
@@ -77,21 +65,14 @@ export class ReviewService {
      */
     static async updateReview(reviewId: string, data: UpdateReviewData, token: string): Promise<TripReview> {
         try {
-            const response = await fetch(`${process.env.EXPO_PUBLIC_API_URL}/api/reviews/${reviewId}`, {
+            const result = await apiFetch<{ data: TripReview }>(`/api/reviews/${reviewId}`, {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
-                    Authorization: `Bearer ${token}`,
                 },
+                token,
                 body: JSON.stringify(data),
             });
-
-            if (!response.ok) {
-                const error = await response.json();
-                throw new Error(error.error || 'Error al actualizar la reseña');
-            }
-
-            const result = await response.json();
             return result.data;
         } catch (error) {
             console.error('Error updating review:', error);
@@ -104,17 +85,10 @@ export class ReviewService {
      */
     static async deleteReview(reviewId: string, token: string): Promise<void> {
         try {
-            const response = await fetch(`${process.env.EXPO_PUBLIC_API_URL}/api/reviews/${reviewId}`, {
+            await apiFetch<void>(`/api/reviews/${reviewId}`, {
                 method: 'DELETE',
-                headers: {
-                    Authorization: `Bearer ${token}`,
-                },
+                token,
             });
-
-            if (!response.ok) {
-                const error = await response.json();
-                throw new Error(error.error || 'Error al eliminar la reseña');
-            }
         } catch (error) {
             console.error('Error deleting review:', error);
             throw error;
@@ -126,15 +100,9 @@ export class ReviewService {
      */
     static async getUserReviewForTrip(tripId: string, token: string): Promise<TripReview | null> {
         try {
-            const response = await fetch(`${process.env.EXPO_PUBLIC_API_URL}/api/reviews/trip/${tripId}/user`, {
-                headers: {
-                    Authorization: `Bearer ${token}`,
-                },
+            const result = await apiFetch<{ data: TripReview | null }>(`/api/reviews/trip/${tripId}/user`, {
+                token,
             });
-
-            if (!response.ok) throw new Error('Error al obtener la reseña');
-
-            const result = await response.json();
             return result.data;
         } catch (error) {
             console.error('Error getting user review:', error);
@@ -147,15 +115,9 @@ export class ReviewService {
      */
     static async getUserReviews(token: string): Promise<TripReview[]> {
         try {
-            const response = await fetch(`${process.env.EXPO_PUBLIC_API_URL}/api/reviews/user`, {
-                headers: {
-                    Authorization: `Bearer ${token}`,
-                },
+            const result = await apiFetch<{ data: TripReview[] }>(`/api/reviews/user`, {
+                token,
             });
-
-            if (!response.ok) throw new Error('Error al obtener las reseñas');
-
-            const result = await response.json();
             return result.data;
         } catch (error) {
             console.error('Error getting user reviews:', error);
@@ -168,11 +130,7 @@ export class ReviewService {
      */
     static async getPublicFeed(limit: number = 20, offset: number = 0): Promise<any[]> {
         try {
-            const response = await fetch(`${process.env.EXPO_PUBLIC_API_URL}/api/reviews/feed?limit=${limit}&offset=${offset}`);
-
-            if (!response.ok) throw new Error('Error al obtener el feed');
-
-            const result = await response.json();
+            const result = await apiFetch<{ data: any[] }>(`/api/reviews/feed?limit=${limit}&offset=${offset}`);
             return result.data;
         } catch (error) {
             console.error('Error getting public feed:', error);
@@ -185,15 +143,9 @@ export class ReviewService {
      */
     static async getSocialFeed(limit: number = 20, offset: number = 0, token: string): Promise<any[]> {
         try {
-            const response = await fetch(`${process.env.EXPO_PUBLIC_API_URL}/api/reviews/feed/social?limit=${limit}&offset=${offset}`, {
-                headers: {
-                    Authorization: `Bearer ${token}`,
-                },
+            const result = await apiFetch<{ data: any[] }>(`/api/reviews/feed/social?limit=${limit}&offset=${offset}`, {
+                token,
             });
-
-            if (!response.ok) throw new Error('Error al obtener el feed social');
-
-            const result = await response.json();
             return result.data;
         } catch (error) {
             console.error('Error getting social feed:', error);
@@ -206,11 +158,7 @@ export class ReviewService {
      */
     static async getTripReviews(tripId: string): Promise<any[]> {
         try {
-            const response = await fetch(`${process.env.EXPO_PUBLIC_API_URL}/api/reviews/trip/${tripId}`);
-
-            if (!response.ok) throw new Error('Error al obtener las reseñas del viaje');
-
-            const result = await response.json();
+            const result = await apiFetch<{ data: any[] }>(`/api/reviews/trip/${tripId}`);
             return result.data;
         } catch (error) {
             console.error('Error getting trip reviews:', error);
@@ -223,11 +171,7 @@ export class ReviewService {
      */
     static async getTripStats(tripId: string): Promise<{ averageRating: number; totalReviews: number }> {
         try {
-            const response = await fetch(`${process.env.EXPO_PUBLIC_API_URL}/api/reviews/trip/${tripId}/stats`);
-
-            if (!response.ok) throw new Error('Error al obtener estadísticas');
-
-            const result = await response.json();
+            const result = await apiFetch<{ data: { averageRating: number; totalReviews: number } }>(`/api/reviews/trip/${tripId}/stats`);
             return result.data;
         } catch (error) {
             console.error('Error getting trip stats:', error);
@@ -235,3 +179,4 @@ export class ReviewService {
         }
     }
 }
+

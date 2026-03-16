@@ -3,6 +3,8 @@ import NotificationService from '@/services/notificationService';
 import { CollaboratorRole, notifications as Notification } from '@planmyroute/types';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
+const NOTIFICATIONS_STALE_TIME = 15_000;
+
 export function useNotifications(userId?: string | number, options?: { enabled?: boolean }) {
     const { token } = useAuth();
     // Solo habilitar si hay userId Y está habilitado explícitamente
@@ -23,8 +25,9 @@ export function useNotifications(userId?: string | number, options?: { enabled?:
             if (error.message.includes('No hay userId')) {
                 return false;
             }
-            return failureCount < 3;
+            return failureCount < 2;
         },
+        staleTime: NOTIFICATIONS_STALE_TIME,
         select: (data) => {
             // Ordenar: pendientes primero, luego por created_at descendente
             return [...data].sort((a, b) => {
@@ -65,8 +68,9 @@ export function useNotificationsByTrip(tripId?: string | number, options?: { ena
             if (error.message.includes('No hay tripId')) {
                 return false;
             }
-            return failureCount < 3;
+            return failureCount < 2;
         },
+        staleTime: NOTIFICATIONS_STALE_TIME,
         select: (data) => {
             // Ordenar: pendientes primero, luego por created_at descendente
             return [...data].sort((a, b) => {
@@ -95,6 +99,8 @@ export function useNotification(notificationId?: string | number, options?: { en
         queryKey: ['notification', String(notificationId ?? '')],
         queryFn: () => NotificationService.getById(notificationId as string | number),
         enabled,
+        staleTime: NOTIFICATIONS_STALE_TIME,
+        retry: 1,
     });
 
     return {

@@ -1,3 +1,4 @@
+import { apiFetch } from '@/constants/api';
 // services/followService.ts
 
 export interface FollowStats {
@@ -45,18 +46,11 @@ export class FollowService {
      */
     static async followUser(userId: string, followingId: string, opts?: FetchOptions): Promise<UserFollow> {
         try {
-            const res = await fetch(`${process.env.EXPO_PUBLIC_API_URL}/api/follows/${userId}/follow/${followingId}`, {
+            return await apiFetch<UserFollow>(`/api/follows/${userId}/follow/${followingId}`, {
                 method: 'POST',
-                headers: opts?.token ? { Authorization: `Bearer ${opts.token}` } : undefined,
+                token: opts?.token,
                 signal: opts?.signal,
             });
-
-            if (!res.ok) {
-                const error = await res.json();
-                throw new Error(error.error || `Error siguiendo usuario: ${res.status}`);
-            }
-
-            return await res.json();
         } catch (error) {
             console.error('FollowService.followUser error', error);
             throw error;
@@ -68,16 +62,11 @@ export class FollowService {
      */
     static async unfollowUser(userId: string, followingId: string, opts?: FetchOptions): Promise<void> {
         try {
-            const res = await fetch(`${process.env.EXPO_PUBLIC_API_URL}/api/follows/${userId}/unfollow/${followingId}`, {
+            await apiFetch<void>(`/api/follows/${userId}/unfollow/${followingId}`, {
                 method: 'DELETE',
-                headers: opts?.token ? { Authorization: `Bearer ${opts.token}` } : undefined,
+                token: opts?.token,
                 signal: opts?.signal,
             });
-
-            if (!res.ok) {
-                const error = await res.json();
-                throw new Error(error.error || `Error dejando de seguir usuario: ${res.status}`);
-            }
         } catch (error) {
             console.error('FollowService.unfollowUser error', error);
             throw error;
@@ -89,16 +78,10 @@ export class FollowService {
      */
     static async checkIfFollowing(userId: string, followingId: string, opts?: FetchOptions): Promise<boolean> {
         try {
-            const res = await fetch(`${process.env.EXPO_PUBLIC_API_URL}/api/follows/${userId}/is-following/${followingId}`, {
-                headers: opts?.token ? { Authorization: `Bearer ${opts.token}` } : undefined,
+            const data = await apiFetch<{ isFollowing: boolean }>(`/api/follows/${userId}/is-following/${followingId}`, {
+                token: opts?.token,
                 signal: opts?.signal,
             });
-
-            if (!res.ok) {
-                throw new Error(`Error verificando seguimiento: ${res.status}`);
-            }
-
-            const data = await res.json();
             return data.isFollowing;
         } catch (error) {
             console.error('FollowService.checkIfFollowing error', error);
@@ -111,16 +94,10 @@ export class FollowService {
      */
     static async getFollowers(userId: string, opts?: FetchOptions): Promise<FollowerUser[]> {
         try {
-            const res = await fetch(`${process.env.EXPO_PUBLIC_API_URL}/api/follows/${userId}/followers`, {
-                headers: opts?.token ? { Authorization: `Bearer ${opts.token}` } : undefined,
+            return await apiFetch<FollowerUser[]>(`/api/follows/${userId}/followers`, {
+                token: opts?.token,
                 signal: opts?.signal,
             });
-
-            if (!res.ok) {
-                throw new Error(`Error obteniendo seguidores: ${res.status}`);
-            }
-
-            return await res.json();
         } catch (error) {
             console.error('FollowService.getFollowers error', error);
             throw error;
@@ -132,16 +109,10 @@ export class FollowService {
      */
     static async getFollowing(userId: string, opts?: FetchOptions): Promise<FollowingUser[]> {
         try {
-            const res = await fetch(`${process.env.EXPO_PUBLIC_API_URL}/api/follows/${userId}/following`, {
-                headers: opts?.token ? { Authorization: `Bearer ${opts.token}` } : undefined,
+            return await apiFetch<FollowingUser[]>(`/api/follows/${userId}/following`, {
+                token: opts?.token,
                 signal: opts?.signal,
             });
-
-            if (!res.ok) {
-                throw new Error(`Error obteniendo seguidos: ${res.status}`);
-            }
-
-            return await res.json();
         } catch (error) {
             console.error('FollowService.getFollowing error', error);
             throw error;
@@ -153,19 +124,14 @@ export class FollowService {
      */
     static async getFollowStats(userId: string, opts?: FetchOptions): Promise<FollowStats> {
         try {
-            const res = await fetch(`${process.env.EXPO_PUBLIC_API_URL}/api/follows/${userId}/stats`, {
-                headers: opts?.token ? { Authorization: `Bearer ${opts.token}` } : undefined,
+            return await apiFetch<FollowStats>(`/api/follows/${userId}/stats`, {
+                token: opts?.token,
                 signal: opts?.signal,
             });
-
-            if (!res.ok) {
-                throw new Error(`Error obteniendo estadísticas: ${res.status}`);
-            }
-
-            return await res.json();
         } catch (error) {
             console.error('FollowService.getFollowStats error', error);
             throw error;
         }
     }
 }
+

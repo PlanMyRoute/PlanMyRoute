@@ -1,4 +1,14 @@
 import { QueryClient } from '@tanstack/react-query';
 
-// Export a single QueryClient instance to be used across the app
-export const queryClient = new QueryClient();
+export const queryClient = new QueryClient({
+    defaultOptions: {
+        queries: {
+            retry: (failureCount, error: any) => {
+                if (error?.status >= 400 && error?.status < 500) return false;
+                return failureCount < 2;
+            },
+            refetchOnWindowFocus: false,
+            staleTime: 30_000,
+        },
+    },
+});

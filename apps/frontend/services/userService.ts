@@ -1,3 +1,4 @@
+import { apiFetch, buildApiUrl } from '@/constants/api';
 import type { UseProfileData } from '@/hooks/useUsers';
 import { Interest, User } from '@planmyroute/types';
 
@@ -17,13 +18,10 @@ function buildQuery(q?: Record<string, string | number>) {
 export class UserService {
     static async getUsers(opts?: FetchOptions): Promise<User[]> {
         try {
-            const url = `${process.env.EXPO_PUBLIC_API_URL}/api/user${buildQuery(opts?.query)}`;
-            const res = await fetch(url, {
-                headers: opts?.token ? { Authorization: `Bearer ${opts.token}` } : undefined,
+            return await apiFetch<User[]>(buildApiUrl(`/api/user${buildQuery(opts?.query)}`), {
+                token: opts?.token,
                 signal: opts?.signal,
             });
-            if (!res.ok) throw new Error(`Error fetching users: ${res.status}`);
-            return await res.json();
         } catch (error) {
             console.error('UserService.getUsers error', error);
             throw error;
@@ -32,13 +30,10 @@ export class UserService {
 
     static async getUserById(id: string, opts?: FetchOptions): Promise<User> {
         try {
-            const url = `${process.env.EXPO_PUBLIC_API_URL}/api/user/${id}`;
-            const res = await fetch(url, {
-                headers: opts?.token ? { Authorization: `Bearer ${opts.token}` } : undefined,
+            return await apiFetch<User>(`/api/user/${id}`, {
+                token: opts?.token,
                 signal: opts?.signal,
             });
-            if (!res.ok) throw new Error(`Error fetching user ${id}: ${res.status}`);
-            return await res.json();
         } catch (error) {
             console.error('UserService.getUserById error', error);
             throw error;
@@ -48,13 +43,10 @@ export class UserService {
     static async getUserByUsername(username: string, opts?: FetchOptions): Promise<User> {
         try {
             const clean = username.startsWith('@') ? username.slice(1) : username;
-            const url = `${process.env.EXPO_PUBLIC_API_URL}/api/user/username/${encodeURIComponent(clean)}`;
-            const res = await fetch(url, {
-                headers: opts?.token ? { Authorization: `Bearer ${opts.token}` } : undefined,
+            return await apiFetch<User>(`/api/user/username/${encodeURIComponent(clean)}`, {
+                token: opts?.token,
                 signal: opts?.signal,
             });
-            if (!res.ok) throw new Error(`Error fetching user ${username}: ${res.status}`);
-            return await res.json();
         } catch (error) {
             console.error('UserService.getUserByUsername error', error);
             throw error;
@@ -63,16 +55,14 @@ export class UserService {
 
     static async createUser(user: Partial<User>, token?: string): Promise<User> {
         try {
-            const res = await fetch(`${process.env.EXPO_PUBLIC_API_URL}/api/user`, {
+            return await apiFetch<User>('/api/user', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    ...(token ? { Authorization: `Bearer ${token}` } : {}),
                 },
+                token,
                 body: JSON.stringify(user),
             });
-            if (!res.ok) throw new Error(`Error creating user: ${res.status}`);
-            return await res.json();
         } catch (error) {
             console.error('UserService.createUser error', error);
             throw error;
@@ -81,16 +71,14 @@ export class UserService {
 
     static async updateUser(id: string, user: Partial<User>, token?: string): Promise<User> {
         try {
-            const res = await fetch(`${process.env.EXPO_PUBLIC_API_URL}/api/user/${id}`, {
+            return await apiFetch<User>(`/api/user/${id}`, {
                 method: 'PATCH',
                 headers: {
                     'Content-Type': 'application/json',
-                    ...(token ? { Authorization: `Bearer ${token}` } : {}),
                 },
+                token,
                 body: JSON.stringify(user),
             });
-            if (!res.ok) throw new Error(`Error updating user ${id}: ${res.status}`);
-            return await res.json();
         } catch (error) {
             console.error('UserService.updateUser error', error);
             throw error;
@@ -99,11 +87,10 @@ export class UserService {
 
     static async deleteUser(id: string, token?: string): Promise<void> {
         try {
-            const res = await fetch(`${process.env.EXPO_PUBLIC_API_URL}/api/user/${id}`, {
+            await apiFetch<void>(`/api/user/${id}`, {
                 method: 'DELETE',
-                headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+                token,
             });
-            if (!res.ok) throw new Error(`Error deleting user ${id}: ${res.status}`);
         } catch (error) {
             console.error('UserService.deleteUser error', error);
             throw error;
@@ -112,13 +99,10 @@ export class UserService {
 
     static async getUserProfile(id: string, opts?: FetchOptions): Promise<UseProfileData> {
         try {
-            const url = `${process.env.EXPO_PUBLIC_API_URL}/api/user/${id}/profile`;
-            const res = await fetch(url, {
-                headers: opts?.token ? { Authorization: `Bearer ${opts.token}` } : undefined,
+            return await apiFetch<UseProfileData>(`/api/user/${id}/profile`, {
+                token: opts?.token,
                 signal: opts?.signal,
             });
-            if (!res.ok) throw new Error(`Error fetching user ${id} profile: ${res.status}`);
-            return await res.json();
         } catch (error) {
             console.error('UserService.getUserProfile error', error);
             throw error;
@@ -131,19 +115,14 @@ export class UserService {
                 user_type: interests,
             };
 
-            const res = await fetch(`${process.env.EXPO_PUBLIC_API_URL}/api/user/${id}`, {
+            return await apiFetch<User>(`/api/user/${id}`, {
                 method: 'PATCH',
                 headers: {
                     'Content-Type': 'application/json',
-                    ...(token ? { Authorization: `Bearer ${token}` } : {}),
                 },
+                token,
                 body: JSON.stringify(body),
             });
-
-            if (!res.ok) throw new Error(`Error updating user ${id} interests: ${res.status}`);
-
-            // Devuelve el usuario actualizado
-            return await res.json();
 
         } catch (error) {
             console.error('UserService.updateUserInterests error', error);
@@ -153,13 +132,10 @@ export class UserService {
 
     static async searchUsersByUsername(username: string, opts?: FetchOptions): Promise<User[]> {
         try {
-            const url = `${process.env.EXPO_PUBLIC_API_URL}/api/user/search/username/${encodeURIComponent(username)}`;
-            const res = await fetch(url, {
-                headers: opts?.token ? { Authorization: `Bearer ${opts.token}` } : undefined,
+            return await apiFetch<User[]>(`/api/user/search/username/${encodeURIComponent(username)}`, {
+                token: opts?.token,
                 signal: opts?.signal,
             });
-            if (!res.ok) throw new Error(`Error searching users by username ${username}: ${res.status}`);
-            return await res.json();
         } catch (error) {
             console.error('UserService.searchUsersByUsername error', error);
             throw error;
@@ -170,12 +146,9 @@ export class UserService {
 
     static async getUserPreferences(id: string, token?: string): Promise<{ autoTripStatusUpdate: boolean; timezone: string }> {
         try {
-            const url = `${process.env.EXPO_PUBLIC_API_URL}/api/user/${id}/preferences`;
-            const res = await fetch(url, {
-                headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+            return await apiFetch<{ autoTripStatusUpdate: boolean; timezone: string }>(`/api/user/${id}/preferences`, {
+                token,
             });
-            if (!res.ok) throw new Error(`Error fetching user ${id} preferences: ${res.status}`);
-            return await res.json();
         } catch (error) {
             console.error('UserService.getUserPreferences error', error);
             throw error;
@@ -188,16 +161,14 @@ export class UserService {
         token?: string
     ): Promise<{ success: boolean; preferences: any; message: string }> {
         try {
-            const res = await fetch(`${process.env.EXPO_PUBLIC_API_URL}/api/user/${id}/preferences`, {
+            return await apiFetch<{ success: boolean; preferences: any; message: string }>(`/api/user/${id}/preferences`, {
                 method: 'PATCH',
                 headers: {
                     'Content-Type': 'application/json',
-                    ...(token ? { Authorization: `Bearer ${token}` } : {}),
                 },
+                token,
                 body: JSON.stringify(preferences),
             });
-            if (!res.ok) throw new Error(`Error updating user ${id} preferences: ${res.status}`);
-            return await res.json();
         } catch (error) {
             console.error('UserService.updateUserPreferences error', error);
             throw error;
@@ -205,3 +176,4 @@ export class UserService {
     }
 
 }
+
