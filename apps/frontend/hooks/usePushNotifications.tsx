@@ -1,4 +1,5 @@
-import * as Notifications from 'expo-notifications';
+import Constants from 'expo-constants';
+import * as Device from 'expo-device';
 import { useRouter } from 'expo-router';
 import { useEffect, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
@@ -18,9 +19,16 @@ export default function usePushNotifications() {
 
     useEffect(() => {
         let mounted = true;
+        const supportsRemotePush = Device.isDevice && Constants.executionEnvironment !== 'storeClient';
 
         (async () => {
             if (!user || !authToken) return;
+
+            if (!supportsRemotePush) {
+                // In Expo Go (SDK 53+) remote push registration is unavailable.
+                console.log('Push registration skipped: Expo Go/dev simulator environment.');
+                return;
+            }
 
             const result = await registerForPushNotificationsAsync(user.id, authToken);
 
@@ -32,27 +40,45 @@ export default function usePushNotifications() {
             }
         })();
 
-        // Listener for notifications received while app is foregrounded
-        notificationListener.current = Notifications.addNotificationReceivedListener(notification => {
-            console.log('Notification received:', notification);
-        });
+        if (!supportsRemotePush) {
+            return () => {
+                mounted = false;
+            };
+        }
 
-        // Listener for responses (user taps on the notification)
-        responseListener.current = Notifications.addNotificationResponseReceivedListener(response => {
+        let NotificationsModule: any;
+
+        (async () => {
             try {
-                const data = response.notification.request.content.data as any;
-                console.log('Notification response:', data);
+                NotificationsModule = await import('expo-notifications');
 
-                if (data?.tripId) {
-                    // Navigate to trip screen (adjust route as needed)
-                    router.push(`/trip/${data.tripId}`);
-                } else if (data?.notificationId) {
-                    router.push('/notifications');
-                }
+                if (!mounted) return;
+
+                // Listener for notifications received while app is foregrounded
+                notificationListener.current = NotificationsModule.addNotificationReceivedListener((notification: any) => {
+                    console.log('Notification received:', notification);
+                });
+
+                // Listener for responses (user taps on the notification)
+                responseListener.current = NotificationsModule.addNotificationResponseReceivedListener((response: any) => {
+                    try {
+                        const data = response.notification.request.content.data as any;
+                        console.log('Notification response:', data);
+
+                        if (data?.tripId) {
+                            // Navigate to trip screen (adjust route as needed)
+                            router.push(`/trip/${data.tripId}`);
+                        } else if (data?.notificationId) {
+                            router.push('/notifications');
+                        }
+                    } catch (err) {
+                        console.error('Error handling notification response:', err);
+                    }
+                });
             } catch (err) {
-                console.error('Error handling notification response:', err);
+                console.warn('Push listeners could not be initialized:', err);
             }
-        });
+        })();
 
         return () => {
             mounted = false;

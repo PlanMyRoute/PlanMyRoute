@@ -2,7 +2,7 @@ import CustomButton from '@/components/customElements/CustomButton';
 import { TextRegular, Title1 } from '@/components/customElements/CustomText';
 import { useSubscription } from '@/context/SubscriptionContext';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect } from 'react';
 import { View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -66,7 +66,7 @@ export default function SubscriptionSuccessScreen() {
                 {/* Botón para continuar */}
                 <CustomButton
                     title="Empezar a explorar"
-                    onPress={() => router.replace('/(app)/(tabs)/home')}
+                    onPress={() => router.replace('/(app)/(tabs)')}
                     variant="primary"
                     size="large"
                 />

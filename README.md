@@ -20,12 +20,6 @@ PlanMyRoute es una aplicación multiplataforma (iOS, Android y Web) pensada para
 
 ---
 
-## Capturas de pantalla
-
-> _Próximamente_
-
----
-
 ## Stack tecnológico
 
 ### Frontend

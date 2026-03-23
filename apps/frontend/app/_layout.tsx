@@ -9,6 +9,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import 'react-native-reanimated';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import Toast, { BaseToast, ErrorToast, InfoToast } from 'react-native-toast-message';
+import '../index.css';
 import { AuthProvider, useAuth } from '../context/AuthContext';
 import { SubscriptionProvider } from '../context/SubscriptionContext';
 import { queryClient } from '../services/queryClient'; // <-- Ruta desde 'app/' a 'services/'

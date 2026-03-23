@@ -1,18 +1,8 @@
 import { API_URL, apiFetch } from '@/constants/api';
 import Constants from 'expo-constants';
 import * as Device from 'expo-device';
-import * as Notifications from 'expo-notifications';
 
-// Configure how notifications are shown when the app is foregrounded
-Notifications.setNotificationHandler({
-    handleNotification: async () => ({
-        shouldShowAlert: true,
-        shouldPlaySound: true,
-        shouldSetBadge: false,
-        shouldShowBanner: true,
-        shouldShowList: true,
-    }),
-});
+let notificationHandlerConfigured = false;
 
 export async function registerForPushNotificationsAsync(userId: string, authToken?: string) {
     try {
@@ -24,6 +14,21 @@ export async function registerForPushNotificationsAsync(userId: string, authToke
         if (Constants.executionEnvironment === 'storeClient') {
             console.warn('⚠️ Push notifications are not available in Expo Go (SDK 53+). Use a development build instead.');
             return { success: false, token: null, error: 'Expo Go not supported' };
+        }
+
+        const Notifications = await import('expo-notifications');
+
+        if (!notificationHandlerConfigured) {
+            Notifications.setNotificationHandler({
+                handleNotification: async () => ({
+                    shouldShowAlert: true,
+                    shouldPlaySound: true,
+                    shouldSetBadge: false,
+                    shouldShowBanner: true,
+                    shouldShowList: true,
+                }),
+            });
+            notificationHandlerConfigured = true;
         }
 
         const { status: existingStatus } = await Notifications.getPermissionsAsync();

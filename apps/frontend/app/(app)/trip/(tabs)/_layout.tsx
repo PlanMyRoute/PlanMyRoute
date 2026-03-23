@@ -5,8 +5,8 @@ import { useTripPermissions } from '@/hooks/useTripPermissions';
 import { useDeleteTrip, useLeaveTrip } from '@/hooks/useTrips';
 import { Ionicons } from '@expo/vector-icons';
 import { createMaterialTopTabNavigator } from '@react-navigation/material-top-tabs';
-import { useRouter, withLayoutContext, useLocalSearchParams } from 'expo-router';
-import React, { useMemo, useRef, useState, useEffect } from 'react';
+import { useLocalSearchParams, useRouter, withLayoutContext } from 'expo-router';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
     Alert,
     NativeScrollEvent,
@@ -144,16 +144,16 @@ function CustomTabBar({ state, descriptors, navigation }: any) {
 export default function TripTabsLayout() {
     const params = useLocalSearchParams();
     const { currentTrip, tripId: contextTripId, setCurrentTrip, setTripId, access } = useTripContext();
-    
+
     // Obtener tripId de los parámetros o del contexto
     const tripId = (params.tripId as string) || contextTripId;
-    
+
     console.log('🆔 TripTabsLayout - tripId sources:', {
         fromParams: params.tripId,
         fromContext: contextTripId,
         final: tripId
     });
-    
+
     const router = useRouter();
     const [menuVisible, setMenuVisible] = useState(false);
 
@@ -171,7 +171,7 @@ export default function TripTabsLayout() {
     const deleteTripMutation = useDeleteTrip();
     const leaveTripMutation = useLeaveTrip();
 
-    const goBack = () => router.back();
+    const goBack = () => router.replace('/(app)/(tabs)');
 
     const handleEditTrip = () => {
         router.push(`/trip/edit?tripId=${tripId}`);
@@ -304,25 +304,24 @@ export default function TripTabsLayout() {
                 screenOptions={{
                     swipeEnabled: false,
                 }}
-                initialParams={{ tripId }}
             >
-                <MaterialTopTabs.Screen 
-                    name="stops" 
+                <MaterialTopTabs.Screen
+                    name="stops"
                     options={{ title: 'Itinerario' }}
                     initialParams={{ tripId }}
                 />
-                <MaterialTopTabs.Screen 
-                    name="map" 
+                <MaterialTopTabs.Screen
+                    name="map"
                     options={{ title: 'Mapa' }}
                     initialParams={{ tripId }}
                 />
-                <MaterialTopTabs.Screen 
-                    name="bills" 
+                <MaterialTopTabs.Screen
+                    name="bills"
                     options={{ title: 'Gastos' }}
                     initialParams={{ tripId }}
                 />
-                <MaterialTopTabs.Screen 
-                    name="photos" 
+                <MaterialTopTabs.Screen
+                    name="photos"
                     options={{ title: 'Fotos' }}
                     initialParams={{ tripId }}
                 />
