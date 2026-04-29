@@ -1,5 +1,5 @@
 import { SettingsIcon } from '@/components/assets/Icons';
-import { TabFeedIcon, TabHomeIcon, TabNewTripIcon, TabProfileIcon } from '@/components/assets/TabsIcons';
+import { TabEventsIcon, TabFeedIcon, TabHomeIcon, TabNewTripIcon, TabProfileIcon } from '@/components/assets/TabsIcons';
 import { DropdownMenu, DropdownMenuItem } from '@/components/modals/DropdownMenu';
 import { FlappyBirdGame } from '@/components/trip/FlappyBirdGame';
 import { useClientOnlyValue } from '@/components/useClientOnlyValue.web';
@@ -212,6 +212,16 @@ export default function TabLayout() {
             title: 'Crear viajes',
             tabBarIcon: ({ color }) => <TabNewTripIcon stroke={color} />,
             tabBarLabel: 'Crear viajes',
+            headerShown: false,
+          }}
+        />
+
+        <Tabs.Screen
+          name="events"
+          options={{
+            title: 'Eventos',
+            tabBarIcon: ({ color }) => <TabEventsIcon stroke={color} />,
+            tabBarLabel: 'Eventos',
             headerShown: false,
           }}
         />

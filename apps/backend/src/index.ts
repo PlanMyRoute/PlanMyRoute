@@ -13,6 +13,8 @@ import vehiclesRoutes from './api/vehicles/vehicles.routes.js';
 import followsRoutes from './api/follows/follows.routes.js';
 import placesRoutes from './api/places/places.routes.js';
 import stripeRoutes from './api/stripe/stripe.routes.js';
+import eventsRoutes from './api/events/events.routes.js';
+import eventChatRoutes from './api/eventChat/eventChat.routes.js';
 import { initScheduler, stopScheduler } from './jobs/tripStatusScheduler.js';
 
 dotenv.config();
@@ -65,6 +67,8 @@ app.use('/api', followsRoutes);
 app.use('/api/subscriptions', subscriptionRoutes);
 app.use('/api/places', placesRoutes);
 app.use('/api/stripe', stripeRoutes);
+app.use('/api/events', eventsRoutes);
+app.use('/api/events/:eventId/chat', eventChatRoutes);
 
 // Manejadores de errores
 // 3. ERROR HANDLER: Arregla "Divulgación de error de aplicación"

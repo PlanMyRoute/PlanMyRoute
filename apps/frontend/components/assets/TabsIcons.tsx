@@ -1,4 +1,4 @@
-import Svg, { ClipPath, Defs, G, Path, Rect, SvgProps } from "react-native-svg"
+import Svg, { Circle, ClipPath, Defs, G, Path, Rect, SvgProps } from "react-native-svg"
 
 export const TabHomeIcon = ({ stroke = "#000", ...props }: SvgProps) => (
     <Svg
@@ -65,6 +65,30 @@ export const TabProfileIcon = ({ stroke = "#000", ...props }: SvgProps) => (
         <Path
             fill={stroke}
             d="M18.5 18c-1.1 0-2.042-.392-2.825-1.175C14.892 16.042 14.5 15.1 14.5 14s.392-2.042 1.175-2.825C16.458 10.392 17.4 10 18.5 10s2.042.392 2.825 1.175C22.108 11.958 22.5 12.9 22.5 14s-.392 2.042-1.175 2.825C20.542 17.608 19.6 18 18.5 18Zm-8 8v-2.8c0-.567.146-1.087.438-1.563.291-.474.679-.837 1.162-1.087a14.841 14.841 0 0 1 3.15-1.163A13.76 13.76 0 0 1 18.5 19c1.1 0 2.183.13 3.25.387 1.067.259 2.117.646 3.15 1.163.483.25.87.613 1.163 1.087.291.476.437.996.437 1.563V26h-16Zm2-2h12v-.8a.973.973 0 0 0-.5-.85c-.9-.45-1.808-.787-2.725-1.012a11.6 11.6 0 0 0-5.55 0c-.917.224-1.825.562-2.725 1.012a.973.973 0 0 0-.5.85v.8Zm6-8c.55 0 1.02-.196 1.413-.588.391-.391.587-.862.587-1.412 0-.55-.196-1.02-.587-1.412A1.926 1.926 0 0 0 18.5 12c-.55 0-1.02.196-1.413.588A1.926 1.926 0 0 0 16.5 14c0 .55.196 1.02.587 1.412.392.392.863.588 1.413.588Z"
+        />
+    </Svg>
+)
+
+export const TabEventsIcon = ({ stroke = "#000", ...props }: SvgProps) => (
+    <Svg
+        width={38}
+        height={38}
+        fill="none"
+        viewBox="0 0 37 37"
+        {...props}
+    >
+        <Rect
+            width={35}
+            height={35}
+            x={1}
+            y={1}
+            stroke={stroke}
+            strokeWidth={2}
+            rx={17.5}
+        />
+        <Path
+            fill={stroke}
+            d="M14 10v2h-2v2h2v2h2v-2h4v2h2v-2h2v-2h-2v-2h-2v2h-4v-2h-2Zm-2 6v10h2v-4h9v4h2V16H12Zm2 2h9v2h-9v-2Z"
         />
     </Svg>
 )
