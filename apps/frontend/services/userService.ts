@@ -1,5 +1,5 @@
 import { apiFetch, buildApiUrl } from '@/constants/api';
-import type { UseProfileData } from '@/hooks/useUsers';
+import type { UseProfileData } from '@/hooks/users/useUsers';
 import { Interest, User } from '@planmyroute/types';
 
 type FetchOptions = {

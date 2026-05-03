@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { View, ActivityIndicator, Text } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { supabase } from '@/lib/supabase';
+import { ROUTES } from '@/constants/routes';
 
 export default function AuthCallbackScreen() {
   const router = useRouter();
@@ -23,13 +24,13 @@ export default function AuthCallbackScreen() {
           console.error('❌ [Callback] Error en autenticación:', error);
           setStatus('Error en autenticación');
           await new Promise(resolve => setTimeout(resolve, 1000));
-          router.replace('/login');
+          router.replace(ROUTES.login);
           return;
         }
 
         if (!session) {
           console.log('⚠️ [Callback] No hay sesión, redirigiendo a login');
-          router.replace('/login');
+          router.replace(ROUTES.login);
           return;
         }
 
@@ -60,20 +61,20 @@ export default function AuthCallbackScreen() {
           }
           setStatus('Completando perfil...');
           await new Promise(resolve => setTimeout(resolve, 500));
-          router.replace('/complete-profile');
+          router.replace(ROUTES.completeProfile);
           return;
         }
 
         console.log('✅ [Callback] Todo correcto, redirigiendo a home');
         setStatus('Iniciando...');
         await new Promise(resolve => setTimeout(resolve, 500));
-        router.replace('/');
+        router.replace(ROUTES.tabsHome);
 
       } catch (error) {
         console.error('❌ [Callback] Error crítico:', error);
         setStatus('Error inesperado');
         await new Promise(resolve => setTimeout(resolve, 1000));
-        router.replace('/login');
+        router.replace(ROUTES.login);
       }
     };
 

@@ -1,5 +1,5 @@
 import { render } from '@testing-library/react-native';
-import HomeScreen from '../../app/(app)/(tabs)/index';
+import HomeScreen from '../../app/(app)/(tabs)/Index';
 
 // Mocks de datos
 jest.mock('../../context/AuthContext', () => ({

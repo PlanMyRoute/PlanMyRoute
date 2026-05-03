@@ -4,6 +4,8 @@ import { runAllChecks } from './tripStatusChecker.js';
 
 //Varible que indica cada cuanto se ejecuta la tarea
 const TASK_INTERVAL = '*/30 * * * *'; // Cada 30 minutos
+const ENABLE_SCHEDULER = process.env.ENABLE_TRIP_STATUS_SCHEDULER !== 'false';
+const ENABLE_INITIAL_CHECK = process.env.ENABLE_TRIP_STATUS_INITIAL_CHECK !== 'false';
 
 // Variable para almacenar las tareas programadas
 let scheduledTasks: cron.ScheduledTask[] = [];
@@ -12,6 +14,11 @@ let scheduledTasks: cron.ScheduledTask[] = [];
  * Inicializa y programa las tareas de verificación de estados de viaje
  */
 export const initScheduler = (): void => {
+    if (!ENABLE_SCHEDULER) {
+        console.log('\n⏸️ [TripStatusScheduler] Scheduler desactivado por ENABLE_TRIP_STATUS_SCHEDULER=false\n');
+        return;
+    }
+
     console.log('\n🚀 [TripStatusScheduler] Inicializando sistema de tareas programadas...');
 
     // ============================================================================
@@ -34,44 +41,38 @@ export const initScheduler = (): void => {
     );
 
     scheduledTasks.push(tripStatusCheckTask);
-    console.log('✅ [TripStatusScheduler] Tarea programada: Verificación de estados (cada 5 minutos)');
+    console.log('✅ [TripStatusScheduler] Tarea programada: Verificación de estados (cada 30 minutos)');
 
     // ============================================================================
     // VERIFICACIÓN INICIAL AL ARRANCAR EL SERVIDOR
     // ============================================================================
-    console.log('🔍 [TripStatusScheduler] Ejecutando verificación inicial al arrancar...');
+    if (ENABLE_INITIAL_CHECK) {
+        console.log('🔍 [TripStatusScheduler] Ejecutando verificación inicial al arrancar...');
 
-    // Ejecutar verificación inmediatamente en segundo plano
-    setTimeout(async () => {
-        try {
-            await runAllChecks();
-            console.log('✅ [TripStatusScheduler] Verificación inicial completada');
-        } catch (error) {
-            console.error('❌ [TripStatusScheduler] Error en verificación inicial:', error);
-        }
-    }, 3000); // Esperar 3 segundos para que el servidor termine de inicializar
+        // Ejecutar verificación inmediata una sola vez
+        setTimeout(async () => {
+            try {
+                await runAllChecks();
+                console.log('✅ [TripStatusScheduler] Verificación inicial completada');
+            } catch (error) {
+                console.error('❌ [TripStatusScheduler] Error en verificación inicial:', error);
+            }
+        }, 3000);
+    }
 
     // ============================================================================
     // INFORMACIÓN DE CONFIGURACIÓN
     // ============================================================================
 
     console.log('\n📋 [TripStatusScheduler] Configuración de tareas:');
-    console.log('   • Frecuencia: Cada hora (en el minuto 0)');
+    console.log('   • Frecuencia: Cada 30 minutos');
     console.log('   • Timezone: UTC');
     console.log('   • Estado: Activo');
     console.log('   • Próxima ejecución: ' + getNextExecutionTime());
 
     console.log('\n✅ [TripStatusScheduler] Sistema de tareas programadas iniciado exitosamente\n');
 
-    // Opcional: Ejecutar una verificación inmediata al iniciar (solo en desarrollo)
-    if (process.env.NODE_ENV === 'development') {
-        console.log('🔧 [TripStatusScheduler] Modo desarrollo: Ejecutando verificación inicial...\n');
-        setTimeout(() => {
-            runAllChecks().catch(error => {
-                console.error('❌ [TripStatusScheduler] Error en verificación inicial:', error);
-            });
-        }, 5000); // Esperar 5 segundos después del inicio
-    }
+    // Nota: evitamos segunda ejecución inicial en desarrollo para no duplicar carga.
 };
 
 /**
@@ -116,9 +117,14 @@ function getNextExecutionTime(): string {
     const now = new Date();
     const next = new Date(now);
 
-    // Próxima hora en punto
-    next.setHours(next.getHours() + 1);
-    next.setMinutes(0);
+    // Próxima ejecución en múltiplos de 30 minutos
+    const minutes = now.getMinutes();
+    if (minutes < 30) {
+        next.setMinutes(30);
+    } else {
+        next.setHours(next.getHours() + 1);
+        next.setMinutes(0);
+    }
     next.setSeconds(0);
     next.setMilliseconds(0);
 

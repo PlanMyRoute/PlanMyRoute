@@ -1,5 +1,5 @@
 import React from 'react';
-import { Platform, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { WebView } from 'react-native-webview';
 
 interface MapComponentProps {
@@ -32,7 +32,7 @@ export const MapComponent: React.FC<MapComponentProps> = ({
 }) => {
   // Usar siempre WebView con Leaflet para compatibilidad con Expo Go
   const mapHtml = generateMapHTML(initialRegion, markers, routeCoordinates);
-  
+
   return (
     <View style={styles.container}>
       <WebView

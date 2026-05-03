@@ -1,13 +1,12 @@
 import { Stack, Redirect } from 'expo-router';
-import { useAuth } from '../../context/AuthContext'; // Ajusta la ruta
+import { ROUTES } from '../../constants/routes';
+import { useAuth } from '../../context/AuthContext';
 
-// Layout para las pantallas de login y registro
 export default function AuthLayout() {
   const { user, isLoading } = useAuth();
 
-  // Si el usuario ya está logueado, sácalo de aquí
   if (!isLoading && user) {
-    return <Redirect href="/" />; // Envía a la raíz PROTEGIDA
+    return <Redirect href={ROUTES.tabsHome} />;
   }
 
   return (

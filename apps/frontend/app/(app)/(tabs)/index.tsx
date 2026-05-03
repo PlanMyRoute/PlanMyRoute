@@ -3,13 +3,14 @@ import { NewTripCard } from '@/components/indexCards/NewTripCard';
 import { TripCard } from '@/components/indexCards/TripCard';
 import { useAuth } from '@/context/AuthContext';
 import { useActiveTrips } from '@/hooks/useTrips';
-import { useUser } from '@/hooks/useUsers';
-import { useFocusEffect } from 'expo-router';
+import { useUser } from '@/hooks/users/useUsers';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback } from 'react';
 import { ActivityIndicator, ScrollView, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function HomeScreen() {
+  const router = useRouter();
   const { user } = useAuth();
   const { data: organizedTrips, isLoading: tripsLoading, refetch: refetchTrips } = useActiveTrips();
   const { data: userData, isLoading: userLoading } = useUser(user!.id);

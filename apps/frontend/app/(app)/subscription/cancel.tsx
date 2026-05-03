@@ -1,5 +1,6 @@
 import CustomButton from '@/components/customElements/CustomButton';
 import { TextRegular, Title1 } from '@/components/customElements/CustomText';
+import { ROUTES } from '@/constants/routes';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { View } from 'react-native';
@@ -30,14 +31,14 @@ export default function SubscriptionCancelScreen() {
                 <View className="w-full gap-4">
                     <CustomButton
                         title="Intentar de nuevo"
-                        onPress={() => router.replace('/(app)/premium')}
+                        onPress={() => router.replace(ROUTES.premium)}
                         variant="primary"
                         size="large"
                     />
                     
                     <CustomButton
                         title="Volver al inicio"
-                        onPress={() => router.replace('/')}
+                        onPress={() => router.replace(ROUTES.tabsHome)}
                         variant="outline"
                         size="large"
                     />

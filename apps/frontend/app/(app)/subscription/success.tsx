@@ -1,5 +1,6 @@
 import CustomButton from '@/components/customElements/CustomButton';
 import { TextRegular, Title1 } from '@/components/customElements/CustomText';
+import { ROUTES } from '@/constants/routes';
 import { useSubscription } from '@/context/SubscriptionContext';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -66,7 +67,7 @@ export default function SubscriptionSuccessScreen() {
                 {/* Botón para continuar */}
                 <CustomButton
                     title="Empezar a explorar"
-                    onPress={() => router.replace('/(app)/(tabs)')}
+                    onPress={() => router.replace(ROUTES.tabsHome)}
                     variant="primary"
                     size="large"
                 />

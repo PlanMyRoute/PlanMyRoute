@@ -12,9 +12,9 @@ import Travelers from '@/components/travelers/Travelers';
 import { AiTripLoader } from '@/components/trip/AiTripLoader';
 import { useAuth } from '@/context/AuthContext';
 import { useCreateNotification } from '@/hooks/useNotifications';
+import { useProfile, useUser } from '@/hooks/users/useUsers';
+import { useUserUsage } from '@/hooks/users/useUserUsage';
 import { TravelerWithRole } from '@/hooks/useTrips';
-import { useProfile, useUser } from '@/hooks/useUsers';
-import { useUserUsage } from '@/hooks/useUserUsage';
 import { useVehicles } from '@/hooks/useVehicles';
 import '@/index.css';
 import { TripService } from '@/services/tripService';
@@ -24,6 +24,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Interest, User, Vehicle } from '@planmyroute/types';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useNavigation, useRouter } from 'expo-router';
+import { ROUTES } from '@/constants/routes';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
     PanResponder,
@@ -355,7 +356,7 @@ export default function CreateTripTabScreen() {
                             text: 'Ver Premium',
                             onPress: () => {
                                 setShowValidationAlert(false);
-                                router.push('/premium');
+                                router.push(ROUTES.premium);
                             },
                             variant: 'yellow'
                         },
@@ -691,7 +692,7 @@ export default function CreateTripTabScreen() {
 
         // Ocultar loader y navegar
         setShowAiLoader(false);
-        router.push(`/trip/${createdTripId}`);
+        router.push(ROUTES.trip(createdTripId));
 
         // Resetear el formulario
         setTripName('');
@@ -818,7 +819,7 @@ export default function CreateTripTabScreen() {
                             text: 'Ver Premium',
                             onPress: () => {
                                 setShowValidationAlert(false);
-                                router.push('/premium');
+                                router.push(ROUTES.premium);
                             },
                             variant: 'yellow'
                         },
@@ -899,7 +900,7 @@ export default function CreateTripTabScreen() {
                                                             text: 'Ver Premium',
                                                             onPress: () => {
                                                                 setShowValidationAlert(false);
-                                                                router.push('/premium');
+                                                                router.push(ROUTES.premium);
                                                             },
                                                             variant: 'yellow'
                                                         },

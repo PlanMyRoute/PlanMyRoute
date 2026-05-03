@@ -1,11 +1,12 @@
 import { MicrotextDark, TextRegular } from '@/components/customElements/CustomText';
+import { ROUTES } from '@/constants/routes';
 import { Ionicons } from '@expo/vector-icons';
 import { Link } from "expo-router";
 import { Pressable, View } from 'react-native';
 
 export const NewTripCard = () => {
     return (
-        <Link asChild href="/(app)/(tabs)/createTrip">
+        <Link asChild href={ROUTES.tabsCreateTrip}>
             <Pressable
                 className="bg-white border-2 border-dashed border-neutral-gray/30 rounded-3xl p-8 items-center justify-center min-h-[200px]"
                 style={({ pressed }) => ({

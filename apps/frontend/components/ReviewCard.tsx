@@ -1,6 +1,7 @@
 import { MicrotextLight, SubtitleSemibold, TextRegular } from '@/components/customElements/CustomText';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { ROUTES } from '@/constants/routes';
 import React from 'react';
 import { Image, Text, TouchableOpacity, View } from 'react-native';
 
@@ -96,7 +97,7 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({
             {/* Trip Info */}
             {showTripInfo && review.trip && (
                 <TouchableOpacity
-                    onPress={() => router.push(`/trip/${review.trip!.id}`)}
+                    onPress={() => router.push(ROUTES.trip(review.trip!.id))}
                     className="flex-row items-center mb-3 bg-gray-50 rounded-2xl p-3"
                     activeOpacity={0.7}
                 >

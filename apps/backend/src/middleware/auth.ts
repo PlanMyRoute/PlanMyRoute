@@ -2,6 +2,19 @@
 import { Request, Response, NextFunction } from 'express';
 import { supabase } from '../supabase.js';
 
+function isInvalidOrExpiredTokenError(message?: string): boolean {
+  if (!message) return false;
+  const normalized = message.toLowerCase();
+  return (
+    normalized.includes('jwt') ||
+    normalized.includes('token') ||
+    normalized.includes('expired') ||
+    normalized.includes('invalid') ||
+    normalized.includes('malformed') ||
+    normalized.includes('signature')
+  );
+}
+
 /**
  * Interfaz extendida de Request para incluir el userId
  */
@@ -35,10 +48,29 @@ export async function verifyToken(req: Request, res: Response, next: NextFunctio
     // Verificar el token con Supabase
     const { data, error } = await supabase.auth.getUser(token);
 
-    if (error || !data.user) {
+    if (error) {
+      const authStatus = (error as any)?.status;
+      const authMessage = (error as any)?.message as string | undefined;
+
+      // Error real de autenticación: token inválido/expirado
+      if (authStatus === 401 || authStatus === 403 || isInvalidOrExpiredTokenError(authMessage)) {
+        return res.status(401).json({
+          error: 'Token inválido o expirado',
+          details: authMessage,
+        });
+      }
+
+      // Error temporal de conectividad o del servicio de Auth
+      return res.status(503).json({
+        error: 'Servicio de autenticación no disponible temporalmente',
+        details: authMessage,
+      });
+    }
+
+    if (!data.user) {
       return res.status(401).json({
         error: 'Token inválido o expirado',
-        details: error?.message
+        details: 'No se pudo resolver el usuario del token',
       });
     }
 

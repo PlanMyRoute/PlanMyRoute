@@ -7,6 +7,7 @@ import { useTripPermissions } from '@/hooks/useTripPermissions';
 import { Ionicons } from '@expo/vector-icons';
 import { Stop } from '@planmyroute/types';
 import { useRouter } from 'expo-router';
+import { ROUTES } from '@/constants/routes';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
     ActivityIndicator,
@@ -147,10 +148,10 @@ export default function StopsScreen() {
     }, [dayGroups]);
 
     // 6. HANDLERS
-    const handleOpenCreateStop = () => router.push('/trip/addNewStop');
+    const handleOpenCreateStop = () => router.push(ROUTES.tripAddStop);
     const handleOpenEditStop = (stopId: number | string) => {
         console.log('📝 Navegando a editar parada:', stopId);
-        router.push(`/trip/addNewStop?stopId=${stopId}`);
+        router.push(ROUTES.tripEditStop(stopId));
     };
 
     // FUNCIÓN DE ELIMINAR AGREGADA
