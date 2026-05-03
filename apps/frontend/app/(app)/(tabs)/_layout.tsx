@@ -1,9 +1,9 @@
 import { SettingsIcon } from '@/components/assets/Icons';
-import { TabEventsIcon, TabFeedIcon, TabHomeIcon, TabMapIcon, TabNewTripIcon, TabProfileIcon } from '@/components/assets/TabsIcons';
+import { TabEventsIcon, TabFeedIcon, TabHomeIcon, TabNewTripIcon, TabProfileIcon } from '@/components/assets/TabsIcons';
 import { DropdownMenu, DropdownMenuItem } from '@/components/modals/DropdownMenu';
-import { ROUTES } from '@/constants/routes';
 import { FlappyBirdGame } from '@/components/trip/FlappyBirdGame';
 import { useClientOnlyValue } from '@/components/useClientOnlyValue.web';
+import { ROUTES } from '@/constants/routes';
 import { useAuth } from '@/context/AuthContext';
 import { useSubscription } from '@/context/SubscriptionContext';
 import useNotifications from '@/hooks/useNotifications';
@@ -198,31 +198,21 @@ export default function TabLayout() {
         />
 
         <Tabs.Screen
-          name="EventsMap"
-          options={{
-            title: 'Mapa',
-            tabBarIcon: ({ color }) => <TabMapIcon stroke={color} />,
-            tabBarLabel: 'Mapa',
-            headerShown: false,
-          }}
-        />
-
-        <Tabs.Screen
-          name="CreateTrip"
-          options={{
-            title: 'Crear viajes',
-            tabBarIcon: ({ color }) => <TabNewTripIcon stroke={color} />,
-            tabBarLabel: 'Crear viajes',
-            headerShown: false,
-          }}
-        />
-
-        <Tabs.Screen
           name="events"
           options={{
             title: 'Eventos',
             tabBarIcon: ({ color }) => <TabEventsIcon stroke={color} />,
             tabBarLabel: 'Eventos',
+            headerShown: false,
+          }}
+        />
+
+        <Tabs.Screen
+          name="createTrip"
+          options={{
+            title: 'Crear viajes',
+            tabBarIcon: ({ color }) => <TabNewTripIcon stroke={color} />,
+            tabBarLabel: 'Crear viajes',
             headerShown: false,
           }}
         />
@@ -238,7 +228,7 @@ export default function TabLayout() {
         />
 
         <Tabs.Screen
-          name="profile"
+          name="Profile"
           options={{
             title: profile?.user.username || 'Perfil',
             headerShadowVisible: false,
