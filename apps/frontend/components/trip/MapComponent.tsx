@@ -23,15 +23,28 @@ interface MapComponentProps {
     latitude: number;
     longitude: number;
   }>;
+  onMarkerPress?: (markerId: string) => void;
 }
 
 export const MapComponent: React.FC<MapComponentProps> = ({
   initialRegion,
   markers = [],
   routeCoordinates = [],
+  onMarkerPress,
 }) => {
   // Usar siempre WebView con Leaflet para compatibilidad con Expo Go
   const mapHtml = generateMapHTML(initialRegion, markers, routeCoordinates);
+
+  const handleMessage = (event: any) => {
+    try {
+      const data = JSON.parse(event.nativeEvent.data);
+      if (data.type === 'markerPress' && onMarkerPress) {
+        onMarkerPress(data.markerId);
+      }
+    } catch (error) {
+      console.log('Error parsing message from map:', error);
+    }
+  };
 
   return (
     <View style={styles.container}>
@@ -40,6 +53,7 @@ export const MapComponent: React.FC<MapComponentProps> = ({
         style={styles.webView}
         javaScriptEnabled={true}
         domStorageEnabled={true}
+        onMessage={handleMessage}
       />
     </View>
   );
@@ -50,17 +64,41 @@ function generateMapHTML(
   markers: Array<{ id: string; coordinate: { latitude: number; longitude: number }; title: string; description?: string; number: number }>,
   routeCoordinates: Array<{ latitude: number; longitude: number }>
 ): string {
-  const markersJS = markers
-    .map((marker, idx) => {
+  // Agrupar marcadores por ubicación (con tolerancia de 0.0001)
+  const COORDINATE_TOLERANCE = 0.0001;
+  const groupedMarkers = new Map<string, typeof markers>();
+
+  markers.forEach((marker) => {
+    const key = `${Math.round(marker.coordinate.latitude / COORDINATE_TOLERANCE) * COORDINATE_TOLERANCE},${Math.round(marker.coordinate.longitude / COORDINATE_TOLERANCE) * COORDINATE_TOLERANCE}`;
+    if (!groupedMarkers.has(key)) {
+      groupedMarkers.set(key, []);
+    }
+    groupedMarkers.get(key)!.push(marker);
+  });
+
+  // Generar HTML para marcadores agrupados
+  const markersJS = Array.from(groupedMarkers.values())
+    .map((group, idx) => {
+      const firstMarker = group[0];
+      const isCluster = group.length > 1;
+      
+      // Crear popup con todos los eventos como enlaces clickeables
+      let popupContent: string;
+      if (isCluster) {
+        popupContent = `<div><b>${group.length} eventos en esta ubicación:</b><br><br>${group.map(m => `<a href="javascript:void(0)" onclick="window.ReactNativeWebView.postMessage(JSON.stringify({type: 'markerPress', markerId: '${m.id}'}))" style="color: #4F46E5; text-decoration: none; display: block; margin: 5px 0; padding: 5px; border-radius: 4px; background: #f0f0f0;"><b>${m.title}</b><br><small style="color: #888;">${m.description || ''}</small></a>`).join('')}</div>`;
+      } else {
+        popupContent = `<a href="javascript:void(0)" onclick="window.ReactNativeWebView.postMessage(JSON.stringify({type: 'markerPress', markerId: '${firstMarker.id}'}))" style="color: #4F46E5; text-decoration: none; display: block; padding: 5px; border-radius: 4px; background: #f0f0f0;"><b>${firstMarker.title}</b>${firstMarker.description ? '<br><small style="color: #888;">' + firstMarker.description + '</small>' : ''}</a>`;
+      }
+
       return `
-        var marker${idx} = L.marker([${marker.coordinate.latitude}, ${marker.coordinate.longitude}], {
+        var marker${idx} = L.marker([${firstMarker.coordinate.latitude}, ${firstMarker.coordinate.longitude}], {
           icon: L.divIcon({
-            html: '<div class="custom-marker"><span>${marker.number}</span></div>',
+            html: '<div class="custom-marker"><span>${isCluster ? group.length : firstMarker.number}</span></div>',
             className: 'custom-marker-container',
             iconSize: [36, 36]
           })
         }).addTo(map);
-        marker${idx}.bindPopup("<b>${marker.title}</b>${marker.description ? '<br>' + marker.description : ''}");
+        marker${idx}.bindPopup("${popupContent.replace(/"/g, '\\"').replace(/\n/g, ' ')}");
       `;
     })
     .join('\n');
@@ -111,6 +149,11 @@ function generateMapHTML(
           color: white;
           font-weight: bold;
           font-size: 16px;
+        }
+        .leaflet-popup-content {
+          max-height: 300px;
+          overflow-y: auto;
+          font-size: 14px;
         }
       </style>
     </head>
