@@ -624,6 +624,53 @@ export const createStopDestination = async (destination: string, trip: Trip) => 
     return await createStop(stopData, trip.id!);
 };
 
+/**
+ * Inserts a user-defined mandatory waypoint into the stop table.
+ * Coordinates must be in { lat, lng } format (converted from frontend Coord type).
+ */
+export const createMandatoryStop = async (
+    stopInfo: {
+        name: string;
+        address: string;
+        coordinates: { lat: number; lng: number };
+        expectedArrivalDate: string | null;
+    },
+    tripId: number
+) => {
+    const stopData = {
+        name: stopInfo.name || stopInfo.address,
+        address: stopInfo.address,
+        description: `Parada obligatoria: ${stopInfo.name || stopInfo.address}`,
+        coordinates: { latitude: stopInfo.coordinates.lat, longitude: stopInfo.coordinates.lng },
+        type: 'parada' as Stop['type'],
+        estimated_arrival: stopInfo.expectedArrivalDate || null,
+        trip_id: tripId,
+    };
+
+    const { data, error } = await supabase
+        .from(STOP_TABLE)
+        .insert(stopData)
+        .select()
+        .single();
+
+    if (error) {
+        throw new Error(`Error al crear parada obligatoria "${stopInfo.name}": ${error.message}`);
+    }
+
+    return data as Stop;
+};
+
+/** Creates a route segment between two stops, computing distance automatically. */
+export const createRouteBetweenStops = async (fromStop: Stop, toStop: Stop, tripId: number) => {
+    const routeData: Partial<Route> = {
+        trip_id: tripId,
+        origin_id: fromStop.id,
+        destination_id: toStop.id,
+        distance: geolocation.calculateDistance(fromStop.coordinates, toStop.coordinates),
+    };
+    return createRoute(routeData);
+};
+
 // =============== STOP SUBTYPES SERVICES ===============
 
 /**

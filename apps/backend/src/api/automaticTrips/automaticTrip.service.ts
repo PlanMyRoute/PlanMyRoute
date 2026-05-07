@@ -154,27 +154,23 @@ export async function createTripFromAI(itineraryAI: any, userId: string, origina
         originalPayload.destination
     );
 
-    // 3. Crear las paradas intermedias
-    // Tipo: accomodation
-    if (itineraryAI.accomodationstop && Array.isArray(itineraryAI.accomodationstop)) {
-        console.log(`Creando ${itineraryAI.accomodationstop.length} paradas de alojamiento...`);
+    // 3. Crear las paradas intermedias — alojamiento y actividades en paralelo
+    const tripId = tripWithItinerary.trip.id!;
 
-        for (const stop of itineraryAI.accomodationstop) {
-            try {
+    const createAccommodationStops = async () => {
+        if (!itineraryAI.accomodationstop || !Array.isArray(itineraryAI.accomodationstop)) return;
+        console.log(`Creando ${itineraryAI.accomodationstop.length} paradas de alojamiento en paralelo...`);
+
+        const results = await Promise.allSettled(
+            itineraryAI.accomodationstop.map(async (stop: any) => {
                 const stopData: any = {
                     name: stop.name,
                     address: stop.address,
                     description: stop.description,
                     type: 'intermedia' as const,
                 };
-
-                // Añadir day y estimated_arrival si la IA los proporcionó
-                if (stop.day !== undefined) {
-                    stopData.day = stop.day;
-                }
-                if (stop.estimated_arrival) {
-                    stopData.estimated_arrival = stop.estimated_arrival;
-                }
+                if (stop.day !== undefined) stopData.day = stop.day;
+                if (stop.estimated_arrival) stopData.estimated_arrival = stop.estimated_arrival;
 
                 const accommodationData = {
                     nights: stop.nights,
@@ -182,35 +178,32 @@ export async function createTripFromAI(itineraryAI: any, userId: string, origina
                     contact: stop.contact,
                 };
 
-                await ItineraryService.createAccommodationStop(stopData, accommodationData, tripWithItinerary.trip.id!);
-                console.log(`✓ Parada de alojamiento creada: ${stop.name} (Día ${stop.day || '?'}, ${stop.estimated_arrival || 'sin hora'})`);
-            } catch (error) {
-                console.error(`Error creando parada de alojamiento "${stop.name}":`, error);
-                // Continuar con las demás paradas aunque una falle
+                await ItineraryService.createAccommodationStop(stopData, accommodationData, tripId);
+                console.log(`✓ Alojamiento: ${stop.name} (Día ${stop.day || '?'})`);
+            })
+        );
+
+        results.forEach((result, i) => {
+            if (result.status === 'rejected') {
+                console.error(`Error parada alojamiento "${itineraryAI.accomodationstop[i].name}":`, result.reason);
             }
-        }
-    }
+        });
+    };
 
-    // Tipo: activity
-    if (itineraryAI.activitystop && Array.isArray(itineraryAI.activitystop)) {
-        console.log(`Creando ${itineraryAI.activitystop.length} paradas de actividad...`);
+    const createActivityStops = async () => {
+        if (!itineraryAI.activitystop || !Array.isArray(itineraryAI.activitystop)) return;
+        console.log(`Creando ${itineraryAI.activitystop.length} paradas de actividad en paralelo...`);
 
-        for (const stop of itineraryAI.activitystop) {
-            try {
+        const results = await Promise.allSettled(
+            itineraryAI.activitystop.map(async (stop: any) => {
                 const stopData: any = {
                     name: stop.name,
                     address: stop.address,
                     description: stop.description,
                     type: 'intermedia' as const,
                 };
-
-                // Añadir day y estimated_arrival si la IA los proporcionó
-                if (stop.day !== undefined) {
-                    stopData.day = stop.day;
-                }
-                if (stop.estimated_arrival) {
-                    stopData.estimated_arrival = stop.estimated_arrival;
-                }
+                if (stop.day !== undefined) stopData.day = stop.day;
+                if (stop.estimated_arrival) stopData.estimated_arrival = stop.estimated_arrival;
 
                 // Procesar entry_price: convertir strings a números o null
                 let entry_price = null;
@@ -218,14 +211,12 @@ export async function createTripFromAI(itineraryAI: any, userId: string, origina
                     if (typeof stop.entry_price === 'number') {
                         entry_price = stop.entry_price;
                     } else if (typeof stop.entry_price === 'string') {
-                        // Intentar extraer número del string
                         const match = stop.entry_price.match(/\d+/);
                         if (match) {
                             entry_price = parseInt(match[0]);
                         } else if (stop.entry_price.toLowerCase().includes('gratis')) {
                             entry_price = 0;
                         }
-                        // Si no se puede parsear, se queda como null
                     }
                 }
 
@@ -236,40 +227,40 @@ export async function createTripFromAI(itineraryAI: any, userId: string, origina
                         duration_minutes = Math.round(stop.estimated_duration_minutes);
                     } else if (typeof stop.estimated_duration_minutes === 'string') {
                         const num = parseFloat(stop.estimated_duration_minutes);
-                        if (!isNaN(num)) {
-                            duration_minutes = Math.round(num);
-                        }
+                        if (!isNaN(num)) duration_minutes = Math.round(num);
                     }
                 } else if (stop.estimated_duration !== undefined) {
-                    // Fallback al campo antiguo si existe
                     const num = typeof stop.estimated_duration === 'number'
                         ? stop.estimated_duration
                         : parseFloat(stop.estimated_duration);
-                    if (!isNaN(num)) {
-                        // Asumir que está en horas y convertir a minutos
-                        duration_minutes = Math.round(num * 60);
-                    }
+                    if (!isNaN(num)) duration_minutes = Math.round(num * 60);
                 }
 
                 const activityData = {
                     category: stop.category,
-                    entry_price: entry_price,
+                    entry_price,
                     booking_required: stop.booking_required,
                     estimated_duration_minutes: duration_minutes,
                     url: stop.url,
                 };
 
-                await ItineraryService.createActivityStop(stopData, activityData, tripWithItinerary.trip.id!);
-                console.log(`✓ Parada de actividad creada: ${stop.name} (Día ${stop.day || '?'}, ${stop.estimated_arrival || 'sin hora'})`);
-            } catch (error) {
-                console.error(`Error creando parada de actividad "${stop.name}":`, error);
-                // Continuar con las demás paradas aunque una falle
+                await ItineraryService.createActivityStop(stopData, activityData, tripId);
+                console.log(`✓ Actividad: ${stop.name} (Día ${stop.day || '?'})`);
+            })
+        );
+
+        results.forEach((result, i) => {
+            if (result.status === 'rejected') {
+                console.error(`Error parada actividad "${itineraryAI.activitystop[i].name}":`, result.reason);
             }
-        }
-    }
+        });
+    };
+
+    // Crear alojamientos y actividades en paralelo entre sí
+    await Promise.all([createAccommodationStops(), createActivityStops()]);
 
     // 4. Retornar el itinerario completo actualizado
-    return await ItineraryService.getTripItinerary(tripWithItinerary.trip.id!);
+    return await ItineraryService.getTripItinerary(tripId);
 }
 
 export async function requestItineraryToLLM(tripInput: any, userPreferences: any, vehicles: any[]) {
