@@ -43,6 +43,7 @@ export const LocationSearchInput = ({
     currentCoordinates = null,
 }: LocationSearchInputProps) => {
     const containerRef = useRef<View>(null);
+    const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const [searchText, setSearchText] = useState(value);
     const [predictions, setPredictions] = useState<LocationPrediction[]>([]);
     const [loading, setLoading] = useState(false);
@@ -71,37 +72,42 @@ export const LocationSearchInput = ({
         }, 350);
     }, []);
 
-    // Fetch Google Places predictions
-    const handleSearch = useCallback(async (text: string) => {
+    // Fetch Nominatim predictions (debounced to respect 1 req/s rate limit)
+    const handleSearch = useCallback((text: string) => {
         setSearchText(text);
+
+        if (debounceRef.current) clearTimeout(debounceRef.current);
+
         if (!text || text.length < 3) {
             setPredictions([]);
             return;
         }
-        setLoading(true);
-        try {
-            const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
-            const response = await fetch(
-                `${apiUrl}/api/places/autocomplete?input=${encodeURIComponent(text)}&language=es`
-            );
-            const data = await response.json();
-            if (data.predictions) {
-                setPredictions(
-                    data.predictions.map((p: any) => ({
-                        place_id: p.place_id,
-                        description: p.description,
-                        main_text: p.structured_formatting?.main_text || p.description,
-                        secondary_text: p.structured_formatting?.secondary_text || '',
-                    }))
+
+        debounceRef.current = setTimeout(async () => {
+            setLoading(true);
+            try {
+                const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
+                const response = await fetch(
+                    `${apiUrl}/api/places/autocomplete?input=${encodeURIComponent(text)}&language=es`
                 );
-                // Re-measure position now that keyboard has had time to settle
-                measureInputPosition();
+                const data = await response.json();
+                if (data.predictions) {
+                    setPredictions(
+                        data.predictions.map((p: any) => ({
+                            place_id: p.place_id,
+                            description: p.description,
+                            main_text: p.structured_formatting?.main_text || p.description,
+                            secondary_text: p.structured_formatting?.secondary_text || '',
+                        }))
+                    );
+                    measureInputPosition();
+                }
+            } catch {
+                // silently ignore network errors for search
+            } finally {
+                setLoading(false);
             }
-        } catch {
-            // silently ignore network errors for search
-        } finally {
-            setLoading(false);
-        }
+        }, 500);
     }, [measureInputPosition]);
 
     // Resolve place_id → coordinates + formatted address

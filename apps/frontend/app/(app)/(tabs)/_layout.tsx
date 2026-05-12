@@ -208,7 +208,7 @@ export default function TabLayout() {
         />
 
         <Tabs.Screen
-          name="createTrip"
+          name="CreateTrip"
           options={{
             title: 'Crear viajes',
             tabBarIcon: ({ color }) => <TabNewTripIcon stroke={color} />,
