@@ -1,5 +1,6 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useRouter } from 'expo-router';
+import { ROUTES } from '../../constants/routes';
 import { useEffect, useState } from 'react';
 import {
   Image,
@@ -47,7 +48,7 @@ export default function LoginScreen() {
 
   useEffect(() => {
     if (!isLoading && user) {
-      router.replace('/');
+      router.replace(ROUTES.tabsHome);
     }
   }, [user, isLoading]);
 
@@ -181,7 +182,7 @@ export default function LoginScreen() {
             <Text className="text-[#1D1D1B]">
               ¿No tienes cuenta?{' '}
             </Text>
-            <Pressable onPress={() => router.push('/register')}>
+            <Pressable onPress={() => router.push(ROUTES.register)}>
               <Text className="text-[#1D1D1B] font-bold underline">
                 Regístrate
               </Text>

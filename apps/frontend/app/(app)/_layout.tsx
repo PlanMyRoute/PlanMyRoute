@@ -1,5 +1,6 @@
+import { ROUTES } from '@/constants/routes';
 import { TripProvider } from '@/context/TripContext';
-import { Redirect, Stack, Slot, useRouter, useSegments } from 'expo-router';
+import { Redirect, Slot, useRouter, useSegments } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, View, Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -45,7 +46,7 @@ function ProfileGatekeeper() {
         setNeedsProfile(true);
         setIsChecking(false);
         if (!inCompleteProfileScreen) {
-          router.replace('/complete-profile');
+          router.replace(ROUTES.completeProfile);
         }
         return;
       }
@@ -64,9 +65,9 @@ function ProfileGatekeeper() {
         // Solo mostrar completar perfil si el flag estaba presente (tras registro)
         // Si el usuario ya existe y no hay flag, NO forzar la redirección ni bloquear la app
         if (isIncomplete && !inCompleteProfileScreen && needsComplete === 'true') {
-          router.replace('/complete-profile');
+          router.replace(ROUTES.completeProfile);
         } else if (!isIncomplete && inCompleteProfileScreen) {
-          router.replace('/');
+          router.replace(ROUTES.tabsHome);
         } else {
           // Permitir el uso normal de la app aunque el username esté vacío si no hay flag
           setIsChecking(false);
@@ -107,7 +108,7 @@ export default function AppLayout() {
 
   // Si no hay usuario, redirige fuera de (app)
   if (!user) {
-    return <Redirect href="/login" />;
+    return <Redirect href={ROUTES.login} />;
   }
 
   // Si hay usuario, envuelve el Stack con el Portero de Perfil y TripProvider

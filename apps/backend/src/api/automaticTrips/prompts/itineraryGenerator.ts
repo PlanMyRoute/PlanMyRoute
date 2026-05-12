@@ -8,6 +8,12 @@ import { Vehicle } from "@planmyroute/types";
 
 export const ITINERARY_GENERATOR_MODEL = "gemini-2.5-flash";
 
+export interface MandatoryStopInput {
+    name: string;
+    address: string;
+    expectedArrivalDate: string | null;
+}
+
 export interface TripInput {
     origin: string;
     destination: string;
@@ -22,6 +28,8 @@ export interface TripInput {
     n_pets?: number;
     estimated_price_min?: number;
     estimated_price_max?: number;
+    circular?: boolean;
+    mandatoryStops?: MandatoryStopInput[];
 }
 
 export interface UserPreferences {
@@ -193,11 +201,32 @@ Ejemplo salida en formato json
   ✅ Si no conoces la dirección exacta, usa: "Ciudad, Provincia, País"
   ⚠️ EVITA nombres genéricos que no existen en mapas
 
+### VIAJE CIRCULAR (IDA Y VUELTA):
+${tripInput.circular ? `
+⚠️ Este es un viaje DE IDA Y VUELTA. El itinerario DEBE planificarse para que el último día el viajero regrese al punto de partida (${tripInput.origin}).
+- Distribuye las actividades de forma que el último día las paradas estén cerca del origen o en el camino de vuelta.
+- Considera el tiempo de conducción de regreso al origen en el presupuesto de tiempo del último día.
+- La última actividad del último día debe estar próxima a ${tripInput.origin}.
+` : 'Este es un viaje de ida (sin vuelta al origen).'}
+
+${tripInput.mandatoryStops && tripInput.mandatoryStops.length > 0 ? `
+### PARADAS OBLIGATORIAS (RESTRICCIÓN ESTRICTA):
+El itinerario DEBE incluir paso por las siguientes ubicaciones en el orden indicado.
+PROHIBIDO ignorar estas paradas — el usuario ya las tiene confirmadas y son indispensables:
+${tripInput.mandatoryStops.map((s, i) =>
+    `${i + 1}. ${s.address}${s.expectedArrivalDate ? ` — llegada prevista: ${new Date(s.expectedArrivalDate).toLocaleDateString('es-ES')}` : ''}`
+).join('\n')}
+
+Integra estas paradas como activitystop con category="parada_obligatoria" o accomodationstop según proceda.
+Asegúrate de que el orden geográfico de las paradas respeta esta secuencia.
+` : ''}
+
 ### DATOS DEL VIAJE:
 - Origen: ${tripInput.origin}
 - Destino: ${tripInput.destination}
 - Fecha salida: ${tripInput.start_date} y hora de salida: ${tripInput.start_time}
 - Fecha de llegada al destino: ${tripInput.end_date} y hora de llegada: ${tripInput.end_time}
+- Tipo de viaje: ${tripInput.circular ? 'IDA Y VUELTA (circular)' : 'Ida'}
 
 
 ### PERFIL DE LOS VIAJEROS

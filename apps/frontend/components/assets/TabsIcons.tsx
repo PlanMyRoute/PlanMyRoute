@@ -24,6 +24,30 @@ export const TabHomeIcon = ({ stroke = "#000", ...props }: SvgProps) => (
     </Svg>
 )
 
+export const TabMapIcon = ({ stroke = "#000", ...props }: SvgProps) => (
+    <Svg
+        width={38}
+        height={38}
+        fill="none"
+        viewBox="0 0 37 37"
+        {...props}
+    >
+        <Rect
+            width={35}
+            height={35}
+            x={1}
+            y={1}
+            stroke={stroke}
+            strokeWidth={2}
+            rx={17.5}
+        />
+        <Path
+            fill={stroke}
+            d="M18.5 10c-1.81 0-3.3 1.46-3.3 3.24 0 1.58 1.37 2.95 2.73 4.4.2.2.39.41.57.61.18-.2.37-.4.57-.61 1.37-1.45 2.73-2.82 2.73-4.4 0-1.78-1.49-3.24-3.3-3.24Zm0 2.1a1.15 1.15 0 1 1 0 2.3 1.15 1.15 0 0 1 0-2.3Zm-7.5 8.4v-8.4l2.2.95v8.34L11 20.5Zm4.2 1.7v-8.34l6.6-2.36v8.35l-6.6 2.35Z"
+        />
+    </Svg>
+)
+
 export const TabNewTripIcon = ({ stroke = "#000", ...props }: SvgProps) => (
     <Svg
         width={38}

@@ -1,3 +1,5 @@
+import { supabase } from './supabase';
+
 const RAW_API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
 
 export const API_URL = RAW_API_URL.replace(/\/$/, '');
@@ -59,6 +61,22 @@ export async function apiFetch<T>(path: string, options: ApiRequestOptions = {})
         ...init,
         headers: buildAuthHeaders(token, headers),
     });
+
+    // Si el backend responde 401, intentamos refrescar sesión de Supabase una vez
+    // para recuperar un access_token nuevo y reintentar la request.
+    if (response.status === 401 && token) {
+        const { data, error } = await supabase.auth.refreshSession();
+        const refreshedToken = data.session?.access_token;
+
+        if (!error && refreshedToken && refreshedToken !== token) {
+            const retryResponse = await fetch(buildApiUrl(path), {
+                ...init,
+                headers: buildAuthHeaders(refreshedToken, headers),
+            });
+
+            return parseResponse<T>(retryResponse);
+        }
+    }
 
     return parseResponse<T>(response);
 }

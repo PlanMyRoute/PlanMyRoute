@@ -1,5 +1,6 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useRouter } from 'expo-router';
+import { ROUTES } from '../../constants/routes';
 import { useState } from 'react';
 import {
   Image,
@@ -95,7 +96,7 @@ export default function RegisterScreen() {
       // Usar setTimeout para asegurar que la redirección ocurra después del render
       setTimeout(() => {
         console.log('🔵 Ejecutando redirección...');
-        router.replace(`/verify-email?email=${encodeURIComponent(email)}`);
+        router.replace(ROUTES.verifyEmail(email));
       }, 100);
       
       console.log('🔵 Redirección programada');
@@ -198,7 +199,7 @@ export default function RegisterScreen() {
 
           <View className="flex-row justify-center mb-6 mt-6">
             <Text className="text-[#1D1D1B]">¿Ya tienes una cuenta? </Text>
-            <Pressable onPress={() => router.push('/login')}>
+            <Pressable onPress={() => router.push(ROUTES.login)}>
               <Text className="text-[#1D1D1B] font-bold underline">Inicia sesión</Text>
             </Pressable>
           </View>

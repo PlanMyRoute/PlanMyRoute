@@ -1,5 +1,6 @@
 import { TmEvent } from '@/services/eventService';
 import { useEvents } from '@/hooks/useEvents';
+import { MapComponent } from '@/components/trip/MapComponent';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
@@ -111,14 +112,45 @@ function EventCard({ event }: { event: TmEvent }) {
 
 export default function EventsScreen() {
     const insets = useSafeAreaInsets();
+    const router = useRouter();
     const [keyword, setKeyword] = useState('');
     const [searchInput, setSearchInput] = useState('');
     const [countryCode, setCountryCode] = useState('');
+    const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
 
     const { data, isLoading, isFetchingNextPage, fetchNextPage, hasNextPage, isError } =
         useEvents({ countryCode, keyword });
 
-    const allEvents = data?.pages.flatMap((p) => p.events) ?? [];
+    const allEvents = data?.pages.flatMap((p) => p.events).filter((event, index, self) => 
+        self.findIndex(e => e.id === event.id) === index
+    ) ?? [];
+
+    const handleMarkerPress = useCallback((eventId: string) => {
+        router.push(`/event/${eventId}`);
+    }, [router]);
+
+    const markers = allEvents.map((event, index) => ({
+        id: event.id,
+        coordinate: {
+            latitude: event.venue?.coordinates?.lat || 0,
+            longitude: event.venue?.coordinates?.lng || 0,
+        },
+        title: event.name,
+        description: event.venue?.name || '',
+        number: index + 1,
+    })).filter(marker => marker.coordinate.latitude !== 0 && marker.coordinate.longitude !== 0);
+
+    const initialRegion = allEvents.length > 0 ? {
+        latitude: allEvents[0].venue?.coordinates?.lat || 40.4168,
+        longitude: allEvents[0].venue?.coordinates?.lng || -3.7038,
+        latitudeDelta: 0.1,
+        longitudeDelta: 0.1,
+    } : {
+        latitude: 40.4168,
+        longitude: -3.7038,
+        latitudeDelta: 10,
+        longitudeDelta: 10,
+    };
 
     const handleSearch = useCallback(() => {
         setKeyword(searchInput.trim());
@@ -198,8 +230,31 @@ export default function EventsScreen() {
                 />
             </View>
 
-            {/* Lista */}
-            {isLoading ? (
+            {/* Toggle vista */}
+            <View className="flex-row bg-white px-4 pb-2">
+                <TouchableOpacity
+                    className={`flex-1 py-2 rounded-lg mr-2 ${viewMode === 'list' ? 'bg-primary-yellow' : 'bg-gray-100'}`}
+                    onPress={() => setViewMode('list')}
+                >
+                    <Text className={`text-center text-sm font-medium ${viewMode === 'list' ? 'text-dark-black' : 'text-gray-600'}`}>
+                        Lista
+                    </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                    className={`flex-1 py-2 rounded-lg ml-2 ${viewMode === 'map' ? 'bg-primary-yellow' : 'bg-gray-100'}`}
+                    onPress={() => setViewMode('map')}
+                >
+                    <Text className={`text-center text-sm font-medium ${viewMode === 'map' ? 'text-dark-black' : 'text-gray-600'}`}>
+                        Mapa
+                    </Text>
+                </TouchableOpacity>
+            </View>
+
+            {/* Contenido */}
+            {viewMode === 'list' ? (
+                <>
+                    {/* Lista */}
+                    {isLoading ? (
                 <View className="flex-1 items-center justify-center">
                     <ActivityIndicator size="large" color="#FFD54D" />
                     <Text className="text-gray-500 mt-3">Cargando eventos…</Text>
@@ -228,6 +283,14 @@ export default function EventsScreen() {
                     onEndReached={() => hasNextPage && fetchNextPage()}
                     onEndReachedThreshold={0.4}
                     showsVerticalScrollIndicator={false}
+                />
+            )}
+                </>
+            ) : (
+                <MapComponent
+                    initialRegion={initialRegion}
+                    markers={markers}
+                    onMarkerPress={handleMarkerPress}
                 />
             )}
         </View>

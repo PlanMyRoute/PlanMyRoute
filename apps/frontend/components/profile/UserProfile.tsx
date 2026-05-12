@@ -6,14 +6,15 @@ import { PastTripsGallery } from '@/components/profile/PastTripsGallery';
 import { VehiclesSection } from '@/components/profile/VehiclesSection';
 import { useAuth } from '@/context/AuthContext';
 import { useSubscription } from '@/context/SubscriptionContext';
-import { useFollowStats, useFollowUser, useIsFollowing } from '@/hooks/useFollow';
 import { useCreateReview, useUserTripReview } from '@/hooks/useReviews';
+import { useFollowStats, useFollowUser, useIsFollowing } from '@/hooks/users/useFollow';
+import { useProfile } from '@/hooks/users/useUsers';
 import { usePastTrips } from '@/hooks/useTrips';
-import { useProfile } from '@/hooks/useUsers';
 import { useVehicles } from '@/hooks/useVehicles';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
+import { ROUTES } from '@/constants/routes';
 import { useState } from 'react';
 import {
     ActivityIndicator,
@@ -258,7 +259,7 @@ export default function UserProfile({ userId, isOwnProfile }: UserProfileProps) 
                     <View className="mb-2">
                         <CustomButton
                             title="Hazte Premium"
-                            onPress={() => router.push('/premium')}
+                            onPress={() => router.push(ROUTES.premium)}
                             variant="primary"
                             size="medium"
                         />

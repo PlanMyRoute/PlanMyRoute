@@ -1,4 +1,5 @@
 import { useRouter, useLocalSearchParams } from 'expo-router';
+import { ROUTES } from '../../constants/routes';
 import { useState, useRef } from 'react';
 import {
   Image,
@@ -113,7 +114,7 @@ export default function VerifyEmailScreen() {
         onClose={() => {
           setAlertVisible(false);
           if (alertConfig.type === 'success') {
-            router.replace('/');
+            router.replace(ROUTES.tabsHome);
           }
         }}
       />

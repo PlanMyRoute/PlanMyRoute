@@ -2,6 +2,7 @@ import { Router } from 'express';
 import * as TripController from './trips.controller.js';
 import { verifyToken } from '../../middleware/auth.js';
 import { requirePermission, requireOwner, requireEditor } from '../../middleware/permissions.js';
+import { requirePremiumForCircular } from '../../middleware/requirePremiumForCircular.js';
 
 const router = Router();
 const TRIP_BASE_PATH = '/trip';
@@ -9,7 +10,7 @@ const TRAVELERS_BASE_PATH = '/travelers';
 const VEHICLE_BASE_PATH = '/vehicle';
 
 // Crear viaje (el usuario se convierte en owner automáticamente)
-router.post(`${TRAVELERS_BASE_PATH}/:userId${TRIP_BASE_PATH}`, verifyToken, TripController.createTrip);
+router.post(`${TRAVELERS_BASE_PATH}/:userId${TRIP_BASE_PATH}`, verifyToken, requirePremiumForCircular, TripController.createTrip);
 
 // Actualizar viaje (requiere userId en params para permisos)
 router.patch(`${TRAVELERS_BASE_PATH}/:userId${TRIP_BASE_PATH}/:id`, verifyToken, requireEditor(), TripController.updateTrip);

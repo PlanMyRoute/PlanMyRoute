@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Pressable, TextInput, TextInputProps, View } from 'react-native';
 import { MicrotextDark } from './CustomText';
 
@@ -10,28 +10,9 @@ interface CustomInputProps extends TextInputProps {
     labelClassName?: string;
     size?: 'small' | 'medium' | 'large';
     onPress?: () => void;
-    rightElement?: React.ReactNode; // Elemento a la derecha del input (botón, icono, etc.)
+    rightElement?: React.ReactNode;
 }
 
-/**
- * Componente CustomInput - Input reutilizable con estilos consistentes
- * 
- * @param label - Etiqueta opcional del input (string o componente React)
- * @param error - Mensaje de error opcional
- * @param containerClassName - Clases adicionales para el contenedor
- * @param inputClassName - Clases adicionales para el input
- * @param labelClassName - Clases adicionales para la etiqueta (solo para label tipo string)
- * @param size - Tamaño del input: 'small', 'medium', 'large'
- * @param onPress - Función a ejecutar al presionar (convierte el input en un botón)
- * @param rightElement - Elemento React a la derecha del input (botón, icono, etc.)
- * 
- * Ejemplos de uso:
- * <CustomInput placeholder="Madrid" />
- * <CustomInput label="Origen" placeholder="Madrid" />
- * <CustomInput label={<SubtitleSemibold>Origen</SubtitleSemibold>} placeholder="Madrid" />
- * <CustomInput label="Fecha" onPress={() => setShowPicker(true)} editable={false} />
- * <CustomInput placeholder="Buscar" rightElement={<TouchableOpacity>...</TouchableOpacity>} />
- */
 export const CustomInput: React.FC<CustomInputProps> = ({
     label,
     error,
@@ -41,9 +22,12 @@ export const CustomInput: React.FC<CustomInputProps> = ({
     size = 'medium',
     onPress,
     rightElement,
+    onFocus,
+    onBlur,
     ...props
 }) => {
-    // Definir estilos según el tamaño
+    const [isFocused, setIsFocused] = useState(false);
+
     const sizeStyles = {
         small: 'px-4 py-2',
         medium: 'px-4 py-3',
@@ -59,42 +43,47 @@ export const CustomInput: React.FC<CustomInputProps> = ({
     const isButton = !!onPress;
     const hasRightElement = !!rightElement;
 
+    const borderClass = error
+        ? 'border-red-500'
+        : isFocused
+            ? 'border-primary-yellow'
+            : 'border-neutral-gray/30';
+
     const inputElement = (
-        <View className={`flex-row items-center bg-white border border-neutral-gray/30 rounded-2xl ${error ? 'border-red-500' : ''}`}>
+        <View className={`flex-row items-center bg-white border rounded-2xl ${borderClass}`}>
             <TextInput
-                className={`
-              flex-1
-              ${hasRightElement ? 'pl-4 pr-2 py-3' : sizeStyles[size]}
-              text-dark-black
-              ${inputClassName}
-            `}
+                className={`flex-1 ${hasRightElement ? 'pl-4 pr-2 py-3' : sizeStyles[size]} text-dark-black ${inputClassName}`}
                 style={fontSizeStyles[size]}
                 placeholderTextColor="#999999"
                 editable={!isButton}
                 {...props}
+                onFocus={(e) => {
+                    setIsFocused(true);
+                    onFocus?.(e);
+                }}
+                onBlur={(e) => {
+                    setIsFocused(false);
+                    onBlur?.(e);
+                }}
             />
             {hasRightElement && rightElement}
         </View>
     );
 
     return (
-        <View className={`${containerClassName}`} style={{ overflow: 'visible' }}>
+        <View className={containerClassName} style={{ overflow: 'visible' }}>
             {label && (
                 typeof label === 'string'
                     ? <MicrotextDark className={`mb-2 ${labelClassName}`}>{label}</MicrotextDark>
                     : label
             )}
             {isButton ? (
-                <Pressable onPress={onPress}>
-                    {inputElement}
-                </Pressable>
+                <Pressable onPress={onPress}>{inputElement}</Pressable>
             ) : (
                 inputElement
             )}
             {error && (
-                <MicrotextDark className="text-red-500 mt-1">
-                    {error}
-                </MicrotextDark>
+                <MicrotextDark className="text-red-500 mt-1">{error}</MicrotextDark>
             )}
         </View>
     );

@@ -288,12 +288,13 @@ export const checkPendingNotifications = async (): Promise<void> => {
 
         const { data: pendingNotifications, error } = await supabase
             .from('notifications')
-            .select('*, trip:related_trip_id(*)')
+            .select('id, user_receiver_id, related_trip_id, content, reminder_count, created_at, trip:related_trip_id(id, name)')
             .eq('type', 'trip_status_check')
             .eq('action_status', 'pending')
             .lt('created_at', twentyFourHoursAgo.toISOString())
             .lt('reminder_count', 2)
-            .order('created_at', { ascending: true });
+            .order('created_at', { ascending: true })
+            .limit(200);
 
         if (error) {
             throw new Error(`Error al obtener notificaciones pendientes: ${error.message}`);

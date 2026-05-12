@@ -4,6 +4,7 @@ import { PlansModal } from '@/components/modals/PlansModal';
 import { PREMIUM_BENEFITS } from '@/constants/premiumBenefits';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { ROUTES } from '@/constants/routes';
 import { useState } from 'react';
 import { ScrollView, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -71,7 +72,7 @@ export default function PremiumScreen() {
                 />
                 <CustomButton
                     title="Ya tengo un código"
-                    onPress={() => router.push('/subscription/manage')}
+                    onPress={() => router.push(ROUTES.subscriptionManage)}
                     variant="outline"
                     size="large"
                 />

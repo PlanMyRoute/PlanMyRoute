@@ -6,6 +6,7 @@ import { useTripAccess } from '@/hooks/useTripAccess';
 import { Ionicons } from '@expo/vector-icons';
 import { Trip } from '@planmyroute/types';
 import { useRouter } from 'expo-router';
+import { ROUTES } from '@/constants/routes';
 import { useMemo, useState } from 'react';
 import { ImageBackground, Pressable, TouchableOpacity, View } from 'react-native';
 import Toast from 'react-native-toast-message';
@@ -117,14 +118,14 @@ export const TripCard = ({ trip }: TripCardProps) => {
 
   const handlePress = () => {
     if (!menuOpen) {
-      router.push(`/trip/${trip.id}`);
+      router.push(ROUTES.trip(trip.id));
     }
   };
 
   const handleEdit = () => {
     setTripId(trip.id.toString());
     setCurrentTrip(trip);
-    router.push(`/trip/edit?tripId=${trip.id}`);
+    router.push(ROUTES.tripEdit(trip.id));
   };
 
   const handleDelete = () => {

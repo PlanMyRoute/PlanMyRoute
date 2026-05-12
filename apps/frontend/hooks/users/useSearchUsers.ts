@@ -1,7 +1,7 @@
 import { User } from '@planmyroute/types';
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
-import { UserService } from '../services/userService';
+import { UserService } from '../../services/userService';
 
 type UseSearchUsersResult = {
     users: User[];

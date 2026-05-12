@@ -3,10 +3,11 @@ import { TabEventsIcon, TabFeedIcon, TabHomeIcon, TabNewTripIcon, TabProfileIcon
 import { DropdownMenu, DropdownMenuItem } from '@/components/modals/DropdownMenu';
 import { FlappyBirdGame } from '@/components/trip/FlappyBirdGame';
 import { useClientOnlyValue } from '@/components/useClientOnlyValue.web';
+import { ROUTES } from '@/constants/routes';
 import { useAuth } from '@/context/AuthContext';
 import { useSubscription } from '@/context/SubscriptionContext';
 import useNotifications from '@/hooks/useNotifications';
-import { useProfile } from '@/hooks/useUsers';
+import { useProfile } from '@/hooks/users/useUsers';
 import { Ionicons } from '@expo/vector-icons';
 import { Tabs, useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
@@ -30,12 +31,12 @@ export default function TabLayout() {
 
   const handleEditProfile = () => {
     setSettingsMenuVisible(false);
-    router.push('/profile/EditProfile');
+    router.push(ROUTES.editProfile);
   };
 
   const handleManageSubscription = () => {
     setSettingsMenuVisible(false);
-    router.push('/subscription/manage');
+    router.push(ROUTES.subscriptionManage);
   };
 
   const handleOpenGame = () => {
@@ -48,7 +49,7 @@ export default function TabLayout() {
 
     if (isWeb) {
       if (window.confirm('¿Estás seguro de que quieres cerrar sesión?')) {
-        signOut().then(() => router.replace('/login'));
+        signOut().then(() => router.replace(ROUTES.login));
       }
     } else {
       Alert.alert(
@@ -61,7 +62,7 @@ export default function TabLayout() {
             style: 'destructive',
             onPress: async () => {
               await signOut();
-              router.replace('/login');
+              router.replace(ROUTES.login);
             },
           },
         ]
@@ -84,7 +85,7 @@ export default function TabLayout() {
         icon: isPremium ? 'card-outline' : 'diamond-outline',
         onPress: isPremium ? handleManageSubscription : () => {
           setSettingsMenuVisible(false);
-          router.push('/premium');
+          router.push(ROUTES.premium);
         },
       },
     ];
@@ -175,7 +176,7 @@ export default function TabLayout() {
             },
             headerRight: () => (
               <TouchableOpacity
-                onPress={() => router.push('/notifications')}
+                onPress={() => router.push(ROUTES.notifications)}
                 className="mr-4"
                 hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
               >
@@ -197,26 +198,6 @@ export default function TabLayout() {
         />
 
         <Tabs.Screen
-          name="feed"
-          options={{
-            title: 'Feed',
-            tabBarIcon: ({ color }) => <TabFeedIcon stroke={color} />,
-            tabBarLabel: 'Feed',
-            headerShown: false,
-          }}
-        />
-
-        <Tabs.Screen
-          name="createTrip"
-          options={{
-            title: 'Crear viajes',
-            tabBarIcon: ({ color }) => <TabNewTripIcon stroke={color} />,
-            tabBarLabel: 'Crear viajes',
-            headerShown: false,
-          }}
-        />
-
-        <Tabs.Screen
           name="events"
           options={{
             title: 'Eventos',
@@ -227,7 +208,27 @@ export default function TabLayout() {
         />
 
         <Tabs.Screen
-          name="profile"
+          name="CreateTrip"
+          options={{
+            title: 'Crear viajes',
+            tabBarIcon: ({ color }) => <TabNewTripIcon stroke={color} />,
+            tabBarLabel: 'Crear viajes',
+            headerShown: false,
+          }}
+        />
+
+        <Tabs.Screen
+          name="feed"
+          options={{
+            title: 'Feed',
+            tabBarIcon: ({ color }) => <TabFeedIcon stroke={color} />,
+            tabBarLabel: 'Feed',
+            headerShown: false,
+          }}
+        />
+
+        <Tabs.Screen
+          name="Profile"
           options={{
             title: profile?.user.username || 'Perfil',
             headerShadowVisible: false,

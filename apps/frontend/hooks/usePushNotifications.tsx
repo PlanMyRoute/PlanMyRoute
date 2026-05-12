@@ -1,6 +1,7 @@
 import Constants from 'expo-constants';
 import * as Device from 'expo-device';
 import { useRouter } from 'expo-router';
+import { ROUTES } from '../constants/routes';
 import { useEffect, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { registerForPushNotificationsAsync } from '../services/pushNotifications';
@@ -67,9 +68,9 @@ export default function usePushNotifications() {
 
                         if (data?.tripId) {
                             // Navigate to trip screen (adjust route as needed)
-                            router.push(`/trip/${data.tripId}`);
+                            router.push(ROUTES.trip(data.tripId));
                         } else if (data?.notificationId) {
-                            router.push('/notifications');
+                            router.push(ROUTES.notifications);
                         }
                     } catch (err) {
                         console.error('Error handling notification response:', err);

@@ -1,7 +1,7 @@
 import { useAuth } from '@/context/AuthContext';
 import { User } from '@planmyroute/types';
 import { useQuery } from '@tanstack/react-query';
-import { UserService } from '../services/userService';
+import { UserService } from '../../services/userService';
 
 const USER_STALE_TIME = 60_000;
 

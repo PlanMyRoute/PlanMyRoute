@@ -2,53 +2,69 @@ import { Router, Request, Response } from 'express';
 
 const router = Router();
 
-const GOOGLE_PLACES_API_KEY = process.env.EXPO_PUBLIC_GOOGLE_PLACES_API_KEY || process.env.GOOGLE_PLACES_API_KEY;
-
-if (!GOOGLE_PLACES_API_KEY) {
-    console.warn('⚠️ GOOGLE_PLACES_API_KEY no está configurada');
-}
+// Nominatim usage policy requires a descriptive User-Agent with contact info
+const NOMINATIM_USER_AGENT = 'PlanMyRoute/1.0 (dev.planmyroute@gmail.com)';
 
 /**
  * GET /api/places/autocomplete
- * Proxy para Google Places Autocomplete API
- * Query params: input (required), language (optional), components (optional)
+ * Proxy para Nominatim (OpenStreetMap) — sin API key, completamente gratis.
+ * Query params: input (required), language (optional)
  */
 router.get('/autocomplete', async (req: Request, res: Response) => {
     try {
-        const { input, language = 'es', components } = req.query;
+        const { input, language = 'es' } = req.query;
 
         if (!input) {
             return res.status(400).json({ error: 'El parámetro "input" es requerido' });
         }
 
-        if (!GOOGLE_PLACES_API_KEY) {
-            return res.status(500).json({ error: 'Google Places API key no configurada' });
-        }
-
         const params = new URLSearchParams({
-            input: String(input),
-            key: GOOGLE_PLACES_API_KEY,
-            language: String(language),
+            q: String(input),
+            format: 'json',
+            addressdetails: '1',
+            limit: '6',
+            'accept-language': String(language),
         });
 
-        if (components) {
-            params.append('components', String(components));
-        }
-
-        const url = `https://maps.googleapis.com/maps/api/place/autocomplete/json?${params}`;
-
-        const response = await fetch(url, {
-            method: 'GET',
-        });
-
-        const data = await response.json() as any;
+        const response = await fetch(
+            `https://nominatim.openstreetmap.org/search?${params}`,
+            {
+                headers: {
+                    'User-Agent': NOMINATIM_USER_AGENT,
+                    'Accept-Language': String(language),
+                },
+            }
+        );
 
         if (!response.ok) {
-            console.error('Google Places error:', data);
-            return res.status(response.status).json(data);
+            console.error('Nominatim autocomplete error:', response.status);
+            return res.status(response.status).json({ predictions: [] });
         }
 
-        res.json(data);
+        const results = await response.json() as any[];
+
+        // Encode lat/lon/address into place_id so the /details endpoint
+        // can return coordinates without a second Nominatim call.
+        const predictions = results.map((r: any) => {
+            const encodedId = Buffer.from(
+                JSON.stringify({ lat: r.lat, lng: r.lon, address: r.display_name })
+            ).toString('base64');
+
+            // Split display_name: first segment → main_text, rest → secondary_text
+            const [mainText, ...rest] = r.display_name.split(', ');
+            const secondaryText = rest.join(', ');
+
+            return {
+                place_id: encodedId,
+                description: r.display_name,
+                structured_formatting: {
+                    main_text: r.name || mainText,
+                    secondary_text: secondaryText,
+                },
+            };
+        });
+
+        res.json({ predictions });
     } catch (error) {
         console.error('Error en /api/places/autocomplete:', error);
         res.status(500).json({ error: 'Error fetching autocomplete predictions' });
@@ -57,45 +73,36 @@ router.get('/autocomplete', async (req: Request, res: Response) => {
 
 /**
  * GET /api/places/details
- * Proxy para Google Places Details API
- * Query params: place_id (required), fields (optional)
+ * Decodifica el place_id generado por /autocomplete para devolver coordenadas.
+ * No hace ninguna llamada externa — las coordenadas ya viajan en el place_id.
+ * Query params: place_id (required)
  */
 router.get('/details', async (req: Request, res: Response) => {
     try {
-        const { place_id, fields = 'geometry,formatted_address' } = req.query;
+        const { place_id } = req.query;
 
         if (!place_id) {
             return res.status(400).json({ error: 'El parámetro "place_id" es requerido' });
         }
 
-        if (!GOOGLE_PLACES_API_KEY) {
-            return res.status(500).json({ error: 'Google Places API key no configurada' });
-        }
+        const decoded = JSON.parse(
+            Buffer.from(String(place_id), 'base64').toString('utf-8')
+        );
 
-        const params = new URLSearchParams({
-            place_id: String(place_id),
-            key: GOOGLE_PLACES_API_KEY,
-            fields: String(fields),
-            language: 'es',
-        });
+        const result = {
+            formatted_address: decoded.address || '',
+            geometry: {
+                location: {
+                    lat: parseFloat(decoded.lat),
+                    lng: parseFloat(decoded.lng),
+                },
+            },
+        };
 
-        const url = `https://maps.googleapis.com/maps/api/place/details/json?${params}`;
-
-        const response = await fetch(url, {
-            method: 'GET',
-        });
-
-        const data = await response.json() as any;
-
-        if (!response.ok) {
-            console.error('Google Places details error:', data);
-            return res.status(response.status).json(data);
-        }
-
-        res.json(data);
+        res.json({ result });
     } catch (error) {
         console.error('Error en /api/places/details:', error);
-        res.status(500).json({ error: 'Error fetching place details' });
+        res.status(500).json({ error: 'place_id inválido o corrompido' });
     }
 });
 

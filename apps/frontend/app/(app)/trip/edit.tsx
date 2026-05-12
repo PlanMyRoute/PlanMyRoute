@@ -5,6 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Interest, Trip } from '@planmyroute/types';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Stack, useRouter } from 'expo-router';
+import { ROUTES } from '@/constants/routes';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
@@ -55,7 +56,7 @@ export default function TripSettingsScreen() {
 
   // Configurar el header con el botón de volver
   const goToIndex = useCallback(() => {
-    router.replace('/');
+    router.replace(ROUTES.tabsHome);
   }, [router]);
 
   // --- Hook de Mutación ---
@@ -223,7 +224,7 @@ export default function TripSettingsScreen() {
     deleteTripMutation.mutate(tripId as string, {
       onSuccess: () => {
         Alert.alert('Éxito', 'Viaje eliminado correctamente');
-        router.replace('/'); // Volver a la pantalla principal después de eliminar
+        router.replace(ROUTES.tabsHome); // Volver a la pantalla principal después de eliminar
       },
       onError: (error) => {
         Alert.alert('Error', `No se pudo eliminar el viaje: ${error.message}`);

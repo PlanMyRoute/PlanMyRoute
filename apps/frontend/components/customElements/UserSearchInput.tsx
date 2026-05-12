@@ -1,4 +1,4 @@
-import { useSearchUsers } from '@/hooks/useSearchUsers';
+import { useSearchUsers } from '@/hooks/users/useSearchUsers';
 import { Ionicons } from '@expo/vector-icons';
 import { User } from '@planmyroute/types';
 import { useMemo, useState } from 'react';

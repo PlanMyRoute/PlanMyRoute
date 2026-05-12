@@ -5,6 +5,7 @@ import { useSocialReviewsFeed } from '@/hooks/useReviews';
 import { Ionicons } from '@expo/vector-icons';
 import type { User } from '@planmyroute/types';
 import { useRouter } from 'expo-router';
+import { ROUTES } from '@/constants/routes';
 import { useState } from 'react';
 import {
     ActivityIndicator,
@@ -41,7 +42,7 @@ export default function FeedScreen() {
     const reviews = data?.reviews || [];
 
     const handleUserSelect = (user: User) => {
-        router.push(`/${user.username}`);
+        router.push(ROUTES.userProfile(user.username));
     };
 
     const onRefresh = async () => {

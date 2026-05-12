@@ -1,6 +1,7 @@
 import { SubtitleSemibold, TextRegular } from '@/components/customElements/CustomText';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { ROUTES } from '@/constants/routes';
 import React from 'react';
 import { Image, ImageBackground, TouchableOpacity, View } from 'react-native';
 
@@ -49,7 +50,7 @@ export const FeedReviewCard: React.FC<FeedReviewCardProps> = ({ review }) => {
 
     return (
         <TouchableOpacity
-            onPress={() => review.trip && router.push(`/trip/${review.trip.id}`)}
+            onPress={() => review.trip && router.push(ROUTES.trip(review.trip.id))}
             className="bg-white rounded-3xl overflow-hidden shadow-sm border border-neutral-gray/10 mb-4"
             activeOpacity={0.7}
         >
@@ -78,7 +79,7 @@ export const FeedReviewCard: React.FC<FeedReviewCardProps> = ({ review }) => {
                         <TouchableOpacity
                             onPress={(e) => {
                                 e.stopPropagation();
-                                router.push(`/${review.user!.username}`);
+                                router.push(ROUTES.userProfile(review.user!.username));
                             }}
                             className="flex-row items-center gap-2"
                         >

@@ -1,5 +1,6 @@
 import { Redirect } from 'expo-router';
 import { ActivityIndicator, Platform, View } from 'react-native';
+import { ROUTES } from '../constants/routes';
 import { useAuth } from '../context/AuthContext';
 
 /**
@@ -7,7 +8,7 @@ import { useAuth } from '../context/AuthContext';
  * Redirige según la plataforma y el estado de autenticación:
  * - Web sin login -> /welcome (landing page)
  * - Mobile sin login -> /login
- * - Con login -> /(app)/(tabs) (home)
+ * - Con login -> /(app)/(tabs)/Index (home)
  */
 export default function Index() {
     const { user, isLoading } = useAuth();
@@ -23,15 +24,15 @@ export default function Index() {
 
     // Si el usuario está logueado, va directo al home
     if (user) {
-        return <Redirect href="/(app)/(tabs)" />;
+        return <Redirect href={ROUTES.tabsHome} />;
     }
 
     // Si no está logueado:
     // - En web -> landing page (welcome)
     // - En mobile -> login directo
     if (Platform.OS === 'web') {
-        return <Redirect href="/welcome" />;
+        return <Redirect href={ROUTES.welcome} />;
     } else {
-        return <Redirect href="/(auth)/login" />;
+        return <Redirect href={ROUTES.authLogin} />;
     }
 }

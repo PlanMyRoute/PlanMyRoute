@@ -1,5 +1,6 @@
 import { DropdownMenu, DropdownMenuItem } from '@/components/modals/DropdownMenu';
 import { TripStatusBadge } from '@/components/trip/TripStatusBadge';
+import { ROUTES } from '@/constants/routes';
 import { useTripContext } from '@/context/TripContext';
 import { useTripPermissions } from '@/hooks/useTripPermissions';
 import { useDeleteTrip, useLeaveTrip } from '@/hooks/useTrips';
@@ -171,20 +172,19 @@ export default function TripTabsLayout() {
     const deleteTripMutation = useDeleteTrip();
     const leaveTripMutation = useLeaveTrip();
 
-    const goBack = () => router.replace('/(app)/(tabs)');
+    const goBack = () => router.replace(ROUTES.tabsHome);
 
     const handleEditTrip = () => {
-        router.push(`/trip/edit?tripId=${tripId}`);
+        router.push(ROUTES.tripEdit(tripId));
     };
 
     const handleGoToTravelers = () => {
-        router.push(`/trip/travelers?tripId=${tripId}`);
+        router.push(ROUTES.tripTravelers(tripId));
     };
 
     const handleGoToVehicles = () => {
-        router.push(`/(app)/trip/vehicles`);
+        router.push(ROUTES.tripVehicles);
     };
-
     const handleLeaveTrip = () => {
         Alert.alert('Salir del viaje', '¿Estás seguro de que quieres salir de este viaje?', [
             { text: 'Cancelar', style: 'cancel' },
@@ -195,7 +195,7 @@ export default function TripTabsLayout() {
                     onSuccess: () => {
                         setCurrentTrip(null);
                         setTripId(null);
-                        router.replace('/');
+                        router.replace(ROUTES.tabsHome);
                     }
                 })
             }
@@ -212,7 +212,7 @@ export default function TripTabsLayout() {
                     onSuccess: () => {
                         setCurrentTrip(null);
                         setTripId(null);
-                        router.replace('/');
+                        router.replace(ROUTES.tabsHome);
                     }
                 })
             }

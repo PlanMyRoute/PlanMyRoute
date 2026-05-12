@@ -55,6 +55,13 @@ export default function TripLayout() {
                     title: 'Vehículos',
                 }}
             />
+
+            <Stack.Screen
+                name="createWizard"
+                options={{
+                    headerShown: false,
+                }}
+            />
         </Stack>
     );
 }

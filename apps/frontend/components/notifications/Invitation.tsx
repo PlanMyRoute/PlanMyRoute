@@ -3,6 +3,7 @@ import { MicrotextDark, TextRegular } from '@/components/customElements/CustomTe
 import { useAcceptInvitation, useDeclineInvitation } from '@/hooks/useNotifications';
 import { notifications } from '@planmyroute/types';
 import { Link, useRouter } from 'expo-router';
+import { ROUTES } from '@/constants/routes';
 import { TouchableOpacity, View } from 'react-native';
 import Toast from 'react-native-toast-message';
 
@@ -35,7 +36,7 @@ export const Invitation: React.FC<InvitationProps> = ({ notification, userId }) 
                         text2: 'Toca para ir al viaje',
                         onPress: () => {
                             Toast.hide();
-                            router.push(`/trip/${notification.related_trip_id}`);
+                            router.push(ROUTES.trip(notification.related_trip_id));
                         },
                         visibilityTime: 4000,
                     });

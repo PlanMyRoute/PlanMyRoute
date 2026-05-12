@@ -5,6 +5,7 @@ import { useUserRoleInTrip } from '@/hooks/useTrips';
 import { Ionicons } from '@expo/vector-icons';
 import { Trip } from '@planmyroute/types';
 import { useRouter } from 'expo-router';
+import { ROUTES } from '@/constants/routes';
 import { useState } from 'react';
 import { ActivityIndicator, Alert, ImageBackground, Pressable, TouchableOpacity, View } from 'react-native';
 
@@ -77,7 +78,7 @@ function GalleryTripCard({ trip, index, isLarge, router }: { trip: Trip; index: 
     return (
         <>
             <Pressable
-                onPress={() => router.push(`/trip/${trip.id}`)}
+                onPress={() => router.push(ROUTES.trip(trip.id))}
                 className={`rounded-3xl overflow-hidden ${isLarge ? 'w-full mb-2' : 'w-[48%] mb-2'}`}
                 style={({ pressed }) => pressed ? { opacity: 0.95 } : undefined}
             >

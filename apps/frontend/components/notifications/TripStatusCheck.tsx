@@ -4,6 +4,7 @@ import { useAuth } from '@/context/AuthContext';
 import { notifications } from '@planmyroute/types';
 import { useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
+import { ROUTES } from '@/constants/routes';
 import { useState } from 'react';
 import { View } from 'react-native';
 import Toast from 'react-native-toast-message';
@@ -56,7 +57,7 @@ export const TripStatusCheck: React.FC<TripStatusCheckProps> = ({ notification, 
                 text2: result.message,
                 onPress: () => {
                     Toast.hide();
-                    router.push(`/trip/${notification.related_trip_id}`);
+                    router.push(ROUTES.trip(notification.related_trip_id));
                 },
                 visibilityTime: 4000,
             });

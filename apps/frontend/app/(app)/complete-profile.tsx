@@ -1,5 +1,6 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
+import { ROUTES } from '@/constants/routes';
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -185,7 +186,7 @@ export default function CompleteProfileScreen() {
       
       // Redirigir después de mostrar el alert
       setTimeout(() => {
-        router.replace('/');
+        router.replace(ROUTES.tabsHome);
       }, 1500);
 
     } catch (e) {

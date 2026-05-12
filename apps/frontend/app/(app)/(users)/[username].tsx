@@ -1,23 +1,32 @@
 import CustomButton from '@/components/customElements/CustomButton';
 import { TextRegular, Title2Semibold } from '@/components/customElements/CustomText';
 import UserProfile from '@/components/profile/UserProfile';
+import { ROUTES } from '@/constants/routes';
 import { useAuth } from '@/context/AuthContext';
-import { useProfile } from '@/hooks/useUsers';
+import { useProfile } from '@/hooks/users/useUsers';
 import { Ionicons } from '@expo/vector-icons';
-import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import { Redirect, Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, View } from 'react-native';
 
 export default function UserProfileScreen() {
     const router = useRouter();
-    const { username } = useLocalSearchParams<{ username: string }>();
+    const { username } = useLocalSearchParams<{ username?: string | string[] }>();
+    const normalizedUsername = Array.isArray(username) ? username[0] : username;
+    const invalidUsername = !normalizedUsername || /^\(.*\)$/.test(normalizedUsername);
     const { user } = useAuth();
 
     // Estado para almacenar el ID del usuario del perfil
     const [profileUserId, setProfileUserId] = useState<string | null>(null);
 
     // Obtener perfil por username
-    const { data: profile, isLoading: userLoading, error } = useProfile(undefined, username);
+    const { data: profile, isLoading: userLoading, error } = useProfile(undefined, normalizedUsername, {
+        enabled: !invalidUsername,
+    });
+
+    if (invalidUsername) {
+        return <Redirect href={ROUTES.tabsHome} />;
+    }
 
     // Actualizar profileUserId cuando se cargue el perfil
     useEffect(() => {
@@ -29,7 +38,7 @@ export default function UserProfileScreen() {
     // Si es tu propio perfil, redirigir al tab de profile
     useEffect(() => {
         if (profile?.user?.id && user?.id && profile.user.id === user.id) {
-            router.replace('/(app)/(tabs)/profile');
+            router.replace(ROUTES.tabsProfile);
         }
     }, [profile, user, router]);
 
@@ -39,7 +48,7 @@ export default function UserProfileScreen() {
             <>
                 <Stack.Screen
                     options={{
-                        title: `@${username}`,
+                        title: `@${normalizedUsername}`,
                         headerShown: true,
                         headerBackTitle: 'Atrás',
                         headerShadowVisible: false,
@@ -60,7 +69,7 @@ export default function UserProfileScreen() {
             <>
                 <Stack.Screen
                     options={{
-                        title: `@${username}`,
+                        title: `@${normalizedUsername}`,
                         headerShown: true,
                         headerBackTitle: 'Atrás',
                         headerShadowVisible: false,
@@ -73,7 +82,7 @@ export default function UserProfileScreen() {
                     <Ionicons name="person-circle-outline" size={80} color="#999999" />
                     <Title2Semibold className="mt-4">Usuario no encontrado</Title2Semibold>
                     <TextRegular className="text-neutral-gray mt-2 text-center">
-                        El usuario @{username} no existe o fue eliminado
+                        El usuario @{normalizedUsername} no existe o fue eliminado
                     </TextRegular>
                     <CustomButton
                         title="Volver"
@@ -91,7 +100,7 @@ export default function UserProfileScreen() {
         <>
             <Stack.Screen
                 options={{
-                    title: `@${username}`,
+                    title: `@${normalizedUsername}`,
                     headerShown: true,
                     headerBackTitle: 'Atrás',
                     headerShadowVisible: false,

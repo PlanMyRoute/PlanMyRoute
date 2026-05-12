@@ -95,6 +95,13 @@ export const createTrip = async (tripData: Trip) => {
  * - Crea la ruta inicial que une origen y destino
  * - Retorna el itinerario completo del viaje
  */
+type MandatoryStop = {
+    name: string;
+    address: string;
+    coordinates: { lat: number; lng: number };
+    expectedArrivalDate: string | null;
+};
+
 export const createTripWithRelations = async (
     userId: string,
     vehicleIds: string[],
@@ -103,32 +110,65 @@ export const createTripWithRelations = async (
     destination: string
 ) => {
     try {
-        // 1. Obtener imagen de portada
-        const imageUrl = await getCoverImageUrl(destination);
+        // 1. Limpiar tripData — extraer campos que no pertenecen a la tabla trip
+        const {
+            origin: _,
+            destination: __,
+            vehicleIds: ___,
+            travelStyle: ____,
+            mandatoryStops,
+            ...cleanTripData
+        } = tripData as any & { mandatoryStops?: MandatoryStop[] };
+        cleanTripData.cover_image_url = GENERIC_IMAGE_URL;
 
-        // 2. Limpiar tripData: eliminar campos que no pertenecen a la tabla trip
-        const { origin: _, destination: __, vehicleIds: ___, travelStyle: ____, ...cleanTripData } = tripData;
-        cleanTripData.cover_image_url = imageUrl;
-
-        // 3. Crear el viaje
+        // 2. Crear el viaje inmediatamente (sin esperar a Unsplash)
         const newTrip = await createTrip(cleanTripData);
 
-        // 4. Crear la relación usuario-viaje (owner)
-        await createUserTripRelation(userId, newTrip.id!, 'owner');
+        // 3. Disparar la búsqueda de imagen en background — no bloquea la respuesta
+        fetchAndUpdateCoverImage(newTrip.id!, destination);
 
-        // 5. Crear relaciones vehículo-viaje si se proporcionan vehicleIds
-        if (vehicleIds && Array.isArray(vehicleIds)) {
-            for (const vehicleId of vehicleIds) {
-                await createVehicleTripRelation(vehicleId, newTrip.id!);
-            }
+        // 4. Crear relación owner + relaciones vehículo en paralelo
+        const vehiclePromises = vehicleIds?.length
+            ? vehicleIds.map(id => createVehicleTripRelation(id, newTrip.id!))
+            : [];
+        await Promise.all([
+            createUserTripRelation(userId, newTrip.id!, 'owner'),
+            ...vehiclePromises,
+        ]);
+
+        // 5. Crear paradas de origen y destino en paralelo
+        const [originStop, destinationStop] = await Promise.all([
+            ItineraryService.createStopOrigin(origin, newTrip),
+            ItineraryService.createStopDestination(destination, newTrip),
+        ]);
+
+        // 6. Crear rutas (con o sin paradas obligatorias intermedias)
+        const hasMandatoryStops = mandatoryStops && Array.isArray(mandatoryStops) && mandatoryStops.length > 0;
+
+        if (hasMandatoryStops) {
+            // Crear paradas obligatorias en paralelo
+            const intermediateStops = await Promise.all(
+                mandatoryStops!.map((stop: MandatoryStop) =>
+                    ItineraryService.createMandatoryStop(stop, newTrip.id!)
+                )
+            );
+
+            // Crear segmentos de ruta: origen → parada1 → parada2 → … → destino
+            const allStops = [originStop, ...intermediateStops, destinationStop];
+            await Promise.all(
+                allStops.slice(0, -1).map((stop, i) =>
+                    ItineraryService.createRouteBetweenStops(stop, allStops[i + 1], newTrip.id!)
+                )
+            );
+        } else {
+            // Ruta directa origen → destino
+            await ItineraryService.createInitialRoute(originStop, destinationStop, newTrip);
         }
 
-        // 6. Crear paradas de origen y destino
-        const originStop = await ItineraryService.createStopOrigin(origin, newTrip);
-        const destinationStop = await ItineraryService.createStopDestination(destination, newTrip);
-
-        // 7. Crear la ruta inicial
-        await ItineraryService.createInitialRoute(originStop, destinationStop, newTrip);
+        // 7. Si el viaje es circular, añadir tramo de vuelta destino → origen
+        if (cleanTripData.circular) {
+            await ItineraryService.createRouteBetweenStops(destinationStop, originStop, newTrip.id!);
+        }
 
         // 8. Obtener y retornar el itinerario completo
         return await ItineraryService.getTripItinerary(newTrip.id!);
@@ -427,54 +467,70 @@ export const removeVehicleFromTrip = async (vehicleId: string, tripId: number) =
 
 // =============== HELPER FUNCTIONS ===============
 
+const GENERIC_IMAGE_URL = 'https://images.unsplash.com/photo-1488646953014-85cb44e25828?w=800';
+
+// In-memory cache: destination name → Unsplash URL (lives as long as the server process)
+const imageCache = new Map<string, string>();
+
 /**
  * Llama a la API de Unsplash para obtener una URL de imagen basada en el destino.
- * Devuelve una URL de Unsplash o una genérica si falla.
+ * Usa una caché en memoria para evitar llamadas repetidas al mismo destino.
+ * Devuelve la URL genérica si no hay API key, no hay destino o la llamada falla.
  */
 async function getCoverImageUrl(destinationName?: string): Promise<string> {
-    const GENERIC_IMAGE_URL = 'https://images.unsplash.com/photo-1488646953014-85cb44e25828?w=800';
     const UNSPLASH_KEY = process.env.UNSPLASH_ACCESS_KEY;
 
-    // Si no hay API key o no hay destino, devolvemos la genérica
     if (!UNSPLASH_KEY || !destinationName || destinationName.trim().length === 0) {
         return GENERIC_IMAGE_URL;
     }
 
-    // Limpiamos la consulta (ej. "Valencia" de "Valencia, España")
-    const query = encodeURIComponent(destinationName.split(',')[0].trim());
+    const cacheKey = destinationName.split(',')[0].trim().toLowerCase();
+    if (!cacheKey) return GENERIC_IMAGE_URL;
 
-    if (!query) {
-        return GENERIC_IMAGE_URL;
-    }
+    // Return cached URL if available
+    const cached = imageCache.get(cacheKey);
+    if (cached) return cached;
 
-    // Usamos palabras clave para asegurar que sea una foto de un lugar
+    const query = encodeURIComponent(cacheKey);
     const fullQuery = `${query},city,travel`;
     const API_URL = `https://api.unsplash.com/search/photos?query=${fullQuery}&per_page=1&orientation=landscape&client_id=${UNSPLASH_KEY}`;
 
     try {
-        // Hacemos la llamada a la API de Unsplash
         const response = await fetch(API_URL);
 
         if (!response.ok) {
-            // Si Unsplash falla (límite de API, etc.), devolvemos la genérica
             console.error('Error fetching from Unsplash:', response.statusText);
             return GENERIC_IMAGE_URL;
         }
 
         const data = await response.json();
 
-        // Si hay resultados, tomamos la URL de la primera foto
         if (data.results && data.results.length > 0) {
-            // Usamos 'regular' para un buen balance de tamaño
-            return data.results[0].urls.regular;
-        } else {
-            // Si no hay fotos para esa búsqueda, devolvemos la genérica
-            return GENERIC_IMAGE_URL;
+            const url: string = data.results[0].urls.regular;
+            imageCache.set(cacheKey, url);
+            return url;
         }
+        return GENERIC_IMAGE_URL;
     } catch (error) {
         console.error('Error fatal en getCoverImageUrl:', error);
         return GENERIC_IMAGE_URL;
     }
+}
+
+/**
+ * Fire-and-forget: obtiene la imagen de portada del destino y actualiza el viaje en background.
+ * No bloquea la respuesta al cliente.
+ */
+function fetchAndUpdateCoverImage(tripId: number, destination: string): void {
+    getCoverImageUrl(destination)
+        .then(async (imageUrl) => {
+            if (imageUrl !== GENERIC_IMAGE_URL) {
+                await supabase.from('trip').update({ cover_image_url: imageUrl }).eq('id', tripId);
+            }
+        })
+        .catch(() => {
+            // Best-effort — silently ignore errors in background job
+        });
 }
 
 // ============================================================================
