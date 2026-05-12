@@ -21,14 +21,14 @@ export const getMessages = async (eventId: string, page = 0) => {
     const userIds = [...new Set(messages.map((m: any) => m.user_id))];
     const { data: users } = await supabase
         .from('user')
-        .select('id, username, profile_picture')
+        .select('id, username, img')
         .in('id', userIds);
 
     const usersMap = new Map((users || []).map((u: any) => [u.id, u]));
 
     return messages.map((m: any) => ({
         ...m,
-        user: usersMap.get(m.user_id) || { id: m.user_id, username: 'Usuario', profile_picture: null },
+        user: usersMap.get(m.user_id) || { id: m.user_id, username: 'Usuario', img: null },
     }));
 };
 

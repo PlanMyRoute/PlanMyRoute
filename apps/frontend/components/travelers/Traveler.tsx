@@ -14,7 +14,6 @@ type TravelerProps = {
 };
 
 const Traveler = ({ user, role, canChangeRole = false, onChangeRole, canKick = false, onKick }: TravelerProps) => {
-    const DEFAULT_PROFILE_PIC = 'https://randomuser.me/api/portraits/men/1.jpg';
     const [showRoleModal, setShowRoleModal] = useState(false);
     const [pendingRole, setPendingRole] = useState<'owner' | 'editor' | 'viewer' | null>(null);
 
@@ -73,7 +72,10 @@ const Traveler = ({ user, role, canChangeRole = false, onChangeRole, canKick = f
             <View className="flex-row items-center justify-between p-4 bg-white rounded-2xl border border-neutral-gray/20">
                 <View className="flex-row items-center gap-3 flex-1">
                     <Image
-                        source={{ uri: user.img || DEFAULT_PROFILE_PIC }}
+                        source={{
+                            uri: user.img ||
+                                `https://ui-avatars.com/api/?name=${encodeURIComponent(user.username || user.name || 'U')}&background=FFD54D&color=202020&size=100`
+                        }}
                         className="w-14 h-14 rounded-full border-2 border-primary-yellow"
                     />
                     <View className="flex-1">

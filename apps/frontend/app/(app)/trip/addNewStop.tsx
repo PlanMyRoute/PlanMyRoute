@@ -754,7 +754,7 @@ export default function AddNewStopScreen() {
             // Determinar si necesita geocodificar
             // Solo si: 1. Creando nueva parada O 2. Dirección cambió al editar
             const addressChanged = isEditing && formData.stopData.address !== originalAddress;
-            const needsGeocoding = !isEditing || addressChanged;
+            const needsGeocoding = !formData.stopData.coordinates;
 
             // Geocodificar si es necesario
             if (needsGeocoding && formData.stopData.address) {

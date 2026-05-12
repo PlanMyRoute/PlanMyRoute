@@ -1,4 +1,4 @@
-import { apiFetch } from '@/lib/apiClient';
+import { apiFetch } from '@/constants/api';
 
 export interface EventVenue {
     name: string | null;
@@ -41,7 +41,7 @@ export interface EventsPage {
 export interface ChatUser {
     id: string;
     username: string;
-    profile_picture: string | null;
+    img: string | null;
 }
 
 export interface ChatMessage {

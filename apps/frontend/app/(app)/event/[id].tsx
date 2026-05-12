@@ -46,7 +46,7 @@ function timeAgo(dateStr: string) {
 }
 
 function ChatBubble({ msg, isOwn }: { msg: ChatMessage; isOwn: boolean }) {
-    const avatar = msg.user?.profile_picture;
+    const avatar = msg.user?.img;
     const username = msg.user?.username || 'Usuario';
 
     return (
@@ -155,7 +155,7 @@ export default function EventDetailScreen() {
             user_id: user?.id || '',
             message: msg,
             created_at: new Date().toISOString(),
-            user: { id: user?.id || '', username: 'Tú', profile_picture: null },
+            user: { id: user?.id || '', username: 'Tú', img: null },
         };
         setMessages((prev) => [...prev, optimistic]);
         setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100);
