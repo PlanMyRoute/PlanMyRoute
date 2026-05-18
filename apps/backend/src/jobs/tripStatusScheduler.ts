@@ -1,11 +1,14 @@
 // src/jobs/tripStatusScheduler.ts
 import cron from 'node-cron';
+import { cleanupAnonymousUsers } from './guestCleanup.js';
 import { runAllChecks } from './tripStatusChecker.js';
 
 //Varible que indica cada cuanto se ejecuta la tarea
 const TASK_INTERVAL = '*/30 * * * *'; // Cada 30 minutos
+const GUEST_CLEANUP_INTERVAL = '0 3 * * *'; // Cada día a las 03:00 UTC
 const ENABLE_SCHEDULER = process.env.ENABLE_TRIP_STATUS_SCHEDULER !== 'false';
 const ENABLE_INITIAL_CHECK = process.env.ENABLE_TRIP_STATUS_INITIAL_CHECK !== 'false';
+const ENABLE_GUEST_CLEANUP = process.env.ENABLE_GUEST_CLEANUP !== 'false';
 
 // Variable para almacenar las tareas programadas
 let scheduledTasks: cron.ScheduledTask[] = [];
@@ -42,6 +45,26 @@ export const initScheduler = (): void => {
 
     scheduledTasks.push(tripStatusCheckTask);
     console.log('✅ [TripStatusScheduler] Tarea programada: Verificación de estados (cada 30 minutos)');
+
+    // ============================================================================
+    // TAREA 2: Limpieza de cuentas de invitado (diaria, 03:00 UTC)
+    // ============================================================================
+    if (ENABLE_GUEST_CLEANUP) {
+        const guestCleanupTask = cron.schedule(
+            GUEST_CLEANUP_INTERVAL,
+            async () => {
+                try {
+                    await cleanupAnonymousUsers();
+                } catch (error) {
+                    console.error('❌ [TripStatusScheduler] Error en limpieza de invitados:', error);
+                }
+            },
+            { timezone: 'UTC' }
+        );
+
+        scheduledTasks.push(guestCleanupTask);
+        console.log('✅ [TripStatusScheduler] Tarea programada: Limpieza de invitados (diaria 03:00 UTC)');
+    }
 
     // ============================================================================
     // VERIFICACIÓN INICIAL AL ARRANCAR EL SERVIDOR

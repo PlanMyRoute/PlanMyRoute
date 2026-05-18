@@ -5,21 +5,37 @@ import { MicrotextDark, SubtitleSemibold, TextRegular, Title1, Title2 } from '@/
 import { ROUTES } from '@/constants/routes';
 import { useAuth } from '@/context/AuthContext';
 import { useDraftBanner } from '@/hooks/trip/useWizardDraft';
+import { useNeedsProfileCompletion } from '@/hooks/users/useNeedsProfileCompletion';
 import { useUserUsage } from '@/hooks/users/useUserUsage';
 import { useTrips } from '@/hooks/useTrips';
 import '@/index.css';
 import { Ionicons } from '@expo/vector-icons';
 import { Trip } from '@planmyroute/types';
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
-import { ScrollView, TouchableOpacity, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { ActivityIndicator, ScrollView, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function CreateTripTabScreen() {
     const router = useRouter();
     const { user } = useAuth();
+    const { needsCompletion, isLoading: profileLoading } = useNeedsProfileCompletion();
     const { data: userUsage } = useUserUsage();
     const { draft, hasDraft, checked, discard } = useDraftBanner(user?.id);
+
+    useEffect(() => {
+        if (needsCompletion) {
+            router.replace(ROUTES.completeProfile);
+        }
+    }, [needsCompletion, router]);
+
+    if (profileLoading || needsCompletion) {
+        return (
+            <View className="flex-1 bg-white items-center justify-center">
+                <ActivityIndicator size="large" color="#FFD54D" />
+            </View>
+        );
+    }
 
     // Fetch user trips for plantillas rápidas (reuses React Query cache)
     const { data: tripsData } = useTrips();

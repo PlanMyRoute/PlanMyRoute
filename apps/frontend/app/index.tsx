@@ -33,6 +33,6 @@ export default function Index() {
     if (Platform.OS === 'web') {
         return <Redirect href={ROUTES.welcome} />;
     } else {
-        return <Redirect href={ROUTES.authLogin} />;
+        return <Redirect href={ROUTES.login} />;
     }
 }

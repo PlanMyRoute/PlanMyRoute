@@ -8,6 +8,8 @@ export const ROUTES = {
   login: '/login' as Href,
   register: '/register' as Href,
   verifyEmail: (email: string) => `/verify-email?email=${encodeURIComponent(email)}` as Href,
+  forgotPassword: '/forgot-password' as Href,
+  resetPassword: '/reset-password' as Href,
 
   // Tabs
   tabsHome: '/(app)/(tabs)/' as Href,
@@ -18,6 +20,7 @@ export const ROUTES = {
 
   // App screens
   completeProfile: '/complete-profile' as Href,
+  upgradeAccount: '/upgrade-account' as Href,
   notifications: '/notifications' as Href,
   premium: '/premium' as Href,
   editProfile: '/profile/EditProfile' as Href,

@@ -56,9 +56,6 @@ export default function AuthCallbackScreen() {
         // Verificar si necesita completar perfil
         if (!userProfile || !userProfile.username || userProfile.username === '') {
           console.log('🚩 [Callback] Usuario necesita completar perfil');
-          if (typeof window !== 'undefined') {
-            window.localStorage.setItem('needsCompleteProfile', 'true');
-          }
           setStatus('Completando perfil...');
           await new Promise(resolve => setTimeout(resolve, 500));
           router.replace(ROUTES.completeProfile);

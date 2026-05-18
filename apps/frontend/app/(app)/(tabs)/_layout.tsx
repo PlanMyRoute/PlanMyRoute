@@ -7,6 +7,7 @@ import { ROUTES } from '@/constants/routes';
 import { useAuth } from '@/context/AuthContext';
 import { useSubscription } from '@/context/SubscriptionContext';
 import useNotifications from '@/hooks/useNotifications';
+import { useNeedsProfileCompletion } from '@/hooks/users/useNeedsProfileCompletion';
 import { useProfile } from '@/hooks/users/useUsers';
 import { Ionicons } from '@expo/vector-icons';
 import { Tabs, useRouter } from 'expo-router';
@@ -26,6 +27,7 @@ export default function TabLayout() {
 
   const { data: profile } = useProfile(userId, undefined);
   const { data: notifications } = useNotifications(userId, { enabled: Boolean(userId) });
+  const { needsCompletion: needsProfileCompletion } = useNeedsProfileCompletion();
 
   const pendingCount = notifications?.filter(n => n.action_status === 'pending').length || 0;
 
@@ -247,7 +249,14 @@ export default function TabLayout() {
                 <SettingsIcon width={24} height={24} />
               </TouchableOpacity>
             ),
-            tabBarIcon: ({ color }) => <TabProfileIcon stroke={color} />,
+            tabBarIcon: ({ color }) => (
+              <View>
+                <TabProfileIcon stroke={color} />
+                {needsProfileCompletion && (
+                  <View className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-red-500 rounded-full border-2 border-white" />
+                )}
+              </View>
+            ),
             tabBarLabel: profile?.user.username || 'Perfil',
           }}
         />
