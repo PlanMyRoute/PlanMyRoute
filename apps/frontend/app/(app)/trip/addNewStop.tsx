@@ -402,7 +402,7 @@ export default function AddNewStopScreen() {
             if (!validation.valid) { Alert.alert('Restricción de orden', validation.message || 'No se puede guardar esta parada'); return; }
             let coordinates = formData.stopData.coordinates;
             const addressChanged = isEditing && formData.stopData.address !== originalAddress;
-            const needsGeocoding = !isEditing || addressChanged;
+            const needsGeocoding = !formData.stopData.coordinates;
             if (needsGeocoding && formData.stopData.address) {
                 const newCoordinates = await geocodeStop(formData.stopData.address);
                 if (newCoordinates) { coordinates = newCoordinates; }

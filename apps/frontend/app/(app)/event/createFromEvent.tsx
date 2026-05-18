@@ -95,6 +95,7 @@ export default function CreateFromEventScreen() {
                 destination: destinationLabel,
                 vehicleIds: [],
                 travelStyle: 'balanced',
+                type: ['leisure'],
             };
 
             const response = await TripService.createTrip(payload, user.id, false, token || undefined);

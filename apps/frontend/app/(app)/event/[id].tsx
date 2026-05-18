@@ -8,6 +8,7 @@ import { useEffect, useRef, useState } from 'react';
 import {
     ActivityIndicator,
     FlatList,
+    Linking,
     Image,
     KeyboardAvoidingView,
     Platform,
@@ -46,7 +47,7 @@ function timeAgo(dateStr: string) {
 }
 
 function ChatBubble({ msg, isOwn }: { msg: ChatMessage; isOwn: boolean }) {
-    const avatar = msg.user?.profile_picture;
+    const avatar = msg.user?.img;
     const username = msg.user?.username || 'Usuario';
 
     return (
@@ -155,15 +156,18 @@ export default function EventDetailScreen() {
             user_id: user?.id || '',
             message: msg,
             created_at: new Date().toISOString(),
-            user: { id: user?.id || '', username: 'Tú', profile_picture: null },
+            user: { id: user?.id || '', username: 'Tú', img: null },
         };
         setMessages((prev) => [...prev, optimistic]);
         setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100);
 
         try {
-            await EventService.sendChatMessage(id, msg, { token });
+            const realMsg = await EventService.sendChatMessage(id, msg, { token });
+            // Replace optimistic with real DB message (preserves user info; real id enables dedup in realtime handler)
+            setMessages((prev) =>
+                prev.map((m) => (m.id === optimistic.id ? { ...realMsg, user: optimistic.user } : m)),
+            );
         } catch {
-            // Revertir si falla
             setMessages((prev) => prev.filter((m) => m.id !== optimistic.id));
             setText(msg);
         } finally {
@@ -318,7 +322,7 @@ export default function EventDetailScreen() {
                         {event.url && (
                             <TouchableOpacity
                                 className="ml-auto bg-dark-black px-3 py-1.5 rounded-full"
-                                onPress={() => {}}
+                                onPress={() => Linking.openURL(event.url!)}
                             >
                                 <Text className="text-primary-yellow text-xs font-bold">Comprar entradas</Text>
                             </TouchableOpacity>

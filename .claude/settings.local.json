@@ -1,6 +1,8 @@
 {
   "permissions": {
     "allow": [
+      "Bash(Get-ChildItem -Path \"c:\\\\Users\\\\jotas\\\\Desktop\\\\Proyectos Programación\\\\PlanMyRoute\" -Directory)",
+      "Bash(Select-Object Name)",
       "Bash(git fetch *)",
       "Bash(git stash *)",
       "Bash(git pull *)",
