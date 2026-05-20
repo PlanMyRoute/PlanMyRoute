@@ -168,7 +168,38 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       throw error;
     }
 
-    console.log('✅ Email verificado correctamente:', data);
+    console.log('✅ Email verificado correctamente');
+
+    // Reserva la fila en public.user inmediatamente para evitar 404s en cascada.
+    // Usamos el username del user_metadata (capturado en el registro) y dejamos
+    // name/lastname vacíos para que el wizard los pida después.
+    const verifiedUser = data.user;
+    const accessToken = data.session?.access_token;
+    if (verifiedUser && accessToken) {
+      const username = (verifiedUser.user_metadata?.user_name as string | undefined) || '';
+      try {
+        const existing = await UserService.getUserProfile(verifiedUser.id, { token: accessToken }).catch(() => null);
+        if (!existing) {
+          await UserService.createUser(
+            {
+              id: verifiedUser.id,
+              email: verifiedUser.email!,
+              username,
+              name: '',
+              lastname: '',
+              img: null,
+              timezone: 'UTC',
+              auto_trip_status_update: false,
+            } as any,
+            accessToken
+          );
+        }
+      } catch (e) {
+        // No bloqueamos el login si la creación falla — el badge guiará al wizard.
+        console.warn('No se pudo pre-crear la fila en public.user:', e);
+      }
+    }
+
     return data;
   };
 

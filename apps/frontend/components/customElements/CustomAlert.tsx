@@ -51,20 +51,20 @@ export default function CustomAlert({
   const alertConfig = {
     error: {
       iconName: 'close-circle' as keyof typeof Ionicons.glyphMap,
-      iconColor: '#EF4444'
+      iconColor: '#EF4444',
     },
     warning: {
       iconName: 'warning' as keyof typeof Ionicons.glyphMap,
-      iconColor: '#F59E0B'
+      iconColor: '#FFD54D',
     },
     success: {
       iconName: 'checkmark-circle' as keyof typeof Ionicons.glyphMap,
-      iconColor: '#10B981'
+      iconColor: '#202020',
     },
     info: {
       iconName: 'information-circle' as keyof typeof Ionicons.glyphMap,
-      iconColor: '#3B82F6'
-    }
+      iconColor: '#FFD54D',
+    },
   };
 
   const config = alertConfig[type];

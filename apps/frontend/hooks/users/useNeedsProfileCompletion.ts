@@ -2,12 +2,11 @@ import { useAuth } from '@/context/AuthContext';
 import { useProfile } from './useUsers';
 
 /**
- * Determina si el usuario autenticado necesita completar su perfil:
- * — No existe fila en public.user (la API devuelve error 404).
- * — La fila existe pero el username está vacío.
+ * Determina si el usuario autenticado necesita completar su perfil.
+ * La fila en public.user se crea tras verificar el OTP, con username pero sin
+ * name/lastname. Consideramos el perfil incompleto si `name` está vacío.
  *
- * Devuelve `false` para invitados (ya tienen username generado) y mientras se carga
- * la consulta, para evitar parpadeos en la UI.
+ * Devuelve `false` para invitados (ya tienen perfil generado) y mientras carga.
  */
 export function useNeedsProfileCompletion(): {
   needsCompletion: boolean;
@@ -25,9 +24,9 @@ export function useNeedsProfileCompletion(): {
     return { needsCompletion: false, isLoading: true };
   }
   if (error) {
-    // El backend devuelve 404 cuando no existe la fila en public.user.
+    // Fallback: si por alguna razón no existe la fila, lo marcamos como incompleto.
     return { needsCompletion: true, isLoading: false };
   }
-  const username = data?.user?.username;
-  return { needsCompletion: !username || username === '', isLoading: false };
+  const name = data?.user?.name;
+  return { needsCompletion: !name || name.trim() === '', isLoading: false };
 }
