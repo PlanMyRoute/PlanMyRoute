@@ -66,6 +66,7 @@ export type Accommodation = {
     reservation_code: string | null;
     contact: string | null;
     nights: number | null;
+    price_per_night: number | null;
 };
 
 export type Activity = {

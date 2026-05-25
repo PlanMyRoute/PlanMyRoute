@@ -8,6 +8,7 @@ import { GeocodingService, ItineraryService } from '../services/itineraryService
 type UseItineraryOptions = {
     token?: string;
     enabled?: boolean;
+    refetchInterval?: number | false;
 };
 
 type UseItineraryResult = {
@@ -93,8 +94,9 @@ export function useStops(
         queryKey: ['stops', tripId],
         queryFn: () => ItineraryService.getStopsByTripId(tripId as string, { token: finalToken || undefined }),
         enabled,
-        staleTime: 0, // Los datos se consideran stale inmediatamente
-        gcTime: 5 * 60 * 1000, // Mantén en caché 5 minutos
+        staleTime: 0,
+        gcTime: 5 * 60 * 1000,
+        refetchInterval: options?.refetchInterval ?? false,
     });
 
     return {

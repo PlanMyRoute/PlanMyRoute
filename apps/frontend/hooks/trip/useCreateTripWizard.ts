@@ -140,8 +140,6 @@ export function useCreateTripWizard({
     const [buttonCoords, setButtonCoords] = useState<{
         x: number; y: number; width: number; height: number;
     } | null>(null);
-    const [tripCreated, setTripCreated] = useState(false);
-    const [createdTripId, setCreatedTripId] = useState<number | null>(null);
 
     // ---- Travelers display list (for Travelers component) ----
     const travelersList = useMemo((): TravelerWithRole[] => {
@@ -480,13 +478,28 @@ export function useCreateTripWizard({
 
         setShowAiLoader(true);
 
+        const combineDateAndTime = (date: Date, time: Date | null): string => {
+            const pad = (n: number) => String(n).padStart(2, '0');
+            const h = time ? time.getHours() : 0;
+            const m = time ? time.getMinutes() : 0;
+            return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(h)}:${pad(m)}:00`;
+        };
+
+        const formatTime = (time: Date | null, fallback: string): string => {
+            if (!time) return fallback;
+            const pad = (n: number) => String(n).padStart(2, '0');
+            return `${pad(time.getHours())}:${pad(time.getMinutes())}`;
+        };
+
         try {
             const tripId = await doCreateTrip({
                 payload: {
                     name: tripName.trim(),
                     description: `Viaje de ${basics.origin.trim()} a ${basics.destination.trim()}`,
-                    start_date: basics.startDate ? basics.startDate.toISOString() : null,
-                    end_date: basics.endDate ? basics.endDate.toISOString() : null,
+                    start_date: basics.startDate ? combineDateAndTime(basics.startDate, basics.startTime) : null,
+                    end_date: basics.endDate ? combineDateAndTime(basics.endDate, basics.endTime) : null,
+                    start_time: formatTime(basics.startTime, '09:00'),
+                    end_time: formatTime(basics.endTime, '18:00'),
                     circular: basics.roundTrip,
                     n_adults: travelers.travelerCounts.adults,
                     n_children: travelers.travelerCounts.children,
@@ -514,11 +527,15 @@ export function useCreateTripWizard({
                 invitedUsers: travelers.invitedUsers,
                 tripName: tripName.trim(),
             });
-            setTripCreated(true);
-            setCreatedTripId(tripId ?? null);
+            // Navegar inmediatamente — el viaje base ya está creado,
+            // las paradas IA se generan en background con skeleton loading
+            setShowAiLoader(false);
+            if (tripId) {
+                router.replace(ROUTES.trip(tripId));
+                reset();
+            }
         } catch (error: any) {
             setShowAiLoader(false);
-            setTripCreated(false);
             if (error?.requiresPremium || error?.status === 403) {
                 showValidationAlert({
                     title: '🔒 Límite alcanzado',
@@ -544,13 +561,6 @@ export function useCreateTripWizard({
         }
     };
 
-    const navigateToTrip = () => {
-        if (!createdTripId) return;
-        setShowAiLoader(false);
-        router.replace(ROUTES.trip(createdTripId));
-        reset();
-    };
-
     // ---- Reset ----
     const reset = () => {
         // Clear saved draft so the banner disappears
@@ -569,8 +579,6 @@ export function useCreateTripWizard({
         setValidationResult(null);
         setShowAiLoader(false);
         setButtonCoords(null);
-        setTripCreated(false);
-        setCreatedTripId(null);
     };
 
     return {
@@ -616,10 +624,7 @@ export function useCreateTripWizard({
         // AI Loader
         showAiLoader,
         buttonCoords, setButtonCoords,
-        tripCreated,
-        createdTripId,
         startTrip,
-        navigateToTrip,
 
         // Validation & alerts
         validationResult,

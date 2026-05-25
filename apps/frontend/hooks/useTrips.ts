@@ -17,7 +17,7 @@ type UseTripsResult = {
 
 export function useTrips(
   tripId?: string | null,
-  options?: { token?: string; enabled?: boolean }
+  options?: { token?: string; enabled?: boolean; refetchInterval?: number | false }
 ): UseTripsResult {
   const { user, token } = useAuth();
   const enabled = options?.enabled !== false;
@@ -49,6 +49,7 @@ export function useTrips(
     enabled: enabled && Boolean(tripId),
     staleTime: TRIP_STALE_TIME,
     retry: (failureCount, error) => failureCount < 2 && !error.message.includes('Usuario no autenticado'),
+    refetchInterval: options?.refetchInterval ?? false,
   });
 
   const data = tripId ? (queryTrip.data ?? null) : (queryTrips.data ?? null);

@@ -124,9 +124,107 @@ export function validateTripBasic(params: {
     };
 }
 
+function parseEntryPrice(raw: any): number | null {
+    if (raw === undefined || raw === null) return null;
+    if (typeof raw === 'number') return raw;
+    if (typeof raw === 'string') {
+        const m = raw.match(/\d+/);
+        if (m) return parseInt(m[0]);
+        if (raw.toLowerCase().includes('gratis')) return 0;
+    }
+    return null;
+}
+
+function parseDurationMinutes(stop: any): number | null {
+    if (stop.estimated_duration_minutes !== undefined && stop.estimated_duration_minutes !== null) {
+        if (typeof stop.estimated_duration_minutes === 'number') return Math.round(stop.estimated_duration_minutes);
+        const n = parseFloat(stop.estimated_duration_minutes);
+        if (!isNaN(n)) return Math.round(n);
+    }
+    if (stop.estimated_duration !== undefined) {
+        const n = typeof stop.estimated_duration === 'number'
+            ? stop.estimated_duration
+            : parseFloat(stop.estimated_duration);
+        if (!isNaN(n)) return Math.round(n * 60);
+    }
+    return null;
+}
+
+/**
+ * Crea las paradas de un día concreto para un viaje.
+ * Creación secuencial (no paralela) para evitar race conditions en posiciones.
+ */
+export async function createStopsForDay(itineraryAI: any, tripId: number, day: number): Promise<void> {
+    const accommodationStops = (itineraryAI.accomodationstop || []).filter((s: any) => s.day === day);
+    const activityStops = (itineraryAI.activitystop || []).filter((s: any) => s.day === day);
+
+    for (const stop of accommodationStops) {
+        try {
+            const stopData: any = {
+                name: stop.name,
+                address: stop.address,
+                description: stop.description,
+                type: 'intermedia' as const,
+                day: stop.day,
+                estimated_arrival: stop.estimated_arrival || null,
+            };
+            const accommodationData = {
+                nights: stop.nights,
+                price_per_night: stop.price_per_night ?? null,
+                url: stop.url,
+                contact: stop.contact,
+            };
+            await ItineraryService.createAccommodationStop(stopData, accommodationData, tripId);
+            console.log(`✓ Alojamiento día ${day}: ${stop.name}`);
+        } catch (err) {
+            console.error(`Error alojamiento día ${day} "${stop.name}":`, err);
+        }
+    }
+
+    for (const stop of activityStops) {
+        try {
+            const stopData: any = {
+                name: stop.name,
+                address: stop.address,
+                description: stop.description,
+                type: 'intermedia' as const,
+                day: stop.day,
+                estimated_arrival: stop.estimated_arrival || null,
+            };
+            const activityData = {
+                category: stop.category,
+                entry_price: parseEntryPrice(stop.entry_price),
+                booking_required: stop.booking_required,
+                estimated_duration_minutes: parseDurationMinutes(stop),
+                url: stop.url,
+            };
+            await ItineraryService.createActivityStop(stopData, activityData, tripId);
+            console.log(`✓ Actividad día ${day}: ${stop.name}`);
+        } catch (err) {
+            console.error(`Error actividad día ${day} "${stop.name}":`, err);
+        }
+    }
+}
+
+/** Devuelve todos los días únicos presentes en la respuesta de la IA, ordenados. */
+export function getUniqueDaysFromAI(itineraryAI: any): number[] {
+    const days = new Set<number>();
+    for (const s of (itineraryAI.accomodationstop || [])) if (s.day) days.add(s.day);
+    for (const s of (itineraryAI.activitystop || [])) if (s.day) days.add(s.day);
+    return Array.from(days).sort((a, b) => a - b);
+}
+
+/**
+ * Crea TODAS las paradas intermedias de la IA para un viaje (flujo legacy/síncrono).
+ */
+export async function createIntermediateStopsFromAI(itineraryAI: any, tripId: number): Promise<void> {
+    const days = getUniqueDaysFromAI(itineraryAI);
+    for (const day of days) {
+        await createStopsForDay(itineraryAI, tripId, day);
+    }
+}
+
 export async function createTripFromAI(itineraryAI: any, userId: string, originalPayload: any) {
-    // 1. Crear el viaje con los datos generados por la IA + los originales del usuario
-    // Solo incluir campos que existen en la tabla trip
     const tripPayload = {
         name: originalPayload.name,
         description: itineraryAI.description,
@@ -139,127 +237,19 @@ export async function createTripFromAI(itineraryAI: any, userId: string, origina
         n_pets: originalPayload.n_pets || 0,
         estimated_price_min: originalPayload.estimated_price_min || 0,
         estimated_price_max: originalPayload.estimated_price_max || 0,
-        type: originalPayload.type || [], // Array de intereses
+        type: originalPayload.type || [],
         status: 'planning' as const,
-        circular: originalPayload.circular || false
+        circular: originalPayload.circular || false,
     };
 
-    // 2. Crear el viaje con origen y destino
     const vehicleIds = originalPayload.vehicleIds || [];
     const tripWithItinerary = await TripService.createTripWithRelations(
-        userId,
-        vehicleIds,
-        tripPayload,
-        originalPayload.origin,
-        originalPayload.destination
+        userId, vehicleIds, tripPayload, originalPayload.origin, originalPayload.destination
     );
-
-    // 3. Crear las paradas intermedias — alojamiento y actividades en paralelo
     const tripId = tripWithItinerary.trip.id!;
 
-    const createAccommodationStops = async () => {
-        if (!itineraryAI.accomodationstop || !Array.isArray(itineraryAI.accomodationstop)) return;
-        console.log(`Creando ${itineraryAI.accomodationstop.length} paradas de alojamiento en paralelo...`);
+    await createIntermediateStopsFromAI(itineraryAI, tripId);
 
-        const results = await Promise.allSettled(
-            itineraryAI.accomodationstop.map(async (stop: any) => {
-                const stopData: any = {
-                    name: stop.name,
-                    address: stop.address,
-                    description: stop.description,
-                    type: 'intermedia' as const,
-                };
-                if (stop.day !== undefined) stopData.day = stop.day;
-                if (stop.estimated_arrival) stopData.estimated_arrival = stop.estimated_arrival;
-
-                const accommodationData = {
-                    nights: stop.nights,
-                    url: stop.url,
-                    contact: stop.contact,
-                };
-
-                await ItineraryService.createAccommodationStop(stopData, accommodationData, tripId);
-                console.log(`✓ Alojamiento: ${stop.name} (Día ${stop.day || '?'})`);
-            })
-        );
-
-        results.forEach((result, i) => {
-            if (result.status === 'rejected') {
-                console.error(`Error parada alojamiento "${itineraryAI.accomodationstop[i].name}":`, result.reason);
-            }
-        });
-    };
-
-    const createActivityStops = async () => {
-        if (!itineraryAI.activitystop || !Array.isArray(itineraryAI.activitystop)) return;
-        console.log(`Creando ${itineraryAI.activitystop.length} paradas de actividad en paralelo...`);
-
-        const results = await Promise.allSettled(
-            itineraryAI.activitystop.map(async (stop: any) => {
-                const stopData: any = {
-                    name: stop.name,
-                    address: stop.address,
-                    description: stop.description,
-                    type: 'intermedia' as const,
-                };
-                if (stop.day !== undefined) stopData.day = stop.day;
-                if (stop.estimated_arrival) stopData.estimated_arrival = stop.estimated_arrival;
-
-                // Procesar entry_price: convertir strings a números o null
-                let entry_price = null;
-                if (stop.entry_price !== undefined && stop.entry_price !== null) {
-                    if (typeof stop.entry_price === 'number') {
-                        entry_price = stop.entry_price;
-                    } else if (typeof stop.entry_price === 'string') {
-                        const match = stop.entry_price.match(/\d+/);
-                        if (match) {
-                            entry_price = parseInt(match[0]);
-                        } else if (stop.entry_price.toLowerCase().includes('gratis')) {
-                            entry_price = 0;
-                        }
-                    }
-                }
-
-                // Procesar estimated_duration_minutes: convertir a número entero
-                let duration_minutes = null;
-                if (stop.estimated_duration_minutes !== undefined && stop.estimated_duration_minutes !== null) {
-                    if (typeof stop.estimated_duration_minutes === 'number') {
-                        duration_minutes = Math.round(stop.estimated_duration_minutes);
-                    } else if (typeof stop.estimated_duration_minutes === 'string') {
-                        const num = parseFloat(stop.estimated_duration_minutes);
-                        if (!isNaN(num)) duration_minutes = Math.round(num);
-                    }
-                } else if (stop.estimated_duration !== undefined) {
-                    const num = typeof stop.estimated_duration === 'number'
-                        ? stop.estimated_duration
-                        : parseFloat(stop.estimated_duration);
-                    if (!isNaN(num)) duration_minutes = Math.round(num * 60);
-                }
-
-                const activityData = {
-                    category: stop.category,
-                    entry_price,
-                    booking_required: stop.booking_required,
-                    estimated_duration_minutes: duration_minutes,
-                    url: stop.url,
-                };
-
-                await ItineraryService.createActivityStop(stopData, activityData, tripId);
-                console.log(`✓ Actividad: ${stop.name} (Día ${stop.day || '?'})`);
-            })
-        );
-
-        results.forEach((result, i) => {
-            if (result.status === 'rejected') {
-                console.error(`Error parada actividad "${itineraryAI.activitystop[i].name}":`, result.reason);
-            }
-        });
-    };
-
-    // Crear alojamientos y actividades en paralelo entre sí
-    await Promise.all([createAccommodationStops(), createActivityStops()]);
-
-    // 4. Retornar el itinerario completo actualizado
     return await ItineraryService.getTripItinerary(tripId);
 }
 

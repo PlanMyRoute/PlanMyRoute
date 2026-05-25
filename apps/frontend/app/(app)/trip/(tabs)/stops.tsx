@@ -8,9 +8,11 @@ import { TripStatusBanner } from '@/components/trip/TripStatusBadge';
 import { ROUTES } from '@/constants/routes';
 import { useTripContext } from '@/context/TripContext';
 import { useDeleteStop, useStops } from '@/hooks/useItinerary';
+import useTrips from '@/hooks/useTrips';
 import { useTripPermissions } from '@/hooks/useTripPermissions';
 import { Ionicons } from '@expo/vector-icons';
 import { Stop } from '@planmyroute/types';
+import { useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ScrollView, TouchableOpacity, View } from 'react-native';
@@ -18,11 +20,30 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function StopsScreen() {
     const router = useRouter();
-    const { tripId, currentTrip, access } = useTripContext();
+    const queryClient = useQueryClient();
+    const { tripId, currentTrip, setCurrentTrip, access } = useTripContext();
     const insets = useSafeAreaInsets();
     const currentTripId = tripId as string;
 
-    const { stops, isLoading: stopsLoading } = useStops(currentTripId, { enabled: !!currentTripId });
+    const isGenerating = (currentTrip as any)?.generation_status === 'generating';
+
+    // Poll el trip cada 3s mientras se generan paradas, para detectar cuando termina
+    const { data: polledTrip } = useTrips(isGenerating ? currentTripId : null, {
+        enabled: isGenerating && !!currentTripId,
+        refetchInterval: 3000,
+    });
+    useEffect(() => {
+        if (polledTrip && (polledTrip as any).generation_status !== 'generating') {
+            setCurrentTrip(polledTrip as any);
+            // Forzar un último refetch de stops para mostrar todos los recién creados
+            queryClient.invalidateQueries({ queryKey: ['stops', currentTripId] });
+        }
+    }, [polledTrip, setCurrentTrip, queryClient, currentTripId]);
+
+    const { stops, isLoading: stopsLoading } = useStops(currentTripId, {
+        enabled: !!currentTripId,
+        refetchInterval: isGenerating ? 3000 : false,
+    });
     const deleteStopMutation = useDeleteStop(currentTripId);
     const { canAddStop, canEditStop } = useTripPermissions(currentTripId);
 
@@ -312,6 +333,36 @@ export default function StopsScreen() {
                             );
                         })
                     )}
+
+                    {/* Skeleton por días pendientes de generación */}
+                    {isGenerating && (() => {
+                        if (!currentTrip?.start_date || !currentTrip?.end_date) return null;
+                        const totalDays = Math.max(1, Math.round(
+                            (new Date(currentTrip.end_date).getTime() - new Date(currentTrip.start_date).getTime()) / 86400000
+                        ) + 1);
+                        const daysWithStops = new Set(localStops.map(s => (s as any).day || 1));
+                        const pendingDays = Array.from({ length: totalDays }, (_, i) => i + 1)
+                            .filter(d => !daysWithStops.has(d));
+                        if (pendingDays.length === 0) return null;
+                        return pendingDays.map(day => (
+                            <View key={`skeleton-day-${day}`} className="mt-4 mb-2">
+                                <View className="mb-4 mt-4">
+                                    <SkeletonBox height={18} width="25%" borderRadius={6} />
+                                    <SkeletonBox height={12} width="40%" borderRadius={6} style={{ marginTop: 4 }} />
+                                </View>
+                                {[1, 2].map(i => (
+                                    <View key={i} className="flex-row gap-3 mb-5">
+                                        <SkeletonBox width={32} height={32} borderRadius={16} />
+                                        <View className="flex-1 gap-2">
+                                            <SkeletonBox height={18} width="65%" borderRadius={6} />
+                                            <SkeletonBox height={13} width="45%" borderRadius={6} />
+                                        </View>
+                                        <SkeletonBox width={72} height={72} borderRadius={10} />
+                                    </View>
+                                ))}
+                            </View>
+                        ));
+                    })()}
                 </View>
             </ScrollView>
 

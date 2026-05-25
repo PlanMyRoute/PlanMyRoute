@@ -85,6 +85,23 @@ export function buildItineraryPrompt(tripInput: TripInput, userPreferences: User
    - 5+ días: 6-12 paradas (3-5 alojamientos, 3-7 actividades)
 7. Incluye al menos 1 parada de comida por día como actividad (category: "restaurante")
 8. El precio de las actividades deben ser realistas para el país
+9. **VARIEDAD DE PARADAS (OBLIGATORIO)**:
+   - Máximo 2 restaurantes por día
+   - No repitas la misma categoría en paradas consecutivas
+   - Mínimo 1 actividad cultural (museo, monumento, teatro, galería_de_arte, mirador) por viaje de 2+ días
+   - Mezcla actividades interiores y exteriores
+   - Explora: playa, senderismo, mercado_local, experiencia_local, parque_natural, zona_comercial cuando sea pertinente según los intereses
+
+10. **ALOJAMIENTO OBLIGATORIO (REGLA CRÍTICA)**:
+   - Para viajes de 2 o más días, SIEMPRE debes incluir paradas de alojamiento (accomodationstop)
+   - AGRUPA las noches por ciudad: si el viajero pasa varias noches en la misma ciudad, genera UN SOLO alojamiento con nights = número de noches en esa ciudad
+   - Ejemplo CORRECTO para 7 días en Lugo + 1 noche en cada ciudad de paso:
+     * 1 alojamiento en Burgos (nights=1, día de ida)
+     * 1 alojamiento en Lugo (nights=4, días 2-5)
+     * 1 alojamiento en León (nights=1, día de vuelta)
+   - Ejemplo INCORRECTO: 6 alojamientos distintos, uno por noche
+   - La mayoría de las noches deben pasarse en la ciudad destino principal
+   - Para un viaje de 1 día solo, no es necesario alojamiento
 
 ### FORMATO DE RESPUESTA (SOLO JSON, SIN MARKDOWN) (toma estos valores como ejemplo):
 DEFINICIÓN DE CAMPOS:
@@ -102,7 +119,7 @@ Array activitystop (Paradas de actividad y restauración):
     o	General: Resume la experiencia única del sitio.
 •	day: Número entero que representa el día del viaje (1, 2, 3...).
 •	estimated_arrival: Hora prevista de llegada en formato 24h (HH:MM).
-•	category: Etiqueta corta (ej: "restaurante", "museo", "parque", "monumento", "estadio").
+•	category: Etiqueta corta. Valores disponibles: "restaurante", "museo", "parque", "monumento", "estadio", "teatro", "concierto", "playa", "mirador", "senderismo", "mercado_local", "galería_de_arte", "spa", "experiencia_local", "parque_natural", "zona_comercial", "deportes". Elige la más específica y adecuada.
 •	entry_price: Valor numérico (0 si es gratuito).
 •	booking_required: Valor booleano. Debe ser True si el entry_price es mayor a 0 o si requiere algún tipo de ntrada. En caso contrario False.
 •	estimated_duration_minutes: Tiempo recomendado de estancia en minutos.
@@ -115,6 +132,7 @@ Array accomodationstop (Paradas de alojamiento):
 •	day: Día de llegada al alojamiento.
 •	estimated_arrival: Hora de check-in prevista.
 •	nights: Número total de noches que se pernoctará.
+•	price_per_night: Precio estimado por noche en euros (número). Ej: 60, 95, 200. Debe ser realista según el tipo de alojamiento y el presupuesto del viajero.
 •	url: Enlace de reserva o web oficial.
 •	contact: Teléfono con prefijo internacional.
 
@@ -156,6 +174,7 @@ Ejemplo salida en formato json
       "day": 1,
       "estimated_arrival": "19:00",
       "nights": 2,
+      "price_per_night": 95,
       "url": "https://www.marriott.com",
       "contact": "+34 954 917 000"
     }
@@ -202,12 +221,21 @@ Ejemplo salida en formato json
   ⚠️ EVITA nombres genéricos que no existen en mapas
 
 ### VIAJE CIRCULAR (IDA Y VUELTA):
-${tripInput.circular ? `
-⚠️ Este es un viaje DE IDA Y VUELTA. El itinerario DEBE planificarse para que el último día el viajero regrese al punto de partida (${tripInput.origin}).
-- Distribuye las actividades de forma que el último día las paradas estén cerca del origen o en el camino de vuelta.
-- Considera el tiempo de conducción de regreso al origen en el presupuesto de tiempo del último día.
-- La última actividad del último día debe estar próxima a ${tripInput.origin}.
-` : 'Este es un viaje de ida (sin vuelta al origen).'}
+${tripInput.circular ? (() => {
+    const sd = new Date(tripInput.start_date);
+    const ed = new Date(tripInput.end_date);
+    const totalDays = Math.max(1, Math.round((ed.getTime() - sd.getTime()) / 86400000) + 1);
+    const midDay = Math.ceil(totalDays / 2);
+    return `
+⚠️ Este es un viaje DE IDA Y VUELTA de ${totalDays} días.
+ESTRUCTURA OBLIGATORIA:
+- PRIMERA MITAD (días 1 a ${midDay}): viaje DESDE ${tripInput.origin} HACIA ${tripInput.destination}. Las paradas deben estar en la ruta de ida o en el destino ${tripInput.destination}.
+- SEGUNDA MITAD (días ${midDay + 1} a ${totalDays}): viaje de REGRESO desde ${tripInput.destination} HACIA ${tripInput.origin}. Las paradas deben estar geográficamente en la ruta de vuelta.
+- NO coloques paradas de vuelta en los días de ida ni viceversa.
+- El alojamiento en ${tripInput.destination} debe estar en la primera mitad (días 2 a ${midDay}).
+- Las paradas de los últimos días deben estar cada vez más cerca de ${tripInput.origin}.
+`;
+})() : 'Este es un viaje de ida (sin vuelta al origen).'}
 
 ${tripInput.mandatoryStops && tripInput.mandatoryStops.length > 0 ? `
 ### PARADAS OBLIGATORIAS (RESTRICCIÓN ESTRICTA):
@@ -314,6 +342,7 @@ export interface ItineraryAIResponse {
         day?: number;
         estimated_arrival?: string;
         nights?: number;
+        price_per_night?: number;
         url?: string;
         contact?: string;
     }>;

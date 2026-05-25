@@ -60,7 +60,7 @@ export const create = async (notificationData: Partial<NotificationType>) => {
                 .maybeSingle();
 
             if (!userError && userData?.expo_push_token) {
-                console.log(`📲 [NotificationService] Sending push notification to user ${notificationData.user_receiver_id}`);
+                // console.log(`📲 [NotificationService] Sending push notification to user ${notificationData.user_receiver_id}`);
 
                 // Formatear el título y cuerpo según el tipo de notificación
                 const { title, body } = PushNotificationService.formatNotificationForPush(
@@ -80,17 +80,17 @@ export const create = async (notificationData: Partial<NotificationType>) => {
                     }
                 );
 
-                if (pushResult.success) {
-                    console.log(`✅ [NotificationService] Push notification sent successfully`);
-                } else {
-                    console.warn(`⚠️ [NotificationService] Failed to send push: ${pushResult.error}`);
-                }
+                // if (pushResult.success) {
+                //     console.log(`✅ [NotificationService] Push notification sent successfully`);
+                // } else {
+                //     console.warn(`⚠️ [NotificationService] Failed to send push: ${pushResult.error}`);
+                // }
             } else {
-                console.log(`ℹ️ [NotificationService] User has no push token registered, skipping push notification`);
+                // console.log(`ℹ️ [NotificationService] User has no push token registered, skipping push notification`);
             }
         } catch (pushError) {
             // No lanzamos error si falla el push, solo registramos
-            console.error(`❌ [NotificationService] Error sending push notification:`, pushError);
+            // console.error(`❌ [NotificationService] Error sending push notification:`, pushError);
         }
     }
 

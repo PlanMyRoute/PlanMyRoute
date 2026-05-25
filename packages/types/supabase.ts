@@ -19,8 +19,10 @@ export type Database = {
           check_in_time: string | null
           check_out_time: string | null
           contact: string | null
+          estimated_price: number | null
           id: number
           nights: number | null
+          price_per_night: number | null
           reservation_code: string | null
           url: string | null
         }
@@ -28,8 +30,10 @@ export type Database = {
           check_in_time?: string | null
           check_out_time?: string | null
           contact?: string | null
+          estimated_price?: number | null
           id: number
           nights?: number | null
+          price_per_night?: number | null
           reservation_code?: string | null
           url?: string | null
         }
@@ -37,8 +41,10 @@ export type Database = {
           check_in_time?: string | null
           check_out_time?: string | null
           contact?: string | null
+          estimated_price?: number | null
           id?: number
           nights?: number | null
+          price_per_night?: number | null
           reservation_code?: string | null
           url?: string | null
         }
@@ -58,6 +64,7 @@ export type Database = {
           category: string | null
           entry_price: number | null
           estimated_duration_minutes: number | null
+          estimated_price: number | null
           id: number
           url: string | null
         }
@@ -66,6 +73,7 @@ export type Database = {
           category?: string | null
           entry_price?: number | null
           estimated_duration_minutes?: number | null
+          estimated_price?: number | null
           id: number
           url?: string | null
         }
@@ -74,6 +82,7 @@ export type Database = {
           category?: string | null
           entry_price?: number | null
           estimated_duration_minutes?: number | null
+          estimated_price?: number | null
           id?: number
           url?: string | null
         }
@@ -87,6 +96,30 @@ export type Database = {
           },
         ]
       }
+      event_chat_message: {
+        Row: {
+          created_at: string | null
+          id: number
+          message: string
+          ticketmaster_event_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: number
+          message: string
+          ticketmaster_event_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: number
+          message?: string
+          ticketmaster_event_id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       notifications: {
         Row: {
           action_status:
@@ -96,6 +129,7 @@ export type Database = {
           created_at: string
           id: number
           related_trip_id: number | null
+          reminder_count: number
           status: Database["public"]["Enums"]["notification_status"]
           type: Database["public"]["Enums"]["notification_type"] | null
           user_receiver_id: string
@@ -108,6 +142,7 @@ export type Database = {
           created_at?: string
           id?: number
           related_trip_id?: number | null
+          reminder_count?: number
           status?: Database["public"]["Enums"]["notification_status"]
           type?: Database["public"]["Enums"]["notification_type"] | null
           user_receiver_id: string
@@ -120,6 +155,7 @@ export type Database = {
           created_at?: string
           id?: number
           related_trip_id?: number | null
+          reminder_count?: number
           status?: Database["public"]["Enums"]["notification_status"]
           type?: Database["public"]["Enums"]["notification_type"] | null
           user_receiver_id?: string
@@ -148,6 +184,81 @@ export type Database = {
           },
         ]
       }
+      promo_code_usages: {
+        Row: {
+          code: string
+          id: string
+          used_at: string | null
+          user_id: string
+        }
+        Insert: {
+          code: string
+          id?: string
+          used_at?: string | null
+          user_id: string
+        }
+        Update: {
+          code?: string
+          id?: string
+          used_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      promo_codes: {
+        Row: {
+          code: string
+          duration_days: number
+          expiration_date: string | null
+          is_active: boolean | null
+          max_uses: number | null
+          used_count: number | null
+        }
+        Insert: {
+          code: string
+          duration_days: number
+          expiration_date?: string | null
+          is_active?: boolean | null
+          max_uses?: number | null
+          used_count?: number | null
+        }
+        Update: {
+          code?: string
+          duration_days?: number
+          expiration_date?: string | null
+          is_active?: boolean | null
+          max_uses?: number | null
+          used_count?: number | null
+        }
+        Relationships: []
+      }
+      referrals: {
+        Row: {
+          created_at: string | null
+          id: string
+          referee_id: string | null
+          referrer_id: string | null
+          reward_granted: boolean | null
+          status: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          referee_id?: string | null
+          referrer_id?: string | null
+          reward_granted?: boolean | null
+          status?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          referee_id?: string | null
+          referrer_id?: string | null
+          reward_granted?: boolean | null
+          status?: string | null
+        }
+        Relationships: []
+      }
       refuel: {
         Row: {
           fuel_type: string | null
@@ -156,6 +267,7 @@ export type Database = {
           price_per_unit: number | null
           station_brand: string | null
           total_cost: number | null
+          total_price: number | null
         }
         Insert: {
           fuel_type?: string | null
@@ -164,6 +276,7 @@ export type Database = {
           price_per_unit?: number | null
           station_brand?: string | null
           total_cost?: number | null
+          total_price?: number | null
         }
         Update: {
           fuel_type?: string | null
@@ -172,6 +285,7 @@ export type Database = {
           price_per_unit?: number | null
           station_brand?: string | null
           total_cost?: number | null
+          total_price?: number | null
         }
         Relationships: [
           {
@@ -366,11 +480,20 @@ export type Database = {
           address: string | null
           coordinates: Json
           created_at: string
+          day: number | null
           description: string | null
           estimated_arrival: string | null
+          estimated_price: string | null
+          google_place_id: string | null
           id: number
           name: string
           order: number
+          photo_url: string | null
+          place_rating: number | null
+          place_reviews_count: number | null
+          position: number | null
+          price_level: number | null
+          price_symbol: string | null
           type: Database["public"]["Enums"]["StopType"]
           updated_at: string | null
         }
@@ -378,11 +501,20 @@ export type Database = {
           address?: string | null
           coordinates: Json
           created_at?: string
+          day?: number | null
           description?: string | null
           estimated_arrival?: string | null
+          estimated_price?: string | null
+          google_place_id?: string | null
           id?: number
           name?: string
           order?: number
+          photo_url?: string | null
+          place_rating?: number | null
+          place_reviews_count?: number | null
+          position?: number | null
+          price_level?: number | null
+          price_symbol?: string | null
           type?: Database["public"]["Enums"]["StopType"]
           updated_at?: string | null
         }
@@ -390,13 +522,73 @@ export type Database = {
           address?: string | null
           coordinates?: Json
           created_at?: string
+          day?: number | null
           description?: string | null
           estimated_arrival?: string | null
+          estimated_price?: string | null
+          google_place_id?: string | null
           id?: number
           name?: string
           order?: number
+          photo_url?: string | null
+          place_rating?: number | null
+          place_reviews_count?: number | null
+          position?: number | null
+          price_level?: number | null
+          price_symbol?: string | null
           type?: Database["public"]["Enums"]["StopType"]
           updated_at?: string | null
+        }
+        Relationships: []
+      }
+      subscriptions: {
+        Row: {
+          cancel_at_period_end: boolean | null
+          created_at: string | null
+          current_period_end: string | null
+          current_period_start: string | null
+          id: string
+          is_trial: boolean | null
+          provider_subscription_id: string | null
+          status: Database["public"]["Enums"]["subscription_status"] | null
+          stripe_customer_id: string | null
+          stripe_subscription_id: string | null
+          tier: Database["public"]["Enums"]["subscription_tier"] | null
+          trial_end: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          cancel_at_period_end?: boolean | null
+          created_at?: string | null
+          current_period_end?: string | null
+          current_period_start?: string | null
+          id?: string
+          is_trial?: boolean | null
+          provider_subscription_id?: string | null
+          status?: Database["public"]["Enums"]["subscription_status"] | null
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
+          tier?: Database["public"]["Enums"]["subscription_tier"] | null
+          trial_end?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          cancel_at_period_end?: boolean | null
+          created_at?: string | null
+          current_period_end?: string | null
+          current_period_start?: string | null
+          id?: string
+          is_trial?: boolean | null
+          provider_subscription_id?: string | null
+          status?: Database["public"]["Enums"]["subscription_status"] | null
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
+          tier?: Database["public"]["Enums"]["subscription_tier"] | null
+          trial_end?: string | null
+          updated_at?: string | null
+          user_id?: string
         }
         Relationships: []
       }
@@ -450,10 +642,12 @@ export type Database = {
           end_date: string | null
           estimated_price_max: number | null
           estimated_price_min: number | null
+          generation_status: string
           id: number
           n_adults: number | null
           n_babies: number | null
           n_children: number | null
+          n_elders: number | null
           n_pets: number | null
           name: string | null
           start_date: string | null
@@ -472,10 +666,12 @@ export type Database = {
           end_date?: string | null
           estimated_price_max?: number | null
           estimated_price_min?: number | null
+          generation_status?: string
           id?: number
           n_adults?: number | null
           n_babies?: number | null
           n_children?: number | null
+          n_elders?: number | null
           n_pets?: number | null
           name?: string | null
           start_date?: string | null
@@ -494,10 +690,12 @@ export type Database = {
           end_date?: string | null
           estimated_price_max?: number | null
           estimated_price_min?: number | null
+          generation_status?: string
           id?: number
           n_adults?: number | null
           n_babies?: number | null
           n_children?: number | null
+          n_elders?: number | null
           n_pets?: number | null
           name?: string | null
           start_date?: string | null
@@ -506,6 +704,66 @@ export type Database = {
           total_price?: number | null
           type?: Database["public"]["Enums"]["interest"][]
           updated_at?: string | null
+        }
+        Relationships: []
+      }
+      trip_photos: {
+        Row: {
+          created_at: string | null
+          filename: string | null
+          id: string
+          path: string
+          trip_id: string
+          url: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          filename?: string | null
+          id?: string
+          path: string
+          trip_id: string
+          url?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          filename?: string | null
+          id?: string
+          path?: string
+          trip_id?: string
+          url?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      trip_photos_backup: {
+        Row: {
+          created_at: string | null
+          filename: string | null
+          id: string | null
+          path: string | null
+          trip_id: string | null
+          url: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          filename?: string | null
+          id?: string | null
+          path?: string | null
+          trip_id?: string | null
+          url?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          filename?: string | null
+          id?: string | null
+          path?: string | null
+          trip_id?: string | null
+          url?: string | null
+          user_id?: string | null
         }
         Relationships: []
       }
@@ -622,36 +880,48 @@ export type Database = {
       user: {
         Row: {
           auto_trip_status_update: boolean
+          bio: string | null
           created_at: string
+          email: string | null
+          expo_push_token: string | null
           id: string
           img: string | null
           lastname: string | null
+          location: string | null
           name: string | null
-          plan_type: Database["public"]["Enums"]["plan_type"] | null
+          referral_code: string | null
           timezone: string
           user_type: Database["public"]["Enums"]["interest"][] | null
           username: string
         }
         Insert: {
           auto_trip_status_update?: boolean
+          bio?: string | null
           created_at?: string
+          email?: string | null
+          expo_push_token?: string | null
           id: string
           img?: string | null
           lastname?: string | null
+          location?: string | null
           name?: string | null
-          plan_type?: Database["public"]["Enums"]["plan_type"] | null
+          referral_code?: string | null
           timezone?: string
           user_type?: Database["public"]["Enums"]["interest"][] | null
           username?: string
         }
         Update: {
           auto_trip_status_update?: boolean
+          bio?: string | null
           created_at?: string
+          email?: string | null
+          expo_push_token?: string | null
           id?: string
           img?: string | null
           lastname?: string | null
+          location?: string | null
           name?: string | null
-          plan_type?: Database["public"]["Enums"]["plan_type"] | null
+          referral_code?: string | null
           timezone?: string
           user_type?: Database["public"]["Enums"]["interest"][] | null
           username?: string
@@ -707,6 +977,27 @@ export type Database = {
             referencedColumns: ["user_id"]
           },
         ]
+      }
+      user_usage: {
+        Row: {
+          ai_trips_generated_month: number | null
+          last_reset_date: string | null
+          max_vehicles_allowed: number | null
+          user_id: string
+        }
+        Insert: {
+          ai_trips_generated_month?: number | null
+          last_reset_date?: string | null
+          max_vehicles_allowed?: number | null
+          user_id: string
+        }
+        Update: {
+          ai_trips_generated_month?: number | null
+          last_reset_date?: string | null
+          max_vehicles_allowed?: number | null
+          user_id?: string
+        }
+        Relationships: []
       }
       vehicle: {
         Row: {
@@ -769,7 +1060,18 @@ export type Database = {
       }
     }
     Functions: {
-      [_ in never]: never
+      get_stops_in_day: {
+        Args: { p_day: number; p_trip_id: number }
+        Returns: {
+          id: number
+        }[]
+      }
+      query_stops_by_day: {
+        Args: { p_day: number; p_trip_id: number }
+        Returns: {
+          id: number
+        }[]
+      }
     }
     Enums: {
       accommodation_type_enum: "hotel" | "apartment" | "camping" | "hostel"
@@ -783,13 +1085,20 @@ export type Database = {
         | "adventure"
         | "family"
         | "beach"
+        | "welfare"
       notification_action_status: "pending" | "accepted" | "rejected"
       notification_status: "unread" | "read"
       notification_type: "invitation" | "trip_update" | "trip_status_check"
-      plan_type: "free" | "premium"
       reservation_status: "canceled" | "confirmed" | "pending"
       service_type: "gas_station" | "restaurant" | "supermarket"
       StopType: "origen" | "destino" | "intermedia"
+      subscription_status:
+        | "active"
+        | "trialing"
+        | "past_due"
+        | "canceled"
+        | "expired"
+      subscription_tier: "free" | "premium"
       trip_status: "planning" | "going" | "completed"
       type_fuel: "diesel" | "gasoline" | "electric" | "LPG"
       vehicle_type: "car" | "motorcycle" | "campervan" | "van"
@@ -931,14 +1240,22 @@ export const Constants = {
         "adventure",
         "family",
         "beach",
+        "welfare",
       ],
       notification_action_status: ["pending", "accepted", "rejected"],
       notification_status: ["unread", "read"],
       notification_type: ["invitation", "trip_update", "trip_status_check"],
-      plan_type: ["free", "premium"],
       reservation_status: ["canceled", "confirmed", "pending"],
       service_type: ["gas_station", "restaurant", "supermarket"],
       StopType: ["origen", "destino", "intermedia"],
+      subscription_status: [
+        "active",
+        "trialing",
+        "past_due",
+        "canceled",
+        "expired",
+      ],
+      subscription_tier: ["free", "premium"],
       trip_status: ["planning", "going", "completed"],
       type_fuel: ["diesel", "gasoline", "electric", "LPG"],
       vehicle_type: ["car", "motorcycle", "campervan", "van"],

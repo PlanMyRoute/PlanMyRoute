@@ -548,10 +548,8 @@ export const createStop = async (stopData: Partial<Stop>, tripId: number) => {
             console.log(`✅ Usando precio manual ingresado: ${(stopDataWithPhoto as any).estimated_price}`);
         }
 
-        // Filtrar campos undefined antes de crear el payload
-        const payload = removeUndefinedFields(stopDataWithPhoto);
-
-        console.log('Payload a insertar en la base de datos:', JSON.stringify(payload, null, 2));
+        // Incluir trip_id para que los stops sean directamente consultables por viaje
+        const payload = removeUndefinedFields({ ...stopDataWithPhoto, trip_id: tripId });
 
         const { data: newStop, error } = await supabase
             .from(STOP_TABLE)
@@ -564,31 +562,6 @@ export const createStop = async (stopData: Partial<Stop>, tripId: number) => {
             throw new Error(`Error al crear la parada en la base de datos: ${error.message}`);
         }
 
-        if (stopData.type === 'intermedia') {
-            const routesWithoutStops = await getIncompleteRoutes(tripId);
-            if (!routesWithoutStops || routesWithoutStops.length === 0) {
-                const routeData: Partial<Route> = {
-                    trip_id: tripId,
-                    origin_id: newStop.id,
-                };
-
-                await createRoute(routeData);
-            } else {
-                const routeToUpdate = routesWithoutStops[0];
-
-                const updatedRouteData: Partial<Route> = {
-                    distance: routeToUpdate.distance,
-                };
-                routeToUpdate.missing_stop === "origin" ? updatedRouteData.origin_id = newStop.id : updatedRouteData.destination_id = newStop.id;
-
-                await updateRoute(routeToUpdate.id!, updatedRouteData);
-            }
-        }
-
-        // ✅ NO reorganizar después de crear la parada
-        // Respetamos la posición que el usuario seleccionó en el formulario
-        // Solo reorganizamos en DELETE para rellenar gaps
-
         return newStop;
     } catch (error) {
         console.error('Error en createStop:', error);
@@ -596,29 +569,63 @@ export const createStop = async (stopData: Partial<Stop>, tripId: number) => {
     }
 };
 
-export const createStopOrigin = async (origin: string, trip: Trip) => {
-    const stopData: Partial<Stop> = {
+export const createStopOrigin = async (origin: string, trip: Trip, startTime?: string) => {
+    const time = startTime || (trip as any).start_time || '08:00';
+    const estimatedArrival = trip.start_date
+        ? `${trip.start_date}T${time}:00`
+        : null;
+
+    const stopData: any = {
         name: origin,
         address: origin,
         description: `El origen del viaje es ${origin}`,
         coordinates: await getCoordinatesForAddress(origin),
         type: 'origen' as Stop['type'],
-        estimated_arrival: trip.start_date || null,
+        estimated_arrival: estimatedArrival,
         order: 1,
+        day: 1,
     };
 
     return await createStop(stopData, trip.id!);
 };
 
-export const createStopDestination = async (destination: string, trip: Trip) => {
-    const stopData: Partial<Stop> = {
+export const createStopDestination = async (destination: string, trip: Trip, endTime?: string) => {
+    const time = endTime || (trip as any).end_time || '18:00';
+
+    let destinationDay = 1;
+    if (trip.start_date && trip.end_date) {
+        const start = new Date(trip.start_date);
+        const end = new Date(trip.end_date);
+        start.setHours(0, 0, 0, 0);
+        end.setHours(0, 0, 0, 0);
+        const diffDays = Math.round((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
+        const totalDays = Math.max(1, diffDays + 1);
+        // Circular: destino en el punto de giro (mitad del viaje)
+        // No circular: destino en el último día
+        destinationDay = (trip as any).circular
+            ? Math.ceil(totalDays / 2)
+            : totalDays;
+    }
+
+    const destinationDate = trip.start_date
+        ? (() => {
+            const d = new Date(trip.start_date);
+            d.setDate(d.getDate() + (destinationDay - 1));
+            return d.toISOString().slice(0, 10);
+        })()
+        : trip.end_date;
+
+    const estimatedArrival = destinationDate ? `${destinationDate}T${time}:00` : null;
+
+    const stopData: any = {
         name: destination,
         address: destination,
         description: `El destino del viaje es ${destination}`,
         coordinates: await getCoordinatesForAddress(destination),
         type: 'destino' as Stop['type'],
-        estimated_arrival: trip.end_date || null,
+        estimated_arrival: estimatedArrival,
         order: 2,
+        day: destinationDay,
     };
 
     return await createStop(stopData, trip.id!);
@@ -749,10 +756,10 @@ export const createAccommodationStop = async (stopData: Partial<Stop>, accommoda
             .single();
 
         if (error) {
-            console.error('Error al crear accommodation:', error);
-            // Si falla la creación de accommodation, eliminar la parada creada
-            await deleteStop(newStop.id.toString());
-            throw new Error(`Error al crear el alojamiento: ${error.message}`);
+            console.error('Error al crear accommodation (la parada base se mantiene):', error);
+            // Mantenemos la parada base aunque falle el insert de accommodation.
+            // Esto evita perder stops por errores de columna o migración pendiente.
+            return { stop: newStop, accommodation: null };
         }
 
         console.log('Accommodation creado exitosamente:', accommodation);
@@ -1787,72 +1794,59 @@ export const getTripItinerary = async (tripId: number) => {
     };
 };
 
-// Obtener todas las paradas únicas de un viaje
+// Obtener todas las paradas de un viaje directamente por trip_id
 export const getAllStopsInATrip = async (tripId: number) => {
-    // Obtener las rutas del viaje con sus paradas
-    const routesWithStops = (await getTripItinerary(tripId)).routesWithStops;
+    const { data: stops, error } = await supabase
+        .from(STOP_TABLE)
+        .select('*')
+        .eq('trip_id', tripId)
+        .order('day', { ascending: true })
+        .order('position', { ascending: true });
 
-    // Aplanar todas las paradas de las rutas y eliminar duplicados por id
-    const allStops = routesWithStops.flatMap((r: any) => (r.stops ?? []));
-    const uniqueStopsMap: Record<string, any> = {};
-
-    for (const stop of allStops) {
-        if (stop && stop.id) {
-            uniqueStopsMap[stop.id] = stop;
+    if (error) {
+        console.error('Error obteniendo paradas del viaje:', error);
+        // Fallback a traversal por rutas si trip_id no funciona aún
+        const routesWithStops = (await getTripItinerary(tripId)).routesWithStops;
+        const allStops = routesWithStops.flatMap((r: any) => (r.stops ?? []));
+        const uniqueStopsMap: Record<string, any> = {};
+        for (const stop of allStops) {
+            if (stop && stop.id) uniqueStopsMap[stop.id] = stop;
         }
+        return Object.values(uniqueStopsMap);
     }
 
-    const uniqueStops = Object.values(uniqueStopsMap);
+    return stops || [];
+};
 
-    uniqueStops.sort((a: any, b: any) => {
-        const orderA = a.order ?? a.planned_arrival_time ?? 0;
-        const orderB = b.order ?? b.planned_arrival_time ?? 0;
+/**
+ * Reconstruye todas las rutas de un viaje basándose en el orden de sus paradas.
+ * Elimina las rutas existentes y las regenera conectando stops consecutivos.
+ * Debe llamarse después de crear/modificar stops en lote.
+ */
+export const rebuildRoutesForTrip = async (tripId: number) => {
+    const stops = await getAllStopsInATrip(tripId);
+    if (stops.length < 2) return;
 
-        if (typeof orderA === 'number' && typeof orderB === 'number') {
-            return orderA - orderB;
-        }
-
-        // Si son fechas, ordenar cronológicamente
-        if (orderA instanceof Date && orderB instanceof Date) {
-            return orderA.getTime() - orderB.getTime();
-        }
-
-        return 0;
+    const ordered = [...stops].sort((a: any, b: any) => {
+        if ((a.day || 1) !== (b.day || 1)) return (a.day || 1) - (b.day || 1);
+        return (a.position || a.order || 0) - (b.position || b.order || 0);
     });
 
-    // Enriquecer cada parada con información de precio de sus subtypes
-    const enrichedStops = await Promise.all(
-        uniqueStops.map(async (stop: any) => {
-            try {
-                // Buscar en activity, accommodation, y refuel
-                const [activityResult, accommodationResult, refuelResult] = await Promise.all([
-                    supabase.from(ACTIVITY_TABLE).select('estimated_price').eq('id', stop.id).maybeSingle(),
-                    supabase.from(ACCOMMODATION_TABLE).select('estimated_price').eq('id', stop.id).maybeSingle(),
-                    supabase.from(REFUEL_TABLE).select('total_price').eq('id', stop.id).maybeSingle(),
-                ]);
+    // Eliminar rutas previas
+    await supabase.from(ROUTE_TABLE).delete().eq('trip_id', tripId);
 
-                // Agregue el precio estimado si existe
-                if (activityResult.data?.estimated_price) {
-                    stop.estimated_price = activityResult.data.estimated_price;
-                } else if (accommodationResult.data?.estimated_price) {
-                    stop.estimated_price = accommodationResult.data.estimated_price;
-                } else if (refuelResult.data?.total_price) {
-                    stop.estimated_price = refuelResult.data.total_price;
-                }
-
-                return stop;
-            } catch (error) {
-                // Si hay error enriqueciendo, devolver la parada sin los datos extras
-                console.error(`Error enriqueciendo parada ${stop.id}:`, error);
-                return stop;
-            }
+    // Crear rutas entre stops consecutivos
+    await Promise.all(
+        ordered.slice(0, -1).map((stop: any, i: number) => {
+            const next = ordered[i + 1];
+            return createRoute({
+                trip_id: tripId,
+                origin_id: stop.id,
+                destination_id: next.id,
+                distance: geolocation.calculateDistance(stop.coordinates, next.coordinates),
+            });
         })
     );
-
-    // NO validar aquí - getAllStopsInATrip se llama muy frecuentemente
-    // La validación se hace en updateStop/deleteStop/createStop
-
-    return enrichedStops;
 };
 
 /**
@@ -2057,7 +2051,7 @@ export const getTotalAccommodationCostByTrip = async (tripId: number) => {
 
         const { data: accommodations, error } = await supabase
             .from(ACCOMMODATION_TABLE)
-            .select('id, nights, estimated_price')
+            .select('id, nights, price_per_night')
             .in('id', stopIdsArray);
 
         console.log(`[getTotalAccommodationCostByTrip] Alojamientos encontrados: ${accommodations?.length || 0}`, accommodations);
@@ -2070,10 +2064,10 @@ export const getTotalAccommodationCostByTrip = async (tripId: number) => {
         let totalCost = 0;
         if (accommodations && accommodations.length > 0) {
             for (const accommodation of accommodations) {
-                // Calculate cost as nights × estimated_price
-                if (accommodation.nights && accommodation.estimated_price) {
-                    const cost = accommodation.nights * accommodation.estimated_price;
-                    console.log(`[getTotalAccommodationCostByTrip] Calculado: ${accommodation.nights} noches × ${accommodation.estimated_price}€ = ${cost}€`);
+                const pricePerNight = (accommodation as any).price_per_night;
+                if (accommodation.nights && pricePerNight) {
+                    const cost = accommodation.nights * pricePerNight;
+                    console.log(`[getTotalAccommodationCostByTrip] Calculado: ${accommodation.nights} noches × ${pricePerNight}€ = ${cost}€`);
                     totalCost += cost;
                 }
             }
@@ -2149,7 +2143,7 @@ export const getTotalActivityCostByTrip = async (tripId: number) => {
 
         const { data: activities, error } = await supabase
             .from(ACTIVITY_TABLE)
-            .select('id, estimated_price')
+            .select('id, entry_price')
             .in('id', stopIdsArray);
 
         console.log(`[getTotalActivityCostByTrip] Actividades encontradas: ${activities?.length || 0}`, activities);
@@ -2162,8 +2156,7 @@ export const getTotalActivityCostByTrip = async (tripId: number) => {
         let totalCost = 0;
         if (activities && activities.length > 0) {
             for (const activity of activities) {
-                // Usar estimated_price como el costo de la actividad
-                totalCost += (activity.estimated_price || 0);
+                totalCost += ((activity as any).entry_price || 0);
             }
         }
 

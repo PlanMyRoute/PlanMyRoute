@@ -111,6 +111,7 @@ export const createTripWithRelations = async (
 ) => {
     try {
         // 1. Limpiar tripData — extraer campos que no pertenecen a la tabla trip
+        // start_time y end_time SÍ se guardan en trip (columnas añadidas en migración)
         const {
             origin: _,
             destination: __,
@@ -137,38 +138,23 @@ export const createTripWithRelations = async (
         ]);
 
         // 5. Crear paradas de origen y destino en paralelo
-        const [originStop, destinationStop] = await Promise.all([
-            ItineraryService.createStopOrigin(origin, newTrip),
-            ItineraryService.createStopDestination(destination, newTrip),
+        await Promise.all([
+            ItineraryService.createStopOrigin(origin, newTrip, cleanTripData.start_time),
+            ItineraryService.createStopDestination(destination, newTrip, cleanTripData.end_time),
         ]);
 
-        // 6. Crear rutas (con o sin paradas obligatorias intermedias)
+        // 6. Crear paradas obligatorias intermedias (si las hay)
         const hasMandatoryStops = mandatoryStops && Array.isArray(mandatoryStops) && mandatoryStops.length > 0;
-
         if (hasMandatoryStops) {
-            // Crear paradas obligatorias en paralelo
-            const intermediateStops = await Promise.all(
+            await Promise.all(
                 mandatoryStops!.map((stop: MandatoryStop) =>
                     ItineraryService.createMandatoryStop(stop, newTrip.id!)
                 )
             );
-
-            // Crear segmentos de ruta: origen → parada1 → parada2 → … → destino
-            const allStops = [originStop, ...intermediateStops, destinationStop];
-            await Promise.all(
-                allStops.slice(0, -1).map((stop, i) =>
-                    ItineraryService.createRouteBetweenStops(stop, allStops[i + 1], newTrip.id!)
-                )
-            );
-        } else {
-            // Ruta directa origen → destino
-            await ItineraryService.createInitialRoute(originStop, destinationStop, newTrip);
         }
 
-        // 7. Si el viaje es circular, añadir tramo de vuelta destino → origen
-        if (cleanTripData.circular) {
-            await ItineraryService.createRouteBetweenStops(destinationStop, originStop, newTrip.id!);
-        }
+        // 7. Construir rutas a partir de los stops creados
+        await ItineraryService.rebuildRoutesForTrip(newTrip.id!);
 
         // 8. Obtener y retornar el itinerario completo
         return await ItineraryService.getTripItinerary(newTrip.id!);

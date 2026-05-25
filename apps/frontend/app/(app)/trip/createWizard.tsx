@@ -100,8 +100,7 @@ export default function CreateWizardScreen() {
         preferences,
         budget,
         intermediateStops,
-        showAiLoader, setButtonCoords, tripCreated, createdTripId,
-        navigateToTrip,
+        showAiLoader, setButtonCoords,
         showAlert, alertConfig, hideAlert,
     } = wizard;
 
@@ -792,10 +791,7 @@ export default function CreateWizardScreen() {
             <AiTripLoader
                 visible={showAiLoader}
                 buttonCoords={wizard.buttonCoords}
-                useFlappyBird={true}
-                tripCreated={tripCreated}
-                tripId={createdTripId || undefined}
-                onNavigateToTrip={navigateToTrip}
+                useFlappyBird={false}
             />
 
             {alertConfig && (

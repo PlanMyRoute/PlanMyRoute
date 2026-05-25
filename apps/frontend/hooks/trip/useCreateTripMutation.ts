@@ -16,6 +16,8 @@ export type CreateTripPayload = {
     description: string;
     start_date: string | null;
     end_date: string | null;
+    start_time?: string;
+    end_time?: string;
     circular: boolean;
     n_adults: number;
     n_children: number;
@@ -53,16 +55,12 @@ export function useCreateTripMutation() {
         setError(null);
 
         try {
-            const minWait = new Promise<void>(resolve => setTimeout(resolve, 3000));
-            const [response] = await Promise.all([
-                TripService.createTrip(
-                    params.payload,
-                    authUser.id,
-                    params.isAiTrip,
-                    token || undefined
-                ),
-                minWait,
-            ]);
+            const response = await TripService.createTrip(
+                params.payload,
+                authUser.id,
+                params.isAiTrip,
+                token || undefined
+            );
 
             const tripId: number | null = response?.trip?.id ?? null;
 
