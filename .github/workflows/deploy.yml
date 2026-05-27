@@ -46,7 +46,7 @@ jobs:
       - name: Build frontend web
         working-directory: apps/frontend
         env:
-          EXPO_PUBLIC_API_URL: 'http://planmyroute.es:3001'
+          EXPO_PUBLIC_API_URL: 'https://planmyroute.es/api'
         run: npx expo export -p web
 
       - name: Copy frontend to server
