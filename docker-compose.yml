@@ -1,0 +1,24 @@
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: apps/backend/Dockerfile
+    container_name: planmyroute-backend
+    restart: unless-stopped
+    ports:
+      - "3001:3001"
+    env_file:
+      - apps/backend/.env
+
+  frontend:
+    build:
+      context: .
+      dockerfile: apps/frontend/Dockerfile
+      args:
+        EXPO_PUBLIC_API_URL: http://planmyroute.es:3001
+    container_name: planmyroute-frontend
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    depends_on:
+      - backend
