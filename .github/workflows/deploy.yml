@@ -1,4 +1,4 @@
-name: Deploy PlanMyRoute Backend
+name: Deploy PlanMyRoute
 
 on:
   push:
@@ -6,10 +6,10 @@ on:
       - main
 
 jobs:
-  deploy:
+  deploy-backend:
     runs-on: ubuntu-latest
     steps:
-      - name: Deploy to server
+      - name: Deploy backend to server
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: 178.105.153.20
@@ -23,3 +23,38 @@ jobs:
             npx tsc --noEmitOnError false || true
             pm2 restart planmyroute-backend --update-env
             pm2 save
+
+  deploy-frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: latest
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Build frontend web
+        working-directory: apps/frontend
+        env:
+          EXPO_PUBLIC_API_URL: 'http://178.105.153.20:3001'
+        run: npx expo export -p web
+
+      - name: Copy frontend to server
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: 178.105.153.20
+          username: adrian
+          password: ${{ secrets.SSH_PASSWORD }}
+          source: "apps/frontend/dist/*"
+          target: "/opt/proyecto/planmyroute/apps/frontend/dist"
+          strip_components: 3
