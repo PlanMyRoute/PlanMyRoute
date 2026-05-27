@@ -1,0 +1,25 @@
+name: Deploy PlanMyRoute Backend
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to server
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: 178.105.153.20
+          username: adrian
+          password: ${{ secrets.SSH_PASSWORD }}
+          script: |
+            cd /opt/proyecto/planmyroute
+            git pull origin main
+            pnpm install
+            cd apps/backend
+            npx tsc --noEmitOnError false || true
+            pm2 restart planmyroute-backend --update-env
+            pm2 save
