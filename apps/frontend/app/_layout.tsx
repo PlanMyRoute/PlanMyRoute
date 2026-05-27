@@ -1,13 +1,15 @@
 import FontAwesome from '@expo/vector-icons/FontAwesome';
+import { Ionicons } from '@expo/vector-icons';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { useFonts } from 'expo-font';
 import { Slot } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
+import { Text, TouchableOpacity, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import 'react-native-reanimated';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import Toast, { BaseToast, ErrorToast, InfoToast } from 'react-native-toast-message';
+import Toast from 'react-native-toast-message';
 import { AuthProvider } from '../context/AuthContext';
 import { SubscriptionProvider } from '../context/SubscriptionContext';
 import '../index.css';
@@ -56,6 +58,57 @@ export {
 
 SplashScreen.preventAutoHideAsync();
 
+type ToastProps = {
+  text1?: string;
+  text2?: string;
+  onPress?: () => void;
+};
+
+function ToastCard({ text1, text2, onPress, icon, iconColor }: ToastProps & { icon: keyof typeof Ionicons.glyphMap; iconColor: string }) {
+  return (
+    <TouchableOpacity
+      activeOpacity={onPress ? 0.8 : 1}
+      onPress={onPress}
+      style={{
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#202020',
+        borderRadius: 16,
+        paddingHorizontal: 16,
+        paddingVertical: 14,
+        marginHorizontal: 16,
+        gap: 12,
+      }}
+    >
+      <Ionicons name={icon} size={24} color={iconColor} />
+      <View style={{ flex: 1 }}>
+        {text1 ? (
+          <Text style={{ fontFamily: 'Urbanist-Medium', fontSize: 15, color: '#FFFFFF', lineHeight: 20 }}>
+            {text1}
+          </Text>
+        ) : null}
+        {text2 ? (
+          <Text style={{ fontFamily: 'Urbanist-Regular', fontSize: 12, color: 'rgba(255,255,255,0.65)', marginTop: 2, lineHeight: 16 }}>
+            {text2}
+          </Text>
+        ) : null}
+      </View>
+    </TouchableOpacity>
+  );
+}
+
+const toastConfig = {
+  success: ({ text1, text2, onPress }: ToastProps) => (
+    <ToastCard text1={text1} text2={text2} onPress={onPress} icon="checkmark-circle" iconColor="#FFD54D" />
+  ),
+  error: ({ text1, text2, onPress }: ToastProps) => (
+    <ToastCard text1={text1} text2={text2} onPress={onPress} icon="close-circle" iconColor="#EF4444" />
+  ),
+  info: ({ text1, text2, onPress }: ToastProps) => (
+    <ToastCard text1={text1} text2={text2} onPress={onPress} icon="information-circle" iconColor="#FFD54D" />
+  ),
+};
+
 export default function RootLayout() {
   const [loaded, error] = useFonts({
     SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
@@ -86,73 +139,7 @@ export default function RootLayout() {
           <AuthProvider>
             <SubscriptionProvider>
               <Slot />
-              <Toast
-                config={{
-                  success: (props) => (
-                    <BaseToast
-                      {...props}
-                      style={{
-                        borderLeftColor: '#10B981',
-                        borderLeftWidth: 5,
-                        width: '90%',
-                        height: 70,
-                      }}
-                      contentContainerStyle={{ paddingHorizontal: 15 }}
-                      text1Style={{
-                        fontSize: 17,
-                        fontWeight: '600',
-                      }}
-                      text2Style={{
-                        fontSize: 15,
-                        fontWeight: '400',
-                      }}
-                      text2NumberOfLines={2}
-                    />
-                  ),
-                  error: (props) => (
-                    <ErrorToast
-                      {...props}
-                      style={{
-                        borderLeftColor: '#EF4444',
-                        borderLeftWidth: 5,
-                        width: '90%',
-                        height: 70,
-                      }}
-                      contentContainerStyle={{ paddingHorizontal: 15 }}
-                      text1Style={{
-                        fontSize: 17,
-                        fontWeight: '600',
-                      }}
-                      text2Style={{
-                        fontSize: 15,
-                        fontWeight: '400',
-                      }}
-                      text2NumberOfLines={2}
-                    />
-                  ),
-                  info: (props) => (
-                    <InfoToast
-                      {...props}
-                      style={{
-                        borderLeftColor: '#3B82F6',
-                        borderLeftWidth: 5,
-                        width: '90%',
-                        height: 70,
-                      }}
-                      contentContainerStyle={{ paddingHorizontal: 15 }}
-                      text1Style={{
-                        fontSize: 17,
-                        fontWeight: '600',
-                      }}
-                      text2Style={{
-                        fontSize: 15,
-                        fontWeight: '400',
-                      }}
-                      text2NumberOfLines={2}
-                    />
-                  ),
-                }}
-              />
+              <Toast config={toastConfig} />
             </SubscriptionProvider>
           </AuthProvider>
         </QueryClientProvider>

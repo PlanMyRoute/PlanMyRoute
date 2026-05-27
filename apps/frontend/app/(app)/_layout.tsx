@@ -1,101 +1,15 @@
 import { ROUTES } from '@/constants/routes';
 import { TripProvider } from '@/context/TripContext';
-import { Redirect, Slot, useRouter, useSegments } from 'expo-router';
-import { useEffect, useState } from 'react';
-import { ActivityIndicator, View, Platform } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Redirect, Slot } from 'expo-router';
+import { View } from 'react-native';
+import GuestBanner from '../../components/GuestBanner';
 import { useAuth } from '../../context/AuthContext';
 import usePushNotifications from '../../hooks/usePushNotifications';
-import { UserService } from '../../services/userService';
 
-/**
- * Este componente es un "Portero" interno para el grupo (app).
- * Comprueba si el perfil del usuario (de public.user) está completo.
- */
-function ProfileGatekeeper() {
-  const { user } = useAuth();
-  const router = useRouter();
-  const segments = useSegments();
-  const [isChecking, setIsChecking] = useState(true);
-  const [needsProfile, setNeedsProfile] = useState(false);
-
-  const inCompleteProfileScreen = segments[segments.length - 1] === 'complete-profile';
-
-  useEffect(() => {
-    const checkProfile = async () => {
-      if (!user?.id) {
-        setIsChecking(false);
-        return;
-      }
-
-
-      // Solo mostrar completar perfil si el flag está presente (tras registro), y borrarlo tras usarlo
-      let needsComplete = null;
-      if (Platform.OS === 'web' && typeof window !== 'undefined') {
-        needsComplete = window.localStorage.getItem('needsCompleteProfile');
-        if (needsComplete === 'true') {
-          window.localStorage.removeItem('needsCompleteProfile');
-        }
-      } else {
-        needsComplete = await AsyncStorage.getItem('needsCompleteProfile');
-        if (needsComplete === 'true') {
-          await AsyncStorage.removeItem('needsCompleteProfile');
-        }
-      }
-      if (needsComplete === 'true') {
-        setNeedsProfile(true);
-        setIsChecking(false);
-        if (!inCompleteProfileScreen) {
-          router.replace(ROUTES.completeProfile);
-        }
-        return;
-      }
-
-      try {
-        // Verificar en BD con timeout
-        const timeoutPromise = new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Timeout')), 3000)
-        );
-        const profilePromise = UserService.getUserProfile(user.id, {});
-        const profile = await Promise.race([profilePromise, timeoutPromise]) as any;
-
-        const isIncomplete = !profile?.user?.username || profile.user.username === '';
-        setNeedsProfile(isIncomplete);
-
-        // Solo mostrar completar perfil si el flag estaba presente (tras registro)
-        // Si el usuario ya existe y no hay flag, NO forzar la redirección ni bloquear la app
-        if (isIncomplete && !inCompleteProfileScreen && needsComplete === 'true') {
-          router.replace(ROUTES.completeProfile);
-        } else if (!isIncomplete && inCompleteProfileScreen) {
-          router.replace(ROUTES.tabsHome);
-        } else {
-          // Permitir el uso normal de la app aunque el username esté vacío si no hay flag
-          setIsChecking(false);
-        }
-      } catch (error) {
-        console.log('⚠️ Error verificando perfil, permitiendo acceso normal', error);
-        setIsChecking(false);
-      }
-    };
-
-    checkProfile();
-  }, [user?.id, segments]);
-
-  // Muestra un spinner mientras se verifica el perfil
-  if (isChecking) {
-    return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-        <ActivityIndicator size="large" />
-      </View>
-    );
-  }
-
-  // Si todo está bien, muestra la app
-  return <Slot />;
-}
-
-
-// Layout para las rutas protegidas de la app
+// Layout para las rutas protegidas de la app.
+// El estado "perfil incompleto" se gestiona ahora con un badge en la tab de Perfil
+// y una redirección perezosa al wizard al entrar en Perfil o CreateTrip — no bloqueamos
+// el acceso a la app aunque la fila en public.user todavía no exista.
 export default function AppLayout() {
   const { user, isLoading: isAuthLoading } = useAuth();
 
@@ -106,15 +20,18 @@ export default function AppLayout() {
     return null; // El portero raíz (app/_layout.tsx) ya muestra un spinner
   }
 
-  // Si no hay usuario, redirige fuera de (app)
   if (!user) {
     return <Redirect href={ROUTES.login} />;
   }
 
-  // Si hay usuario, envuelve el Stack con el Portero de Perfil y TripProvider
   return (
     <TripProvider>
-      <ProfileGatekeeper />
+      <View style={{ flex: 1 }}>
+        <GuestBanner />
+        <View style={{ flex: 1 }}>
+          <Slot />
+        </View>
+      </View>
     </TripProvider>
   );
 }

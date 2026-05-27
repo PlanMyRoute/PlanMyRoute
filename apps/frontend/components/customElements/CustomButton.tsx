@@ -1,6 +1,6 @@
 import React from 'react';
 import { ActivityIndicator, TouchableOpacity, View } from 'react-native';
-import { MicrotextDark, MicrotextLight } from './CustomText';
+import { MicrotextDark, MicrotextLight, TextRegular } from './CustomText';
 
 interface CustomButtonProps {
     onPress?: () => void;
@@ -76,20 +76,30 @@ export const CustomButton: React.FC<CustomButtonProps> = ({
     // Estilo para botón deshabilitado
     const disabledStyle = disabled ? 'opacity-50' : '';
 
-    // Renderizar el texto del botón con el componente apropiado
     const renderTitle = () => {
         if (!title) return null;
 
         if (typeof title === 'string') {
-            // Para botones oscuros y danger, usar texto blanco
-            if (variant === 'dark' || variant === 'danger') {
-                return <MicrotextLight className={textClassName}>{title}</MicrotextLight>;
+            const isDark = variant === 'dark' || variant === 'danger';
+
+            // Botones pequeños: 12px (microtexto)
+            if (size === 'small') {
+                return isDark
+                    ? <MicrotextLight className={textClassName}>{title}</MicrotextLight>
+                    : <MicrotextDark className={textClassName}>{title}</MicrotextDark>;
             }
-            // Para botones normales, usar MicrotextDark
-            return <MicrotextDark className={textClassName}>{title}</MicrotextDark>;
+
+            // Botones medium y large: 15px
+            return (
+                <TextRegular
+                    style={isDark ? { color: '#FFFFFF' } : undefined}
+                    className={textClassName}
+                >
+                    {title}
+                </TextRegular>
+            );
         }
 
-        // Si es un componente React, renderizarlo directamente
         return <>{title}</>;
     };
 

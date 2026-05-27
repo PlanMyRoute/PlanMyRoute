@@ -52,7 +52,7 @@ export const Title2 = (props: TextProps) => (
 
 export const Title3Bold = (props: TextProps) => (
     <Text
-        style={{ fontFamily: 'Urbanist-Bold', fontSize: 20, lineHeight: 26, color: '#202020' }}
+        style={{ fontFamily: 'Urbanist-SemiBold', fontSize: 20, lineHeight: 26, color: '#202020' }}
         {...props}
     />
 );
@@ -96,15 +96,15 @@ export const Subtitle = (props: TextProps) => (
 // TEXTO GENERAL
 export const TextRegular = (props: TextProps) => (
     <Text
-        style={{ fontFamily: 'Urbanist-Medium', fontSize: 15, lineHeight: 20 }}
+        style={{ fontFamily: 'Urbanist-Medium', fontSize: 15, lineHeight: 20, color: '#202020' }}
         {...props}
     />
 );
 
-// TEXTO GENERAL NEGRITA    
+// TEXTO GENERAL NEGRITA
 export const TextBold = (props: TextProps) => (
     <Text
-        style={{ fontFamily: 'Urbanist-Bold', fontSize: 15, lineHeight: 20 }}
+        style={{ fontFamily: 'Urbanist-SemiBold', fontSize: 15, lineHeight: 20, color: '#202020' }}
         {...props}
     />
 );

@@ -1,8 +1,9 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useRouter } from 'expo-router';
 import { ROUTES } from '../../constants/routes';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import {
+  ActivityIndicator,
   Image,
   KeyboardAvoidingView,
   Platform,
@@ -35,6 +36,19 @@ export default function RegisterScreen() {
 
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const passwordChecks = {
+    length: password.length >= 8,
+    upper: /[A-Z]/.test(password),
+    lower: /[a-z]/.test(password),
+    digit: /\d/.test(password),
+  };
+
+  const scrollViewRef = useRef<ScrollView>(null);
+  const scrollToBottom = () => {
+    setTimeout(() => scrollViewRef.current?.scrollToEnd({ animated: true }), 250);
+  };
 
   // --- LÓGICA DEL CUSTOM ALERT ---
   const [alertVisible, setAlertVisible] = useState(false);
@@ -87,6 +101,7 @@ export default function RegisterScreen() {
     }
 
     // 5. Intentar registro
+    setIsSubmitting(true);
     try {
       console.log('🔵 Iniciando registro...');
       const result = await signUp(email, password, username);
@@ -102,7 +117,17 @@ export default function RegisterScreen() {
       console.log('🔵 Redirección programada');
     } catch (e) {
       console.error('🔴 Error en registro:', e);
-      showAlert('Error en el registro', (e as Error).message);
+      const message = (e as Error).message;
+      if (message === 'EMAIL_ALREADY_REGISTERED') {
+        showAlert(
+          'Email ya registrado',
+          'Ya existe una cuenta con este email. Inicia sesión o recupera tu contraseña si la has olvidado.'
+        );
+        return;
+      }
+      showAlert('Error en el registro', message);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -122,8 +147,12 @@ export default function RegisterScreen() {
       />
 
       <ScrollView
+        ref={scrollViewRef}
         contentContainerClassName="flex-grow px-8 pt-16 pb-8 justify-start"
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
+        automaticallyAdjustKeyboardInsets={Platform.OS === 'ios'}
       >
         <View className="items-center mb-6">
           <Text className="text-3xl text-[#1D1D1B]">Bienvenid@ a</Text>
@@ -143,6 +172,8 @@ export default function RegisterScreen() {
             value={username}
             onChangeText={setUsername}
             autoCapitalize="none"
+            autoComplete="username-new"
+            returnKeyType="next"
           />
 
           {/* Email */}
@@ -154,12 +185,14 @@ export default function RegisterScreen() {
             value={email}
             onChangeText={setEmail}
             autoCapitalize="none"
+            autoComplete="email"
             keyboardType="email-address"
+            returnKeyType="next"
           />
 
           {/* Contraseña */}
           <Text className="text-base font-semibold text-[#1D1D1B] mb-2 ml-2">Contraseña</Text>
-          <View className="flex-row items-center bg-white rounded-full h-14 px-6 mb-4 shadow-sm">
+          <View className="flex-row items-center bg-white rounded-full h-14 px-6 mb-2 shadow-sm">
             <TextInput
               className="flex-1 text-base text-black h-full"
               placeholder="••••••••"
@@ -167,11 +200,41 @@ export default function RegisterScreen() {
               value={password}
               onChangeText={setPassword}
               secureTextEntry={!showPassword}
+              autoCapitalize="none"
+              autoComplete="new-password"
+              returnKeyType="next"
+              onFocus={scrollToBottom}
             />
             <Pressable onPress={() => setShowPassword(!showPassword)} className="p-1">
               <Ionicons name={showPassword ? 'eye' : 'eye-off'} size={22} color="#666" />
             </Pressable>
           </View>
+
+          {/* Checklist de fuerza de contraseña */}
+          {password.length > 0 && (
+            <View className="ml-2 mb-3">
+              {([
+                ['length', 'Mínimo 8 caracteres'],
+                ['upper', 'Una letra mayúscula'],
+                ['lower', 'Una letra minúscula'],
+                ['digit', 'Un número'],
+              ] as const).map(([key, label]) => {
+                const ok = passwordChecks[key];
+                return (
+                  <View key={key} className="flex-row items-center mb-0.5">
+                    <Ionicons
+                      name={ok ? 'checkmark-circle' : 'ellipse-outline'}
+                      size={14}
+                      color={ok ? '#16A34A' : '#9CA3AF'}
+                    />
+                    <Text className={`text-xs ml-1 ${ok ? 'text-green-700' : 'text-gray-500'}`}>
+                      {label}
+                    </Text>
+                  </View>
+                );
+              })}
+            </View>
+          )}
 
           {/* Confirmar Contraseña */}
           <Text className="text-base font-semibold text-[#1D1D1B] mb-2 ml-2">Confirmar Contraseña</Text>
@@ -183,6 +246,11 @@ export default function RegisterScreen() {
               value={confirmPassword}
               onChangeText={setConfirmPassword}
               secureTextEntry={!showConfirmPassword}
+              autoCapitalize="none"
+              autoComplete="new-password"
+              returnKeyType="done"
+              onSubmitEditing={handleRegister}
+              onFocus={scrollToBottom}
             />
             <Pressable onPress={() => setShowConfirmPassword(!showConfirmPassword)} className="p-1">
               <Ionicons name={showConfirmPassword ? 'eye' : 'eye-off'} size={22} color="#666" />
@@ -193,8 +261,13 @@ export default function RegisterScreen() {
             className="bg-[#232323] rounded-full h-14 justify-center items-center mb-4 mt-6 shadow-md"
             onPress={handleRegister}
             activeOpacity={0.8}
+            disabled={isSubmitting}
           >
-            <Text className="text-white text-lg font-bold">Registrarse</Text>
+            {isSubmitting ? (
+              <ActivityIndicator color="#FFFFFF" />
+            ) : (
+              <Text className="text-white text-lg font-bold">Registrarse</Text>
+            )}
           </TouchableOpacity>
 
           <View className="flex-row justify-center mb-6 mt-6">

@@ -16,8 +16,8 @@ import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
 import { ROUTES } from '@/constants/routes';
 import { useState } from 'react';
+import { ProfileHeaderSkeleton } from '@/components/profile/ProfileHeaderSkeleton';
 import {
-    ActivityIndicator,
     Alert,
     Image,
     ScrollView,
@@ -183,9 +183,9 @@ export default function UserProfile({ userId, isOwnProfile }: UserProfileProps) 
     // --- RENDERIZADO ---
     if (userLoading) {
         return (
-            <View className="flex-1 bg-white items-center justify-center pt-10">
-                <ActivityIndicator size="large" color="#FFD54D" />
-            </View>
+            <ScrollView className="flex-1 bg-white" contentContainerStyle={{ paddingTop: 24, paddingBottom: 40 }}>
+                <ProfileHeaderSkeleton />
+            </ScrollView>
         );
     }
 

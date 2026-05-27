@@ -45,15 +45,13 @@ interface UploadingPhoto {
   error?: string;
 }
 
-// Skeleton loader component
+// Skeleton loader component (unused but kept for future)
 const PhotoSkeleton = () => (
   <Animated.View
     entering={FadeIn}
-    className="bg-gray-200 rounded-lg"
+    className="bg-neutral/20 rounded-lg"
     style={{ width: '100%', aspectRatio: 1 }}
-  >
-    <View className="w-full h-full animate-pulse bg-gradient-to-r from-gray-200 via-gray-300 to-gray-200" />
-  </Animated.View>
+  />
 );
 
 // Photo grid item
@@ -79,17 +77,17 @@ const PhotoGridItem = ({
       >
         {imageLoading && !imageError && (
           <View
-            className="absolute inset-0 bg-gray-200 rounded-lg items-center justify-center"
+            className="absolute inset-0 bg-neutral/15 rounded-lg items-center justify-center"
             style={{ zIndex: 1 }}
           >
-            <ActivityIndicator size="small" color="#FFD64F" />
+            <ActivityIndicator size="small" color="#FFD54D" />
           </View>
         )}
 
         {imageError ? (
-          <View className="w-full aspect-square bg-gray-200 rounded-lg items-center justify-center">
-            <Ionicons name="image-outline" size={32} color="#9CA3AF" />
-            <Text className="text-xs text-gray-400 mt-1">Error</Text>
+          <View className="w-full aspect-square bg-neutral/10 rounded-lg items-center justify-center">
+            <Ionicons name="image-outline" size={32} color="#999999" />
+            <Text className="text-xs text-neutral mt-1">Error</Text>
           </View>
         ) : (
           <Image
@@ -129,7 +127,7 @@ const UploadingPhotoItem = ({ item }: { item: UploadingPhoto }) => (
           </>
         ) : (
           <>
-            <ActivityIndicator size="small" color="#FFD64F" />
+            <ActivityIndicator size="small" color="#FFD54D" />
             <Text className="text-white text-xs mt-2">{Math.round(item.progress)}%</Text>
           </>
         )}
@@ -589,8 +587,10 @@ export default function TripPhotosTab() {
   if (!tripId) {
     return (
       <View className="flex-1 bg-white items-center justify-center">
-        <Ionicons name="alert-circle-outline" size={48} color="#9CA3AF" />
-        <Text className="text-gray-500 mt-4">No se pudo cargar el viaje</Text>
+        <Ionicons name="alert-circle-outline" size={48} color="#999999" />
+        <Text style={{ fontFamily: 'Urbanist-Medium', fontSize: 14, color: '#999999', marginTop: 12 }}>
+          No se pudo cargar el viaje
+        </Text>
       </View>
     );
   }
@@ -615,35 +615,28 @@ export default function TripPhotosTab() {
   return (
     <View className="flex-1 bg-white">
       {/* Header */}
-      <View className="px-4 py-3 flex-row items-center justify-between border-b border-gray-100 bg-white shadow-sm">
+      <View className="px-4 py-3 flex-row items-center justify-between border-b border-neutral/10 bg-white">
         <View>
-          <Text className="text-xl font-bold text-gray-900">Fotos</Text>
-          <Text className="text-sm text-gray-500">{photos.length} fotos</Text>
+          <Text className="text-lg font-semibold" style={{ fontFamily: 'Urbanist-SemiBold', color: '#202020' }}>Fotos</Text>
+          <Text style={{ fontFamily: 'Urbanist-Regular', fontSize: 12, color: '#999999' }}>{photos.length} fotos</Text>
         </View>
 
         <TouchableOpacity
           onPress={showUploadOptions}
           disabled={uploadingPhotos.length > 0}
-          className="bg-[#FFD64F] px-4 py-2.5 rounded-full flex-row items-center shadow-sm"
-          style={{
-            shadowColor: '#FFD64F',
-            shadowOffset: { width: 0, height: 2 },
-            shadowOpacity: 0.3,
-            shadowRadius: 4,
-            elevation: 3,
-          }}
+          className="bg-primary px-4 py-2.5 rounded-full flex-row items-center"
         >
           {uploadingPhotos.length > 0 ? (
             <>
-              <ActivityIndicator size="small" color="#1D1D1B" />
-              <Text className="ml-2 text-sm font-semibold text-gray-900">
+              <ActivityIndicator size="small" color="#202020" />
+              <Text style={{ fontFamily: 'Urbanist-Medium', fontSize: 13, color: '#202020', marginLeft: 6 }}>
                 Subiendo {uploadingPhotos.length}
               </Text>
             </>
           ) : (
             <>
-              <Ionicons name="add" size={20} color="#1D1D1B" />
-              <Text className="ml-1 text-sm font-semibold text-gray-900">Agregar</Text>
+              <Ionicons name="add" size={18} color="#202020" />
+              <Text style={{ fontFamily: 'Urbanist-Medium', fontSize: 13, color: '#202020', marginLeft: 4 }}>Agregar</Text>
             </>
           )}
         </TouchableOpacity>
@@ -652,8 +645,10 @@ export default function TripPhotosTab() {
       {/* Content */}
       {loading && photos.length === 0 ? (
         <View className="flex-1 items-center justify-center">
-          <ActivityIndicator size="large" color="#FFD64F" />
-          <Text className="text-gray-500 mt-4">Cargando fotos...</Text>
+          <ActivityIndicator size="large" color="#FFD54D" />
+          <Text style={{ fontFamily: 'Urbanist-Regular', fontSize: 14, color: '#999999', marginTop: 12 }}>
+            Cargando fotos...
+          </Text>
         </View>
       ) : (
         <FlatList
@@ -665,22 +660,22 @@ export default function TripPhotosTab() {
           numColumns={3}
           contentContainerStyle={{ padding: 4 }}
           ListEmptyComponent={
-            <Animated.View entering={FadeIn} className="flex-1 items-center justify-center p-8">
-              <View className="bg-gray-100 rounded-full p-6 mb-4">
-                <Ionicons name="images-outline" size={48} color="#9CA3AF" />
+            <Animated.View entering={FadeIn} className="flex-1 items-center justify-center p-8 mt-8">
+              <View className="w-20 h-20 bg-primary rounded-full items-center justify-center mb-4">
+                <Ionicons name="images-outline" size={36} color="#202020" />
               </View>
-              <Text className="text-lg font-semibold text-gray-900 mb-2">
-                No hay fotos aún
+              <Text style={{ fontFamily: 'Urbanist-SemiBold', fontSize: 18, color: '#202020', marginBottom: 6, textAlign: 'center' }}>
+                Sin fotos aún
               </Text>
-              <Text className="text-center text-gray-500 mb-6">
-                Comienza a capturar los momentos especiales de tu viaje
+              <Text style={{ fontFamily: 'Urbanist-Medium', fontSize: 14, color: '#999999', textAlign: 'center', marginBottom: 24 }}>
+                Captura los momentos especiales de tu aventura.
               </Text>
               <TouchableOpacity
                 onPress={showUploadOptions}
-                className="bg-[#FFD64F] px-6 py-3 rounded-full flex-row items-center"
+                className="bg-dark px-6 py-3 rounded-full flex-row items-center"
               >
-                <Ionicons name="camera-outline" size={20} color="#1D1D1B" />
-                <Text className="ml-2 text-sm font-semibold text-gray-900">
+                <Ionicons name="camera-outline" size={18} color="#FFD54D" />
+                <Text style={{ fontFamily: 'Urbanist-Medium', fontSize: 14, color: '#FFFFFF', marginLeft: 8 }}>
                   Agregar primera foto
                 </Text>
               </TouchableOpacity>

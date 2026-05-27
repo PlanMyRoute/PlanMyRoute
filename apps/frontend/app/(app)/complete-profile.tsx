@@ -176,11 +176,7 @@ export default function CompleteProfileScreen() {
 
       await queryClient.invalidateQueries({ queryKey: ['user', user.id] });
       await queryClient.invalidateQueries({ queryKey: ['userProfile', user.id] });
-
-      // Limpiar flag de localStorage
-      if (typeof window !== 'undefined') {
-        window.localStorage.removeItem('needsCompleteProfile');
-      }
+      await queryClient.invalidateQueries({ queryKey: ['userById', user.id] });
 
       showAlert('¡Perfecto!', 'Tu perfil está completo. ¡Bienvenido a PlanMyRoute!', 'success');
       

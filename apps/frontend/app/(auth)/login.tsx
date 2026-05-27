@@ -3,6 +3,7 @@ import { useRouter } from 'expo-router';
 import { ROUTES } from '../../constants/routes';
 import { useEffect, useState } from 'react';
 import {
+  ActivityIndicator,
   Image,
   KeyboardAvoidingView,
   Platform,
@@ -25,12 +26,14 @@ interface AlertConfig {
 }
 
 export default function LoginScreen() {
-  const { login, signInWithGoogle, user, isLoading } = useAuth();
+  const { login, signInWithGoogle, signInAsGuest, user, isLoading } = useAuth();
   const router = useRouter();
+  const [isGuestLoading, setIsGuestLoading] = useState(false);
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
   // const [rememberMe, setRememberMe] = useState(false);
 
   // --- Lógica de la Alerta ---
@@ -58,10 +61,13 @@ export default function LoginScreen() {
       showAlert('Campos incompletos', 'Por favor, introduce tu email y contraseña para continuar.');
       return;
     }
+    setIsLoggingIn(true);
     try {
       await login(email, password);
     } catch (e) {
       showAlert('Error de acceso', 'El usuario o la contraseña son incorrectos. Por favor inténtalo de nuevo.');
+    } finally {
+      setIsLoggingIn(false);
     }
   };
 
@@ -70,6 +76,17 @@ export default function LoginScreen() {
       await signInWithGoogle();
     } catch (e: any) {
       showAlert('Error', e.message || 'No se pudo iniciar sesión con Google. Inténtalo de nuevo.');
+    }
+  };
+
+  const handleGuestLogin = async () => {
+    setIsGuestLoading(true);
+    try {
+      await signInAsGuest();
+    } catch (e: any) {
+      showAlert('Error', e.message || 'No se pudo iniciar el modo invitado.');
+    } finally {
+      setIsGuestLoading(false);
     }
   };
 
@@ -89,6 +106,9 @@ export default function LoginScreen() {
       <ScrollView
         contentContainerClassName="flex-grow px-8 pt-16 pb-8 justify-start"
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
+        automaticallyAdjustKeyboardInsets={Platform.OS === 'ios'}
       >
 
         {/* --- HEADER --- */}
@@ -124,14 +144,16 @@ export default function LoginScreen() {
             value={email}
             onChangeText={setEmail}
             autoCapitalize="none"
+            autoComplete="email"
             keyboardType="email-address"
+            returnKeyType="next"
           />
 
           {/* Contraseña */}
           <Text className="text-base font-semibold text-[#1D1D1B] mb-2 ml-2">
             Contraseña
           </Text>
-          <View className="flex-row items-center bg-white rounded-full h-14 px-6 mb-4 shadow-sm">
+          <View className="flex-row items-center bg-white rounded-full h-14 px-6 mb-2 shadow-sm">
             <TextInput
               className="flex-1 text-base text-black h-full"
               placeholder="••••••••"
@@ -139,6 +161,10 @@ export default function LoginScreen() {
               value={password}
               onChangeText={setPassword}
               secureTextEntry={!showPassword}
+              autoCapitalize="none"
+              autoComplete="current-password"
+              returnKeyType="done"
+              onSubmitEditing={handleLogin}
             />
             <Pressable onPress={() => setShowPassword(!showPassword)} className="p-1">
               <Ionicons
@@ -149,15 +175,28 @@ export default function LoginScreen() {
             </Pressable>
           </View>
 
+          {/* Forgot password */}
+          <Pressable
+            onPress={() => router.push(ROUTES.forgotPassword)}
+            className="self-end mb-2"
+          >
+            <Text className="text-[#1D1D1B] text-sm underline">¿Olvidaste tu contraseña?</Text>
+          </Pressable>
+
           {/* Botón Principal */}
           <TouchableOpacity
             className="bg-[#232323] rounded-full h-14 justify-center items-center mb-4 mt-6 shadow-md"
             onPress={handleLogin}
             activeOpacity={0.8}
+            disabled={isLoggingIn}
           >
-            <Text className="text-white text-lg font-bold">
-              Iniciar Sesión
-            </Text>
+            {isLoggingIn ? (
+              <ActivityIndicator color="#FFFFFF" />
+            ) : (
+              <Text className="text-white text-lg font-bold">
+                Iniciar Sesión
+              </Text>
+            )}
           </TouchableOpacity>
 
           {/* Separador */}
@@ -167,7 +206,7 @@ export default function LoginScreen() {
 
           {/* Botón Google */}
           <TouchableOpacity
-            className="bg-white rounded-full h-14 flex-row justify-center items-center mb-8 shadow-sm"
+            className="bg-white rounded-full h-14 flex-row justify-center items-center mb-3 shadow-sm"
             onPress={handleGoogleLogin}
             activeOpacity={0.8}
           >
@@ -175,6 +214,25 @@ export default function LoginScreen() {
             <Text className="text-[#1D1D1B] text-lg font-bold">
               Continuar con Google
             </Text>
+          </TouchableOpacity>
+
+          {/* Botón Invitado */}
+          <TouchableOpacity
+            className="bg-transparent border border-[#1D1D1B] rounded-full h-14 flex-row justify-center items-center mb-8"
+            onPress={handleGuestLogin}
+            activeOpacity={0.7}
+            disabled={isGuestLoading}
+          >
+            {isGuestLoading ? (
+              <ActivityIndicator color="#1D1D1B" />
+            ) : (
+              <>
+                <Ionicons name="person-outline" size={20} color="#1D1D1B" style={{ marginRight: 10 }} />
+                <Text className="text-[#1D1D1B] text-lg font-bold">
+                  Continuar como invitado
+                </Text>
+              </>
+            )}
           </TouchableOpacity>
 
           {/* Footer Links */}

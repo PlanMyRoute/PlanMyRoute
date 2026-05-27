@@ -5,11 +5,13 @@ import {
   Image,
   KeyboardAvoidingView,
   Platform,
+  ScrollView,
   Text,
   TextInput,
   TouchableOpacity,
   View
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import CustomAlert from '../../components/customElements/CustomAlert';
 import { useAuth } from '../../context/AuthContext';
 
@@ -119,28 +121,33 @@ export default function VerifyEmailScreen() {
         }}
       />
 
-      <View className="flex-1 px-8 pt-6 pb-8 justify-start">
-        <View className="items-center mb-4">
-          <Text className="text-xl text-[#1D1D1B]">Verifica tu email</Text>
-          <Text className="text-2xl font-bold text-[#1D1D1B] mb-1 text-center">PlanMyRoute</Text>
-          <Image source={carLogoImage} style={{ width: 64, height: 40 }} resizeMode="contain" />
+      <SafeAreaView className="flex-1" edges={['top', 'bottom']}>
+        <ScrollView
+          contentContainerClassName="flex-grow px-8 py-8 justify-center"
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+        <View className="items-center mb-8">
+          <Text className="text-2xl text-[#1D1D1B]">Verifica tu email</Text>
+          <Text className="text-3xl font-bold text-[#1D1D1B] mb-3 text-center">PlanMyRoute</Text>
+          <Image source={carLogoImage} style={{ width: 160, height: 96 }} resizeMode="contain" />
         </View>
 
         <View className="w-full">
-          <Text className="text-sm text-[#1D1D1B] mb-1 text-center">
+          <Text className="text-base text-[#1D1D1B] mb-1 text-center">
             Hemos enviado un código de 6 dígitos a:
           </Text>
-          <Text className="text-base font-bold text-[#1D1D1B] mb-5 text-center">
+          <Text className="text-lg font-bold text-[#1D1D1B] mb-8 text-center">
             {email}
           </Text>
 
           {/* Inputs del código OTP */}
-          <View className="flex-row justify-center gap-2 mb-6">
+          <View className="flex-row justify-center gap-2 mb-8">
             {code.map((digit, index) => (
               <TextInput
                 key={index}
                 ref={(ref) => { inputRefs.current[index] = ref; }}
-                className="bg-white rounded-xl w-11 h-12 text-center text-xl font-bold text-black shadow-md"
+                className="bg-white rounded-xl w-12 h-14 text-center text-2xl font-bold text-black shadow-md"
                 value={digit}
                 onChangeText={(text) => handleCodeChange(text, index)}
                 onKeyPress={(e) => handleKeyPress(e, index)}
@@ -153,15 +160,15 @@ export default function VerifyEmailScreen() {
           </View>
 
           <TouchableOpacity
-            className="bg-[#232323] rounded-full h-12 justify-center items-center mb-3 shadow-md"
+            className="bg-[#232323] rounded-full h-14 justify-center items-center mb-3 shadow-md"
             onPress={() => handleVerify()}
             activeOpacity={0.8}
           >
-            <Text className="text-white text-base font-bold">Verificar código</Text>
+            <Text className="text-white text-lg font-bold">Verificar código</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            className="bg-white border border-[#232323] rounded-full h-12 justify-center items-center mb-3 shadow-sm"
+            className="bg-white border border-[#232323] rounded-full h-14 justify-center items-center mb-3 shadow-sm"
             onPress={async () => {
               if (isResending) return;
               setIsResending(true);
@@ -177,20 +184,21 @@ export default function VerifyEmailScreen() {
             activeOpacity={0.8}
             disabled={isResending}
           >
-            <Text className="text-[#232323] text-base font-bold">
+            <Text className="text-[#232323] text-lg font-bold">
               {isResending ? 'Reenviando...' : 'Reenviar código'}
             </Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            className="items-center mt-2"
+            className="items-center mt-4"
             onPress={() => router.back()}
             activeOpacity={0.7}
           >
             <Text className="text-[#1D1D1B] text-sm underline">Volver al registro</Text>
           </TouchableOpacity>
         </View>
-      </View>
+        </ScrollView>
+      </SafeAreaView>
     </KeyboardAvoidingView>
   );
 }
