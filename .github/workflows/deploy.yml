@@ -6,10 +6,10 @@ on:
       - main
 
 jobs:
-  deploy:
+  deploy-backend:
     runs-on: ubuntu-latest
     steps:
-      - name: Deploy to server via Docker
+      - name: Deploy backend via Docker
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: 178.105.153.20
@@ -23,3 +23,38 @@ jobs:
             docker compose down || true
             docker compose build --no-cache
             docker compose up -d
+
+  deploy-frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: latest
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Build frontend web
+        working-directory: apps/frontend
+        env:
+          EXPO_PUBLIC_API_URL: 'http://planmyroute.es:3001'
+        run: npx expo export -p web
+
+      - name: Copy frontend to server
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: 178.105.153.20
+          username: adrian
+          password: ${{ secrets.SSH_PASSWORD }}
+          source: "apps/frontend/dist/*"
+          target: "/opt/proyecto/planmyroute/apps/frontend/dist"
+          strip_components: 3
