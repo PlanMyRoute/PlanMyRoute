@@ -210,7 +210,7 @@ export default function TabLayout() {
         />
 
         <Tabs.Screen
-          name="CreateTrip"
+          name="createTrip"
           options={{
             title: 'Crear viajes',
             tabBarIcon: ({ color }) => <TabNewTripIcon stroke={color} />,
@@ -230,7 +230,7 @@ export default function TabLayout() {
         />
 
         <Tabs.Screen
-          name="Profile"
+          name="profile"
           options={{
             title: profile?.user.username || 'Perfil',
             headerShadowVisible: false,
