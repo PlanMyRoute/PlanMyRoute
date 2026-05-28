@@ -10,7 +10,7 @@ export default function AddVehicleScreen() {
     <>
       <Stack.Screen
         options={{
-          title: 'Añadir Vehículo',
+          title: 'Añadir vehículo',
           headerShown: true,
         }}
       />

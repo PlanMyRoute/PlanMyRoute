@@ -45,7 +45,7 @@ export const searchByUsername = async (searchPattern: string) => {
     // Búsqueda parcial con ilike (case insensitive)
     const { data, error } = await supabase
         .from(USER_TABLE_NAME)
-        .select('*')
+        .select('id, username, name, lastname, img, bio, location')
         .ilike('username', searchPattern);
 
     if (error) {

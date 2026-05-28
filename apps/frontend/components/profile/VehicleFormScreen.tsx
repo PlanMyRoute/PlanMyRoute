@@ -5,22 +5,22 @@ import { MicrotextDark, SubtitleSemibold, TextRegular } from '@/components/custo
 import { FuelType, Vehicle, VehicleService } from '@/services/VehicleService';
 import { Ionicons } from '@expo/vector-icons';
 import { VehicleType } from '@planmyroute/types';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 const VEHICLE_TYPES: { value: VehicleType; label: string; icon: string; brandPlaceholder: string; modelPlaceholder: string }[] = [
-    { value: 'car', label: 'Coche', icon: 'car', brandPlaceholder: 'Ej: Toyota, Volkswagen', modelPlaceholder: 'Ej: Corolla, Golf' },
-    { value: 'motorcycle', label: 'Moto', icon: 'bicycle', brandPlaceholder: 'Ej: Yamaha, Honda', modelPlaceholder: 'Ej: MT-07, CBR600' },
-    { value: 'campervan', label: 'Autocaravana', icon: 'bus', brandPlaceholder: 'Ej: Hymer, Dethleffs', modelPlaceholder: 'Ej: B-Class, Globebus' },
-    { value: 'van', label: 'Furgoneta', icon: 'cube', brandPlaceholder: 'Ej: Mercedes, Ford', modelPlaceholder: 'Ej: Sprinter, Transit' },
+    { value: 'car', label: 'Coche', icon: 'car-outline', brandPlaceholder: 'Ej: Toyota, Volkswagen', modelPlaceholder: 'Ej: Corolla, Golf' },
+    { value: 'motorcycle', label: 'Moto', icon: 'bicycle-outline', brandPlaceholder: 'Ej: Yamaha, Honda', modelPlaceholder: 'Ej: MT-07, CBR600' },
+    { value: 'campervan', label: 'Autocaravana', icon: 'bus-outline', brandPlaceholder: 'Ej: Hymer, Dethleffs', modelPlaceholder: 'Ej: B-Class, Globebus' },
+    { value: 'van', label: 'Furgoneta', icon: 'car-sport-outline', brandPlaceholder: 'Ej: Mercedes, Ford', modelPlaceholder: 'Ej: Sprinter, Transit' },
 ];
 
 const FUEL_TYPES: { value: FuelType; label: string; icon: string }[] = [
-    { value: 'gasoline', label: 'Gasolina', icon: 'flame' },
-    { value: 'diesel', label: 'Diésel', icon: 'water' },
-    { value: 'electric', label: 'Eléctrico', icon: 'flash' },
-    { value: 'LPG', label: 'GLP', icon: 'cloud' },
+    { value: 'gasoline', label: 'Gasolina', icon: 'flame-outline' },
+    { value: 'diesel', label: 'Diésel', icon: 'water-outline' },
+    { value: 'electric', label: 'Eléctrico', icon: 'flash-outline' },
+    { value: 'LPG', label: 'GLP', icon: 'cloud-outline' },
 ];
 
 interface VehicleFormScreenProps {
@@ -31,7 +31,18 @@ interface VehicleFormScreenProps {
     initialData?: Partial<Vehicle>;
     onSuccess: () => void;
     onCancel: () => void;
+    onDelete?: () => void;
 }
+
+type AlertState = {
+    visible: boolean;
+    title: string;
+    message: string;
+    type: 'error' | 'success' | 'info' | 'warning';
+    actions?: { text: string; onPress: () => void; variant?: 'primary' | 'outline' | 'danger' }[];
+};
+
+const EMPTY_ALERT: AlertState = { visible: false, title: '', message: '', type: 'info' };
 
 export default function VehicleFormScreen({
     userId,
@@ -41,6 +52,7 @@ export default function VehicleFormScreen({
     initialData,
     onSuccess,
     onCancel,
+    onDelete,
 }: VehicleFormScreenProps) {
     const [brand, setBrand] = useState(initialData?.brand || '');
     const [model, setModel] = useState(initialData?.model || '');
@@ -49,31 +61,35 @@ export default function VehicleFormScreen({
     const [avgConsumption, setAvgConsumption] = useState(initialData?.avg_consumption?.toString() || '');
     const [fuelTankCapacity, setFuelTankCapacity] = useState(initialData?.fuel_tank_capacity?.toString() || '');
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const [showAlert, setShowAlert] = useState(false);
-    const [alertConfig, setAlertConfig] = useState<{
-        title: string;
-        message: string;
-        type: 'error' | 'success' | 'info' | 'warning';
-    }>({ title: '', message: '', type: 'info' });
+    const [isDeleting, setIsDeleting] = useState(false);
+    const [alertState, setAlertState] = useState<AlertState>(EMPTY_ALERT);
+
+    const showAlert = (s: Omit<AlertState, 'visible'>) => setAlertState({ ...s, visible: true });
+    const closeAlert = () => setAlertState(EMPTY_ALERT);
+
+    const isElectric = selectedFuelType === 'electric';
 
     const isFormValid = brand.trim().length > 0 && model.trim().length > 0;
 
-    // Obtener placeholders dinámicos según el tipo de vehículo
+    const hasChanges = useMemo(() => {
+        if (!isEditMode) return true;
+        return (
+            brand.trim() !== (initialData?.brand || '') ||
+            model.trim() !== (initialData?.model || '') ||
+            selectedType !== (initialData?.type || 'car') ||
+            selectedFuelType !== (initialData?.type_fuel || 'gasoline') ||
+            avgConsumption !== (initialData?.avg_consumption?.toString() || '') ||
+            fuelTankCapacity !== (initialData?.fuel_tank_capacity?.toString() || '')
+        );
+    }, [brand, model, selectedType, selectedFuelType, avgConsumption, fuelTankCapacity, initialData, isEditMode]);
+
     const selectedVehicleType = VEHICLE_TYPES.find(t => t.value === selectedType);
-    const brandPlaceholder = selectedVehicleType?.brandPlaceholder || 'Marca del vehículo';
-    const modelPlaceholder = selectedVehicleType?.modelPlaceholder || 'Modelo del vehículo';
 
     const handleSubmit = async () => {
         if (!isFormValid) {
-            setAlertConfig({
-                title: 'Error',
-                message: 'Por favor, completa los campos obligatorios.',
-                type: 'error'
-            });
-            setShowAlert(true);
+            showAlert({ title: 'Campos requeridos', message: 'La marca y el modelo son obligatorios.', type: 'error' });
             return;
         }
-
         setIsSubmitting(true);
         try {
             const vehicleData = {
@@ -84,39 +100,62 @@ export default function VehicleFormScreen({
                 avg_consumption: avgConsumption ? parseFloat(avgConsumption) : null,
                 fuel_tank_capacity: fuelTankCapacity ? parseFloat(fuelTankCapacity) : null,
             };
-
             if (isEditMode && vehicleId) {
                 await VehicleService.updateVehicle(userId, vehicleId, vehicleData, token ? { token } : undefined);
             } else {
                 await VehicleService.createVehicle(userId, vehicleData, token ? { token } : undefined);
             }
-
-            setAlertConfig({
-                title: '¡Éxito!',
-                message: isEditMode
-                    ? 'El vehículo se ha actualizado correctamente'
-                    : 'El vehículo se ha añadido correctamente',
-                type: 'success'
+            showAlert({
+                title: '¡Listo!',
+                message: isEditMode ? 'El vehículo se ha actualizado correctamente' : 'El vehículo se ha añadido correctamente',
+                type: 'success',
+                actions: [{ text: 'OK', onPress: () => { closeAlert(); onSuccess(); }, variant: 'primary' }],
             });
-            setShowAlert(true);
-
-            // Pequeño delay antes de cerrar
-            setTimeout(() => {
-                onSuccess();
-            }, 1500);
-        } catch (error) {
-            console.error('Error saving vehicle:', error);
-            setAlertConfig({
+        } catch {
+            showAlert({
                 title: 'Error',
-                message: isEditMode
-                    ? 'Hubo un problema al actualizar el vehículo.'
-                    : 'Hubo un problema al añadir el vehículo.',
-                type: 'error'
+                message: isEditMode ? 'Hubo un problema al actualizar el vehículo.' : 'Hubo un problema al añadir el vehículo.',
+                type: 'error',
             });
-            setShowAlert(true);
         } finally {
             setIsSubmitting(false);
         }
+    };
+
+    const handleDeletePress = () => {
+        showAlert({
+            title: 'Eliminar vehículo',
+            message: `¿Estás seguro de que quieres eliminar ${brand || 'este vehículo'}? Esta acción no se puede deshacer.`,
+            type: 'warning',
+            actions: [
+                { text: 'Cancelar', onPress: closeAlert, variant: 'outline' },
+                {
+                    text: 'Eliminar',
+                    onPress: async () => {
+                        closeAlert();
+                        if (!vehicleId) return;
+                        setIsDeleting(true);
+                        try {
+                            await VehicleService.deleteVehicle(userId, vehicleId, token ? { token } : undefined);
+                            if (onDelete) onDelete();
+                            else onSuccess();
+                        } catch {
+                            showAlert({ title: 'Error', message: 'No se pudo eliminar el vehículo.', type: 'error' });
+                        } finally {
+                            setIsDeleting(false);
+                        }
+                    },
+                    variant: 'danger',
+                },
+            ],
+        });
+    };
+
+    const specLabel = {
+        avgConsumption: isElectric ? 'Consumo medio (kWh/100km)' : 'Consumo medio (L/100km)',
+        avgConsumptionPlaceholder: isElectric ? 'Ej: 18.5' : 'Ej: 5.8',
+        tankCapacity: isElectric ? 'Autonomía (km)' : 'Capacidad del depósito (L)',
+        tankCapacityPlaceholder: isElectric ? 'Ej: 400' : 'Ej: 50',
     };
 
     return (
@@ -128,10 +167,10 @@ export default function VehicleFormScreen({
             >
                 <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
                     <View className="p-5 gap-6">
-                        {/* Paso 1: Tipo de Vehículo */}
-                        <View>
-                            <SubtitleSemibold className="text-dark-black mb-3">¿Qué tipo de vehículo es?</SubtitleSemibold>
 
+                        {/* Tipo de vehículo */}
+                        <View>
+                            <SubtitleSemibold className="mb-3">¿Qué tipo de vehículo es?</SubtitleSemibold>
                             <View className="flex-row flex-wrap gap-3">
                                 {VEHICLE_TYPES.map(type => {
                                     const selected = selectedType === type.value;
@@ -139,22 +178,11 @@ export default function VehicleFormScreen({
                                         <TouchableOpacity
                                             key={type.value}
                                             onPress={() => setSelectedType(type.value)}
-                                            className={`flex-row items-center border-2 px-4 py-3 rounded-2xl flex-1 min-w-[45%] ${selected
-                                                ? 'bg-primary-yellow border-primary-yellow'
-                                                : 'bg-white border-neutral-gray/30'
-                                                }`}
+                                            className={`flex-row items-center border-2 px-4 py-3 rounded-2xl flex-1 min-w-[45%] gap-2 ${selected ? 'bg-primary border-primary' : 'bg-white border-neutral/30'}`}
                                             activeOpacity={0.7}
                                         >
-                                            <Ionicons
-                                                name={type.icon as any}
-                                                size={22}
-                                                color={selected ? '#202020' : '#999999'}
-                                                style={{ marginRight: 8 }}
-                                            />
-                                            <TextRegular
-                                                className={`font-semibold ${selected ? 'text-dark-black' : 'text-neutral-gray'
-                                                    }`}
-                                            >
+                                            <Ionicons name={type.icon as any} size={22} color={selected ? '#202020' : '#999999'} />
+                                            <TextRegular style={{ fontFamily: 'Urbanist-SemiBold', color: selected ? '#202020' : '#999999' }}>
                                                 {type.label}
                                             </TextRegular>
                                         </TouchableOpacity>
@@ -163,35 +191,30 @@ export default function VehicleFormScreen({
                             </View>
                         </View>
 
-                        {/* Línea separadora */}
-                        <View className="h-px bg-neutral-gray/20" />
+                        <View className="h-px bg-neutral/15" />
 
-                        {/* Paso 2: Información Básica */}
+                        {/* Información básica */}
                         <View className="gap-4">
-                            <SubtitleSemibold className="text-dark-black">Información básica</SubtitleSemibold>
-
+                            <SubtitleSemibold>Información básica</SubtitleSemibold>
                             <CustomInput
                                 label="Marca*"
-                                placeholder={brandPlaceholder}
+                                placeholder={selectedVehicleType?.brandPlaceholder || 'Marca del vehículo'}
                                 value={brand}
                                 onChangeText={setBrand}
                             />
-
                             <CustomInput
                                 label="Modelo*"
-                                placeholder={modelPlaceholder}
+                                placeholder={selectedVehicleType?.modelPlaceholder || 'Modelo del vehículo'}
                                 value={model}
                                 onChangeText={setModel}
                             />
                         </View>
 
-                        {/* Línea separadora */}
-                        <View className="h-px bg-neutral-gray/20" />
+                        <View className="h-px bg-neutral/15" />
 
-                        {/* Paso 3: Tipo de Combustible */}
+                        {/* Tipo de combustible */}
                         <View>
-                            <SubtitleSemibold className="text-dark-black mb-3">Tipo de combustible</SubtitleSemibold>
-
+                            <SubtitleSemibold className="mb-3">Tipo de combustible</SubtitleSemibold>
                             <View className="flex-row flex-wrap gap-3">
                                 {FUEL_TYPES.map(fuel => {
                                     const selected = selectedFuelType === fuel.value;
@@ -199,22 +222,11 @@ export default function VehicleFormScreen({
                                         <TouchableOpacity
                                             key={fuel.value}
                                             onPress={() => setSelectedFuelType(fuel.value)}
-                                            className={`flex-row items-center border-2 px-4 py-3 rounded-2xl flex-1 min-w-[45%] ${selected
-                                                ? 'bg-primary-yellow border-primary-yellow'
-                                                : 'bg-white border-neutral-gray/30'
-                                                }`}
+                                            className={`flex-row items-center border-2 px-4 py-3 rounded-2xl flex-1 min-w-[45%] gap-2 ${selected ? 'bg-primary border-primary' : 'bg-white border-neutral/30'}`}
                                             activeOpacity={0.7}
                                         >
-                                            <Ionicons
-                                                name={fuel.icon as any}
-                                                size={22}
-                                                color={selected ? '#202020' : '#999999'}
-                                                style={{ marginRight: 8 }}
-                                            />
-                                            <TextRegular
-                                                className={`font-semibold ${selected ? 'text-dark-black' : 'text-neutral-gray'
-                                                    }`}
-                                            >
+                                            <Ionicons name={fuel.icon as any} size={22} color={selected ? '#202020' : '#999999'} />
+                                            <TextRegular style={{ fontFamily: 'Urbanist-SemiBold', color: selected ? '#202020' : '#999999' }}>
                                                 {fuel.label}
                                             </TextRegular>
                                         </TouchableOpacity>
@@ -223,63 +235,88 @@ export default function VehicleFormScreen({
                             </View>
                         </View>
 
-                        {/* Línea separadora */}
-                        <View className="h-px bg-neutral-gray/20" />
+                        <View className="h-px bg-neutral/15" />
 
-                        {/* Paso 4: Especificaciones Técnicas (Opcional) */}
+                        {/* Especificaciones técnicas */}
                         <View className="gap-4">
                             <View>
-                                <SubtitleSemibold className="text-dark-black">Especificaciones técnicas</SubtitleSemibold>
-                                <MicrotextDark className="text-neutral-gray mt-1">(Opcional)</MicrotextDark>
+                                <SubtitleSemibold>Especificaciones técnicas</SubtitleSemibold>
+                                <MicrotextDark className="text-neutral mt-1">(Opcional)</MicrotextDark>
                             </View>
 
+                            {isElectric && (
+                                <View className="bg-primary/10 rounded-xl p-3 flex-row items-center gap-2">
+                                    <Ionicons name="flash" size={16} color="#202020" />
+                                    <TextRegular className="text-dark flex-1" style={{ fontSize: 12 }}>
+                                        Para vehículos eléctricos mostramos consumo en kWh y autonomía en km
+                                    </TextRegular>
+                                </View>
+                            )}
+
                             <CustomInput
-                                label="Consumo medio (L/100km)"
-                                placeholder="Ej: 5.8"
+                                label={specLabel.avgConsumption}
+                                placeholder={specLabel.avgConsumptionPlaceholder}
                                 value={avgConsumption}
                                 onChangeText={setAvgConsumption}
                                 keyboardType="decimal-pad"
                             />
-
                             <CustomInput
-                                label="Capacidad del depósito (L)"
-                                placeholder="Ej: 50"
+                                label={specLabel.tankCapacity}
+                                placeholder={specLabel.tankCapacityPlaceholder}
                                 value={fuelTankCapacity}
                                 onChangeText={setFuelTankCapacity}
                                 keyboardType="decimal-pad"
                             />
                         </View>
 
-                        {/* Botones de acción */}
-                        <View className="gap-3 mt-4 mb-8">
+                        {/* Acciones principales */}
+                        <View className="gap-3 mt-2">
                             <CustomButton
-                                title={isEditMode ? 'Guardar Cambios' : 'Añadir Vehículo'}
+                                title={isEditMode ? 'Guardar cambios' : 'Añadir vehículo'}
                                 variant="primary"
                                 size="large"
                                 onPress={handleSubmit}
-                                disabled={!isFormValid || isSubmitting}
+                                disabled={!isFormValid || !hasChanges || isSubmitting || isDeleting}
                                 loading={isSubmitting}
                             />
-
                             <CustomButton
                                 title="Cancelar"
                                 variant="outline"
                                 size="large"
                                 onPress={onCancel}
-                                disabled={isSubmitting}
+                                disabled={isSubmitting || isDeleting}
                             />
                         </View>
+
+                        {/* Zona de peligro (solo en modo edición) */}
+                        {isEditMode && vehicleId && (
+                            <View className="border-t border-neutral/15 pt-6 gap-3">
+                                <MicrotextDark className="text-neutral">Zona de peligro</MicrotextDark>
+                                <CustomButton
+                                    title="Eliminar vehículo"
+                                    variant="danger"
+                                    size="large"
+                                    onPress={handleDeletePress}
+                                    disabled={isSubmitting || isDeleting}
+                                    loading={isDeleting}
+                                    icon={<Ionicons name="trash-outline" size={18} color="#FFFFFF" />}
+                                />
+                            </View>
+                        )}
+
+                        {/* Spacer */}
+                        <View className="h-4" />
                     </View>
                 </ScrollView>
             </KeyboardAvoidingView>
 
-            {/* Alert */}
             <CustomAlert
-                visible={showAlert}
-                title={alertConfig.title}
-                message={alertConfig.message}
-                type={alertConfig.type}
-                onClose={() => setShowAlert(false)}
+                visible={alertState.visible}
+                title={alertState.title}
+                message={alertState.message}
+                type={alertState.type}
+                actions={alertState.actions}
+                onClose={closeAlert}
             />
         </SafeAreaView>
     );

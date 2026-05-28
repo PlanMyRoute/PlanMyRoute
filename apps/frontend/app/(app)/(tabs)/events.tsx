@@ -1,9 +1,10 @@
 import { TmEvent } from '@/services/eventService';
 import { useEvents } from '@/hooks/useEvents';
-import { MapComponent } from '@/components/trip/MapComponent';
+import { MapComponent, MapRef } from '@/components/trip/MapComponent';
 import { Ionicons } from '@expo/vector-icons';
+import * as Location from 'expo-location';
 import { useRouter } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
     ActivityIndicator,
     FlatList,
@@ -14,6 +15,7 @@ import {
     View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
 
 const COUNTRY_OPTIONS = [
     { code: '', label: 'Global' },
@@ -46,7 +48,13 @@ function EventCard({ event }: { event: TmEvent }) {
             className="mx-4 mb-4 rounded-2xl overflow-hidden bg-white shadow-sm"
             style={{ elevation: 2 }}
             activeOpacity={0.85}
-            onPress={() => router.push(`/event/${event.id}`)}
+            onPress={() => router.push({
+                pathname: '/event/[id]' as any,
+                params: {
+                    id: event.id,
+                    ...(event.dates?.length > 1 && { dates: JSON.stringify(event.dates) }),
+                },
+            })}
         >
             <View className="relative">
                 {event.image ? (
@@ -61,7 +69,6 @@ function EventCard({ event }: { event: TmEvent }) {
                         <Ionicons name="musical-notes" size={48} color="#999" />
                     </View>
                 )}
-                {/* Badge segmento */}
                 {event.segment && (
                     <View className="absolute top-3 left-3 bg-primary-yellow px-2 py-0.5 rounded-full">
                         <Text className="text-dark-black text-xs font-bold uppercase">{event.segment}</Text>
@@ -80,12 +87,17 @@ function EventCard({ event }: { event: TmEvent }) {
                 )}
 
                 <View className="flex-row items-center mt-3 gap-x-4">
-                    {event.date && (
+                    {event.dates?.length > 1 ? (
+                        <View className="flex-row items-center gap-x-1">
+                            <Ionicons name="calendar-outline" size={14} color="#555" />
+                            <Text className="text-gray-600 text-sm">{event.dates.length} fechas</Text>
+                        </View>
+                    ) : event.date ? (
                         <View className="flex-row items-center gap-x-1">
                             <Ionicons name="calendar-outline" size={14} color="#555" />
                             <Text className="text-gray-600 text-sm">{formatDate(event.date)}</Text>
                         </View>
-                    )}
+                    ) : null}
                     {event.venue?.city && (
                         <View className="flex-row items-center gap-x-1">
                             <Ionicons name="location-outline" size={14} color="#555" />
@@ -110,23 +122,121 @@ function EventCard({ event }: { event: TmEvent }) {
     );
 }
 
+// Compact bottom-sheet popup shown when tapping a map pin
+function EventMapPreview({ event, onClose, onNavigate }: {
+    event: TmEvent;
+    onClose: () => void;
+    onNavigate: () => void;
+}) {
+    return (
+        <View
+            className="absolute bottom-0 left-0 right-0 bg-white rounded-t-3xl"
+            style={{ elevation: 16, shadowColor: '#000', shadowOffset: { width: 0, height: -4 }, shadowOpacity: 0.15, shadowRadius: 12 }}
+        >
+            {/* Drag handle */}
+            <View className="w-10 h-1 bg-gray-300 rounded-full self-center mt-3 mb-3" />
+
+            <View className="flex-row px-4 pb-5 gap-x-3">
+                {event.image ? (
+                    <Image
+                        source={{ uri: event.image }}
+                        className="rounded-xl"
+                        style={{ width: 80, height: 80 }}
+                        resizeMode="cover"
+                    />
+                ) : (
+                    <View className="rounded-xl bg-gray-100 items-center justify-center" style={{ width: 80, height: 80 }}>
+                        <Ionicons name="musical-notes" size={28} color="#aaa" />
+                    </View>
+                )}
+
+                <View className="flex-1">
+                    <Text className="text-dark-black font-bold text-sm leading-5" numberOfLines={2}>
+                        {event.name}
+                    </Text>
+                    {event.segment && (
+                        <Text className="text-xs text-gray-400 mt-0.5">{event.segment}</Text>
+                    )}
+                    {(event.dates?.length > 1 ? (
+                        <Text className="text-xs text-gray-500 mt-1">{event.dates.length} fechas disponibles</Text>
+                    ) : event.date ? (
+                        <Text className="text-xs text-gray-500 mt-1">{formatDate(event.date)}</Text>
+                    ) : null)}
+                    {event.venue?.city && (
+                        <Text className="text-xs text-gray-500" numberOfLines={1}>
+                            {event.venue.city}{event.venue.country ? `, ${event.venue.country}` : ''}
+                        </Text>
+                    )}
+
+                    <TouchableOpacity
+                        className="mt-2.5 bg-dark-black rounded-xl py-2 items-center"
+                        onPress={onNavigate}
+                        activeOpacity={0.85}
+                    >
+                        <Text className="text-primary-yellow font-bold text-xs">Ver evento</Text>
+                    </TouchableOpacity>
+                </View>
+
+                <TouchableOpacity
+                    className="absolute top-0 right-4 w-7 h-7 bg-gray-100 rounded-full items-center justify-center"
+                    onPress={onClose}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                    <Ionicons name="close" size={14} color="#555" />
+                </TouchableOpacity>
+            </View>
+        </View>
+    );
+}
+
 export default function EventsScreen() {
     const insets = useSafeAreaInsets();
     const router = useRouter();
+    const mapRef = useRef<MapRef>(null);
+
     const [keyword, setKeyword] = useState('');
     const [searchInput, setSearchInput] = useState('');
     const [countryCode, setCountryCode] = useState('');
     const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
+    const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
+    const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
+
+    useEffect(() => {
+        (async () => {
+            const { status } = await Location.requestForegroundPermissionsAsync();
+            if (status !== 'granted') return;
+            const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+            setUserLocation({ lat: loc.coords.latitude, lng: loc.coords.longitude });
+        })();
+    }, []);
+
+    // When Global mode (no country filter), pass user coords so Ticketmaster returns nearby events
+    const geoParams = !countryCode && userLocation
+        ? { lat: userLocation.lat, lng: userLocation.lng }
+        : {};
 
     const { data, isLoading, isFetchingNextPage, fetchNextPage, hasNextPage, isError } =
-        useEvents({ countryCode, keyword });
+        useEvents({ countryCode, keyword, ...geoParams });
 
-    const allEvents = data?.pages.flatMap((p) => p.events).filter((event, index, self) => 
+    const allEvents = data?.pages.flatMap((p) => p.events).filter((event, index, self) =>
         self.findIndex(e => e.id === event.id) === index
     ) ?? [];
 
+    const selectedEvent = selectedEventId ? allEvents.find(e => e.id === selectedEventId) ?? null : null;
+
     const handleMarkerPress = useCallback((eventId: string) => {
-        router.push(`/event/${eventId}`);
+        setSelectedEventId(eventId);
+    }, []);
+
+    const handleNavigateToEvent = useCallback((event: TmEvent) => {
+        setSelectedEventId(null);
+        router.push({
+            pathname: '/event/[id]' as any,
+            params: {
+                id: event.id,
+                ...(event.dates?.length > 1 && { dates: JSON.stringify(event.dates) }),
+            },
+        });
     }, [router]);
 
     const markers = allEvents.map((event, index) => ({
@@ -136,21 +246,33 @@ export default function EventsScreen() {
             longitude: event.venue?.coordinates?.lng || 0,
         },
         title: event.name,
-        description: event.venue?.name || '',
+        description: event.venue?.city
+            ? `${event.venue.city}${event.dates?.length > 1 ? ` · ${event.dates.length} fechas` : event.date ? ` · ${event.date}` : ''}`
+            : '',
         number: index + 1,
+        segment: event.segment ?? undefined,
     })).filter(marker => marker.coordinate.latitude !== 0 && marker.coordinate.longitude !== 0);
 
-    const initialRegion = allEvents.length > 0 ? {
-        latitude: allEvents[0].venue?.coordinates?.lat || 40.4168,
-        longitude: allEvents[0].venue?.coordinates?.lng || -3.7038,
-        latitudeDelta: 0.1,
-        longitudeDelta: 0.1,
-    } : {
-        latitude: 40.4168,
-        longitude: -3.7038,
-        latitudeDelta: 10,
-        longitudeDelta: 10,
-    };
+    const initialRegion = userLocation
+        ? {
+              latitude: userLocation.lat,
+              longitude: userLocation.lng,
+              latitudeDelta: 5,
+              longitudeDelta: 5,
+          }
+        : allEvents[0]?.venue?.coordinates
+        ? {
+              latitude: allEvents[0].venue!.coordinates!.lat,
+              longitude: allEvents[0].venue!.coordinates!.lng,
+              latitudeDelta: 0.1,
+              longitudeDelta: 0.1,
+          }
+        : {
+              latitude: 40.4168,
+              longitude: -3.7038,
+              latitudeDelta: 10,
+              longitudeDelta: 10,
+          };
 
     const handleSearch = useCallback(() => {
         setKeyword(searchInput.trim());
@@ -253,45 +375,70 @@ export default function EventsScreen() {
             {/* Contenido */}
             {viewMode === 'list' ? (
                 <>
-                    {/* Lista */}
                     {isLoading ? (
-                <View className="flex-1 items-center justify-center">
-                    <ActivityIndicator size="large" color="#FFD54D" />
-                    <Text className="text-gray-500 mt-3">Cargando eventos…</Text>
-                </View>
-            ) : isError ? (
-                <View className="flex-1 items-center justify-center px-8">
-                    <Ionicons name="alert-circle-outline" size={48} color="#ccc" />
-                    <Text className="text-gray-500 text-center mt-3">
-                        No se pudieron cargar los eventos. Comprueba tu conexión.
-                    </Text>
-                </View>
-            ) : allEvents.length === 0 ? (
-                <View className="flex-1 items-center justify-center px-8">
-                    <Ionicons name="search-outline" size={48} color="#ccc" />
-                    <Text className="text-gray-500 text-center mt-3">
-                        No hay eventos que coincidan con tu búsqueda.
-                    </Text>
-                </View>
-            ) : (
-                <FlatList
-                    data={allEvents}
-                    keyExtractor={(item) => item.id}
-                    renderItem={({ item }) => <EventCard event={item} />}
-                    contentContainerStyle={{ paddingTop: 16, paddingBottom: insets.bottom + 16 }}
-                    ListFooterComponent={renderFooter}
-                    onEndReached={() => hasNextPage && fetchNextPage()}
-                    onEndReachedThreshold={0.4}
-                    showsVerticalScrollIndicator={false}
-                />
-            )}
+                        <View className="flex-1 items-center justify-center">
+                            <ActivityIndicator size="large" color="#FFD54D" />
+                            <Text className="text-gray-500 mt-3">Cargando eventos…</Text>
+                        </View>
+                    ) : isError ? (
+                        <View className="flex-1 items-center justify-center px-8">
+                            <Ionicons name="alert-circle-outline" size={48} color="#ccc" />
+                            <Text className="text-gray-500 text-center mt-3">
+                                No se pudieron cargar los eventos. Comprueba tu conexión.
+                            </Text>
+                        </View>
+                    ) : allEvents.length === 0 ? (
+                        <View className="flex-1 items-center justify-center px-8">
+                            <Ionicons name="search-outline" size={48} color="#ccc" />
+                            <Text className="text-gray-500 text-center mt-3">
+                                No hay eventos que coincidan con tu búsqueda.
+                            </Text>
+                        </View>
+                    ) : (
+                        <FlatList
+                            data={allEvents}
+                            keyExtractor={(item) => item.id}
+                            renderItem={({ item }) => <EventCard event={item} />}
+                            contentContainerStyle={{ paddingTop: 16, paddingBottom: insets.bottom + 16 }}
+                            ListFooterComponent={renderFooter}
+                            onEndReached={() => hasNextPage && fetchNextPage()}
+                            onEndReachedThreshold={0.4}
+                            showsVerticalScrollIndicator={false}
+                        />
+                    )}
                 </>
             ) : (
-                <MapComponent
-                    initialRegion={initialRegion}
-                    markers={markers}
-                    onMarkerPress={handleMarkerPress}
-                />
+                // Map view with locate-me button overlay and event preview popup
+                <View className="flex-1">
+                    <MapComponent
+                        ref={mapRef}
+                        initialRegion={initialRegion}
+                        markers={markers}
+                        onMarkerPress={handleMarkerPress}
+                        userLocation={userLocation}
+                    />
+
+                    {/* Locate-me floating button */}
+                    {userLocation && (
+                        <TouchableOpacity
+                            className="absolute bottom-6 right-4 w-11 h-11 bg-white rounded-full items-center justify-center"
+                            style={{ elevation: 6, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 4 }}
+                            onPress={() => mapRef.current?.recenterTo(userLocation.lat, userLocation.lng)}
+                            activeOpacity={0.85}
+                        >
+                            <Ionicons name="locate" size={20} color="#202020" />
+                        </TouchableOpacity>
+                    )}
+
+                    {/* Event preview popup */}
+                    {selectedEvent && (
+                        <EventMapPreview
+                            event={selectedEvent}
+                            onClose={() => setSelectedEventId(null)}
+                            onNavigate={() => handleNavigateToEvent(selectedEvent)}
+                        />
+                    )}
+                </View>
             )}
         </View>
     );

@@ -120,10 +120,7 @@ export function useDeleteTrip(token?: string) {
       return await TripService.deleteTrip(tripId, user.id, finalToken || undefined);
     },
     onSuccess: () => {
-      // Refrescar todas las listas de viajes
       queryClient.invalidateQueries({ queryKey: ['trips', user?.id] });
-      queryClient.invalidateQueries({ queryKey: ['activeTrips', user?.id] });
-      queryClient.invalidateQueries({ queryKey: ['pastTrips', user?.id] });
     },
   });
 }
@@ -318,57 +315,62 @@ export function useTravelersWithPending(
 }
 
 /**
- * Hook para obtener solo los viajes completados del usuario
- * Solo retorna viajes con status === 'completed'
+ * Hook para obtener solo los viajes completados del usuario.
+ * Cuando se consulta el perfil propio reutiliza el cache de ['trips', userId]
+ * para evitar una fetch redundante. Para perfiles ajenos usa su propia entrada.
  */
 export function usePastTrips(userId?: string, options?: { token?: string; enabled?: boolean; publicOnly?: boolean }) {
   const { user, token } = useAuth();
   const targetUserId = userId || user?.id;
+  const isOwnProfile = !userId || userId === user?.id;
   const enabled = options?.enabled !== false;
   const finalToken = options?.token || token;
 
-  return useQuery<Trip[], Error>({
-    queryKey: ['pastTrips', targetUserId, options?.publicOnly],
+  const query = useQuery<Trip[], Error>({
+    queryKey: isOwnProfile ? ['trips', user?.id] : ['userTrips', targetUserId],
     queryFn: async () => {
       if (!targetUserId) throw new Error('Usuario no especificado');
-      const trips = await TripService.getUserTrips(targetUserId, { token: finalToken || undefined });
-
-      // Filtrar solo viajes completados
-      let pastTrips = trips.filter(trip => trip.status === 'completed');
-
-      return pastTrips;
+      return TripService.getUserTrips(targetUserId, { token: finalToken || undefined });
     },
     enabled: enabled && Boolean(targetUserId),
     staleTime: TRIP_STALE_TIME,
     retry: (failureCount, error) => failureCount < 2 && !error.message.includes('Usuario no especificado'),
   });
+
+  const pastTrips = useMemo(() => query.data?.filter(trip => trip.status === 'completed') ?? [], [query.data]);
+
+  return { ...query, data: query.data ? pastTrips : undefined };
 }
 
 /**
- * Hook para obtener los viajes activos del usuario
- * Retorna viajes con status 'going' o 'planning' (excluye 'completed')
+ * Hook para obtener los viajes activos del usuario.
+ * Reutiliza el cache de ['trips', userId] compartido con useTrips()
+ * para evitar una fetch redundante.
  */
 export function useActiveTrips(options?: { token?: string; enabled?: boolean }) {
   const { user, token } = useAuth();
   const enabled = options?.enabled !== false;
   const finalToken = options?.token || token;
 
-  return useQuery<{ going: Trip[]; planning: Trip[] }, Error>({
-    queryKey: ['activeTrips', user?.id],
-    queryFn: async () => {
+  const query = useQuery<Trip[], Error>({
+    queryKey: ['trips', user?.id],
+    queryFn: () => {
       if (!user?.id) throw new Error('Usuario no autenticado');
-      const trips = await TripService.getUserTrips(user.id, { token: finalToken || undefined });
-
-      // Filtrar y organizar viajes activos
-      const going = trips.filter(trip => trip.status === 'going');
-      const planning = trips.filter(trip => trip.status === 'planning');
-
-      return { going, planning };
+      return TripService.getUserTrips(user.id, { token: finalToken || undefined });
     },
     enabled: enabled && Boolean(user?.id),
     staleTime: TRIP_STALE_TIME,
     retry: (failureCount, error) => failureCount < 2 && !error.message.includes('Usuario no autenticado'),
   });
+
+  const going = useMemo(() => query.data?.filter(trip => trip.status === 'going') ?? [], [query.data]);
+  const planning = useMemo(() => query.data?.filter(trip => trip.status === 'planning') ?? [], [query.data]);
+  const activeData = useMemo(
+    () => (query.isLoading ? undefined : { going, planning }),
+    [query.isLoading, going, planning]
+  );
+
+  return { ...query, data: activeData };
 }
 
 /**

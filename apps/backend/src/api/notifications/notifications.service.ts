@@ -165,3 +165,30 @@ export const getByTripId = async (tripId: string | number) => {
 
     return data as NotificationType[];
 };
+
+/**
+ * Envía una notificación push directamente al usuario sin crear un registro en la BD.
+ * Usado internamente para recordatorios que no deben generar nuevas filas en notifications.
+ */
+export const sendPushToUser = async (
+    userId: string,
+    type: string,
+    content: string,
+    tripId?: number
+): Promise<void> => {
+    const { data: userData, error } = await supabase
+        .from('user')
+        .select('expo_push_token')
+        .eq('id', userId)
+        .maybeSingle();
+
+    if (error || !userData?.expo_push_token) return;
+
+    const { title, body } = PushNotificationService.formatNotificationForPush(type, content);
+    await PushNotificationService.sendPushNotification(
+        userData.expo_push_token,
+        title,
+        body,
+        { tripId, type }
+    );
+};

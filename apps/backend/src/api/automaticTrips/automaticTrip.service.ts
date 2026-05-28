@@ -153,8 +153,14 @@ function parseDurationMinutes(stop: any): number | null {
 /**
  * Crea las paradas de un día concreto para un viaje.
  * Creación secuencial (no paralela) para evitar race conditions en posiciones.
+ * Si `maxDay` se proporciona y `day > maxDay`, salta sin crear nada (defensa contra
+ * itinerarios de IA que generan días más allá de la duración real del viaje).
  */
-export async function createStopsForDay(itineraryAI: any, tripId: number, day: number): Promise<void> {
+export async function createStopsForDay(itineraryAI: any, tripId: number, day: number, maxDay?: number): Promise<void> {
+    if (maxDay !== undefined && day > maxDay) {
+        console.log(`⏭️  Saltando día ${day} (excede totalDays=${maxDay})`);
+        return;
+    }
     const accommodationStops = (itineraryAI.accomodationstop || []).filter((s: any) => s.day === day);
     const activityStops = (itineraryAI.activitystop || []).filter((s: any) => s.day === day);
 

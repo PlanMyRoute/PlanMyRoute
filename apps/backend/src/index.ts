@@ -34,10 +34,16 @@ app.use(helmet({
   },
 }));
 
-// 2. CORS: Arregla "Configuración Incorrecta Cross-Domain"
-// Permitimos solo localhost y tu IP local para desarrollo
+// 2. CORS: Orígenes explícitos (origin: '*' + credentials: true es una vulnerabilidad)
+// En desarrollo: ALLOWED_ORIGINS=http://localhost:8081,http://localhost:3000
+// En producción: ALLOWED_ORIGINS=https://tu-dominio.com
+const allowedOrigins = (process.env.ALLOWED_ORIGINS || 'http://localhost:8081,http://localhost:3000').split(',').map(o => o.trim());
 app.use(cors({
-  origin: '*', 
+  origin: (origin, callback) => {
+    // Requests sin origin (apps móviles nativas, Postman, curl) siempre se permiten
+    if (!origin || allowedOrigins.includes(origin)) return callback(null, true);
+    callback(new Error(`Origin '${origin}' not allowed by CORS`));
+  },
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
   credentials: true
 }));

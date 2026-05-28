@@ -43,4 +43,8 @@ export const ROUTES = {
 
   // Users
   userProfile: (username: string) => `/${username}` as Href,
+
+  //Cars
+  addVehicle: '/profile/AddVehicleScreen' as Href,
+  editVehicle: '/profile/EditVehicleScreen' as Href,
 } as const;

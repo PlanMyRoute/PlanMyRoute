@@ -1,8 +1,9 @@
 import { CustomButton } from '@/components/customElements/CustomButton';
 import { TextRegular, Title2Semibold } from '@/components/customElements/CustomText';
+import { SkeletonBox } from '@/components/customElements/SkeletonBox';
 import { Ionicons } from '@expo/vector-icons';
 import { Vehicle } from '@planmyroute/types';
-import { ActivityIndicator, View } from 'react-native';
+import { View } from 'react-native';
 import { VehicleCard } from './VehicleCard';
 
 interface VehiclesSectionProps {
@@ -44,8 +45,16 @@ export function VehiclesSection({
             </View>
 
             {loading ? (
-                <View className="items-center justify-center py-8">
-                    <ActivityIndicator size="small" color="#FFD54D" />
+                <View className="gap-3">
+                    {[1, 2].map(i => (
+                        <View key={i} className="rounded-3xl p-4 border-2 border-neutral/10 flex-row items-center gap-3">
+                            <SkeletonBox width={40} height={40} borderRadius={20} />
+                            <View className="flex-1 gap-2">
+                                <SkeletonBox height={16} width="60%" borderRadius={6} />
+                                <SkeletonBox height={12} width="40%" borderRadius={6} />
+                            </View>
+                        </View>
+                    ))}
                 </View>
             ) : vehicles.length === 0 ? (
                 <View className="bg-white border border-neutral-gray/20 rounded-3xl p-6 items-center">

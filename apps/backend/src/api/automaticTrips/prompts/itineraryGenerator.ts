@@ -184,6 +184,18 @@ Ejemplo salida en formato json
 
 ### REGLAS PARA LOS CAMPOS:
 
+${(() => {
+    const sd = new Date(tripInput.start_date);
+    const ed = new Date(tripInput.end_date);
+    const totalDays = Math.max(1, Math.round((ed.getTime() - sd.getTime()) / 86400000) + 1);
+    return `🔒 REGLA ABSOLUTA SOBRE DÍAS — NO NEGOCIABLE
+- El viaje dura EXACTAMENTE ${totalDays} días: del Día 1 al Día ${totalDays} (ambos incluidos).
+- TODAS las paradas que generes DEBEN tener \`day\` entre 1 y ${totalDays} (inclusive).
+- JAMÁS generes paradas con day > ${totalDays}. Esto rompe la base de datos del usuario y se descartan.
+- Si tienes más ideas que las que caben, redistribúyelas dentro de los ${totalDays} días disponibles, NO añadas días extra.
+`;
+})()}
+
 - **day** (OBLIGATORIO): Número del día del viaje (1, 2, 3...)
   - Día 1 = fecha de salida (${tripInput.start_date})
   - Último día = fecha de llegada al destino (${tripInput.end_date})

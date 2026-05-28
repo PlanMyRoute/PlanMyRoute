@@ -21,6 +21,7 @@ export interface TmEvent {
     url: string | null;
     image: string | null;
     date: string | null;
+    dates: string[];
     time: string | null;
     status: string;
     venue: EventVenue | null;
@@ -66,11 +67,11 @@ function buildQuery(q: Record<string, string | number | undefined>) {
 
 export class EventService {
     static async getEvents(
-        params: { page?: number; countryCode?: string; keyword?: string } = {},
+        params: { page?: number; countryCode?: string; keyword?: string; lat?: number; lng?: number } = {},
         opts?: FetchOpts,
     ): Promise<EventsPage> {
         return apiFetch<EventsPage>(
-            `/api/events${buildQuery({ page: params.page, countryCode: params.countryCode, keyword: params.keyword })}`,
+            `/api/events${buildQuery({ page: params.page, countryCode: params.countryCode, keyword: params.keyword, lat: params.lat, lng: params.lng })}`,
             { token: opts?.token, signal: opts?.signal },
         );
     }
@@ -105,5 +106,15 @@ export class EventService {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ message }),
         });
+    }
+
+    static async getNearStops(
+        stops: { city: string; date: string; countryCode?: string }[],
+        opts?: FetchOpts,
+    ): Promise<TmEvent[]> {
+        return apiFetch<TmEvent[]>(
+            `/api/events/near-stops?stops=${encodeURIComponent(JSON.stringify(stops))}`,
+            { token: opts?.token, signal: opts?.signal },
+        );
     }
 }

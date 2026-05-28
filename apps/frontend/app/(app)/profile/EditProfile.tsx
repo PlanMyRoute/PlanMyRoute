@@ -1,5 +1,7 @@
+import CustomAlert from '@/components/customElements/CustomAlert';
 import { CustomInput } from '@/components/customElements/CustomInput';
-import { TextBold, TextRegular } from '@/components/customElements/CustomText';
+import CustomButton from '@/components/customElements/CustomButton';
+import { MicrotextDark, SubtitleSemibold, TextRegular } from '@/components/customElements/CustomText';
 import { InterestSelector } from '@/components/interests/InterestSelector';
 import { useAuth } from '@/context/AuthContext';
 import { useUserPreferences } from '@/hooks/users/useUserPreferences';
@@ -13,7 +15,6 @@ import { Stack, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
     ActivityIndicator,
-    Alert,
     Image,
     ScrollView,
     Switch,
@@ -22,7 +23,6 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-// Lista de zonas horarias comunes
 const COMMON_TIMEZONES = [
     { label: 'América/México (UTC-6)', value: 'America/Mexico_City' },
     { label: 'América/Nueva York (UTC-5)', value: 'America/New_York' },
@@ -39,40 +39,49 @@ const COMMON_TIMEZONES = [
     { label: 'UTC', value: 'UTC' },
 ];
 
+type AlertState = {
+    visible: boolean;
+    title: string;
+    message: string;
+    type: 'error' | 'success' | 'info' | 'warning';
+    actions?: { text: string; onPress: () => void; variant?: 'primary' | 'outline' | 'danger' }[];
+    onClose?: () => void;
+};
+
+const EMPTY_ALERT: AlertState = { visible: false, title: '', message: '', type: 'info' };
+
 export default function EditProfileScreen() {
     const router = useRouter();
     const { user } = useAuth();
     const userId = user?.id;
 
     const { data: profile } = useProfile(userId, undefined);
-    const { preferences, isLoading, updatePreferences, isUpdating } = useUserPreferences(userId);
+    const { preferences, isLoading, updatePreferences } = useUserPreferences(userId);
 
-    // Estados para campos editables
-    const [name, setName] = useState<string>('');
-    const [lastname, setLastname] = useState<string>('');
-    const [username, setUsername] = useState<string>('');
-    const [email, setEmail] = useState<string>('');
+    const [name, setName] = useState('');
+    const [lastname, setLastname] = useState('');
+    const [username, setUsername] = useState('');
+    const [email, setEmail] = useState('');
     const [profileImage, setProfileImage] = useState<string | null>(null);
     const [userInterests, setUserInterests] = useState<Interest[]>([]);
 
-    // Estados para contraseña
-    const [showPasswordSection, setShowPasswordSection] = useState<boolean>(false);
-    const [currentPassword, setCurrentPassword] = useState<string>('');
-    const [newPassword, setNewPassword] = useState<string>('');
-    const [confirmPassword, setConfirmPassword] = useState<string>('');
-    const [showCurrentPassword, setShowCurrentPassword] = useState<boolean>(false);
-    const [showNewPassword, setShowNewPassword] = useState<boolean>(false);
-    const [showConfirmPassword, setShowConfirmPassword] = useState<boolean>(false);
+    const [showPasswordSection, setShowPasswordSection] = useState(false);
+    const [currentPassword, setCurrentPassword] = useState('');
+    const [newPassword, setNewPassword] = useState('');
+    const [confirmPassword, setConfirmPassword] = useState('');
+    const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+    const [showNewPassword, setShowNewPassword] = useState(false);
+    const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
-    // Estados para preferencias
-    const [selectedTimezone, setSelectedTimezone] = useState<string>('UTC');
-    const [autoUpdate, setAutoUpdate] = useState<boolean>(false);
-    const [showTimezoneList, setShowTimezoneList] = useState<boolean>(false);
+    const [selectedTimezone, setSelectedTimezone] = useState('UTC');
+    const [autoUpdate, setAutoUpdate] = useState(false);
+    const [showTimezoneList, setShowTimezoneList] = useState(false);
+    const [isSaving, setIsSaving] = useState(false);
 
-    // Estado de guardado
-    const [isSaving, setIsSaving] = useState<boolean>(false);
+    const [alertState, setAlertState] = useState<AlertState>(EMPTY_ALERT);
+    const showAlert = (s: Omit<AlertState, 'visible'>) => setAlertState({ ...s, visible: true });
+    const closeAlert = () => setAlertState(EMPTY_ALERT);
 
-    // Inicializar valores cuando se carguen los datos
     useEffect(() => {
         if (profile?.user) {
             setName(profile.user.name || '');
@@ -93,103 +102,70 @@ export default function EditProfileScreen() {
 
     const handleSave = async () => {
         if (!userId) return;
-
         setIsSaving(true);
         try {
-            // Validaciones
             if (!name.trim() || !lastname.trim() || !username.trim()) {
-                Alert.alert('Error', 'El nombre, apellido y username son obligatorios');
+                showAlert({ title: 'Campos requeridos', message: 'El nombre, apellido y username son obligatorios', type: 'error' });
                 setIsSaving(false);
                 return;
             }
-
-            // Validar contraseña si se intenta cambiar
             if (newPassword || confirmPassword || currentPassword) {
                 if (!currentPassword) {
-                    Alert.alert('Error', 'Debes ingresar tu contraseña actual');
+                    showAlert({ title: 'Contraseña requerida', message: 'Debes ingresar tu contraseña actual', type: 'error' });
                     setIsSaving(false);
                     return;
                 }
                 if (newPassword !== confirmPassword) {
-                    Alert.alert('Error', 'Las contraseñas no coinciden');
+                    showAlert({ title: 'Error', message: 'Las contraseñas no coinciden', type: 'error' });
                     setIsSaving(false);
                     return;
                 }
                 if (newPassword.length < 6) {
-                    Alert.alert('Error', 'La nueva contraseña debe tener al menos 6 caracteres');
+                    showAlert({ title: 'Contraseña corta', message: 'La nueva contraseña debe tener al menos 6 caracteres', type: 'error' });
                     setIsSaving(false);
                     return;
                 }
             }
 
-            // 1. Obtener token de autenticación
             const { data: { session } } = await supabase.auth.getSession();
-            if (!session?.access_token) {
-                throw new Error('No se pudo obtener el token de autenticación');
-            }
+            if (!session?.access_token) throw new Error('No se pudo obtener el token de autenticación');
 
-            // 2. Actualizar datos del usuario
-            await UserService.updateUser(
-                userId,
-                {
-                    name: name.trim(),
-                    lastname: lastname.trim(),
-                    username: username.trim(),
-                    user_type: userInterests,
-                },
-                session.access_token
-            );
+            await UserService.updateUser(userId, {
+                name: name.trim(),
+                lastname: lastname.trim(),
+                username: username.trim(),
+                user_type: userInterests,
+            }, session.access_token);
 
-            // 3. Actualizar foto de perfil si cambió
             if (profileImage && profileImage !== profile?.user.img) {
                 const response = await fetch(`${process.env.EXPO_PUBLIC_API_URL}/api/user/${userId}/upload-profile-image`, {
                     method: 'POST',
                     body: JSON.stringify({ image: profileImage }),
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${session.access_token}`,
-                    },
+                    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
                 });
-
-                if (!response.ok) {
-                    throw new Error('Error al actualizar la foto de perfil');
-                }
+                if (!response.ok) throw new Error('Error al actualizar la foto de perfil');
             }
 
-            // 4. Actualizar contraseña si se proporcionó
             if (newPassword && currentPassword) {
-                const { error } = await supabase.auth.updateUser({
-                    password: newPassword,
-                });
-
-                if (error) {
-                    throw new Error('Error al actualizar la contraseña: ' + error.message);
-                }
+                const { error } = await supabase.auth.updateUser({ password: newPassword });
+                if (error) throw new Error('Error al actualizar la contraseña: ' + error.message);
             }
 
-            // 5. Actualizar email si cambió
             if (email !== user?.email) {
-                const { error } = await supabase.auth.updateUser({
-                    email: email,
-                });
-
-                if (error) {
-                    throw new Error('Error al actualizar el email: ' + error.message);
-                }
+                const { error } = await supabase.auth.updateUser({ email });
+                if (error) throw new Error('Error al actualizar el email: ' + error.message);
             }
 
-            // 6. Actualizar preferencias
-            await updatePreferences({
-                timezone: selectedTimezone,
-                autoTripStatusUpdate: autoUpdate,
-            });
+            await updatePreferences({ timezone: selectedTimezone, autoTripStatusUpdate: autoUpdate });
 
-            Alert.alert('¡Éxito!', 'Tu perfil se ha actualizado correctamente', [
-                { text: 'OK', onPress: () => router.back() },
-            ]);
+            showAlert({
+                title: '¡Perfil actualizado!',
+                message: 'Tus cambios han sido guardados correctamente',
+                type: 'success',
+                actions: [{ text: 'OK', onPress: () => { closeAlert(); router.back(); }, variant: 'primary' }],
+            });
         } catch (error: any) {
-            Alert.alert('Error', error.message || 'No se pudo guardar el perfil. Intenta nuevamente.');
-            console.error('Error saving profile:', error);
+            showAlert({ title: 'Error', message: error.message || 'No se pudo guardar el perfil. Inténtalo de nuevo.', type: 'error' });
         } finally {
             setIsSaving(false);
         }
@@ -198,12 +174,10 @@ export default function EditProfileScreen() {
     const handleProfilePicturePress = async () => {
         try {
             const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
-
             if (!permissionResult.granted) {
-                Alert.alert('Permiso denegado', 'Necesitamos permiso para acceder a tus fotos');
+                showAlert({ title: 'Permiso denegado', message: 'Necesitamos permiso para acceder a tus fotos', type: 'warning' });
                 return;
             }
-
             const result = await ImagePicker.launchImageLibraryAsync({
                 mediaTypes: 'images',
                 allowsEditing: true,
@@ -211,329 +185,183 @@ export default function EditProfileScreen() {
                 quality: 0.3,
                 base64: true,
             });
-
-            if (!result.canceled && result.assets && result.assets.length > 0) {
+            if (!result.canceled && result.assets?.length > 0) {
                 const image = result.assets[0];
-
                 if (!image.base64) {
-                    Alert.alert('Error', 'No se pudo procesar la imagen');
+                    showAlert({ title: 'Error', message: 'No se pudo procesar la imagen', type: 'error' });
                     return;
                 }
-
-                const base64Image = `data:image/jpeg;base64,${image.base64}`;
-                setProfileImage(base64Image);
-                Alert.alert('Éxito', 'Foto seleccionada. Recuerda guardar los cambios.');
+                setProfileImage(`data:image/jpeg;base64,${image.base64}`);
             }
-        } catch (error) {
-            console.error('Error selecting profile picture:', error);
-            Alert.alert('Error', 'No se pudo seleccionar la foto de perfil.');
+        } catch {
+            showAlert({ title: 'Error', message: 'No se pudo seleccionar la foto de perfil', type: 'error' });
         }
     };
 
-    const getTimezoneLabel = (value: string) => {
-        return COMMON_TIMEZONES.find((tz) => tz.value === value)?.label || value;
-    };
+    const getTimezoneLabel = (value: string) => COMMON_TIMEZONES.find(tz => tz.value === value)?.label || value;
 
     if (!userId) return null;
 
     return (
         <SafeAreaView className="flex-1 bg-white" edges={['bottom']}>
-            <Stack.Screen
-                options={{
-                    title: 'Editar Perfil',
-                    headerShown: true,
-                    headerStyle: {
-                        backgroundColor: '#FFFFFF',
-                    },
-                    headerShadowVisible: false,
-                    headerRight: () => {
-                        <TouchableOpacity
-                            onPress={handleSave}
-                            disabled={isSaving}
-                            className={`flex-1 py-4 rounded-2xl items-center ${isSaving ? 'bg-primary-yellow/50' : 'bg-primary-yellow'
-                                }`}
-                            activeOpacity={0.7}
-                        >
-                            {isSaving ? (
-                                <ActivityIndicator color="#202020" />
-                            ) : (
-                                <TextBold className="text-dark-black">Guardar Cambios</TextBold>
-                            )}
-                        </TouchableOpacity>
-                    },
-                }}
-            />
+            <Stack.Screen options={{ title: 'Editar Perfil', headerShown: true }} />
 
             <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
+
                 {/* Foto de Perfil */}
-                <View className="px-6 py-6 items-center border-b border-neutral-gray/10">
+                <View className="px-6 py-6 items-center border-b border-neutral/10">
                     <TouchableOpacity onPress={handleProfilePicturePress} activeOpacity={0.7}>
                         <View className="relative">
-                            <View className="w-24 h-24 rounded-full bg-neutral-gray/20 items-center justify-center overflow-hidden">
+                            <View className="w-24 h-24 rounded-full bg-neutral/20 items-center justify-center overflow-hidden">
                                 {profileImage ? (
-                                    <View className="w-full h-full">
-                                        <Image
-                                            src={profileImage}
-                                            alt="Profile"
-                                            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                                        />
-                                    </View>
+                                    <Image source={{ uri: profileImage }} style={{ width: 96, height: 96, borderRadius: 48 }} />
                                 ) : (
                                     <Ionicons name="person" size={40} color="#999" />
                                 )}
                             </View>
-                            <View className="absolute bottom-0 right-0 w-8 h-8 bg-primary-yellow rounded-full items-center justify-center border-2 border-white">
+                            <View className="absolute bottom-0 right-0 w-8 h-8 bg-primary rounded-full items-center justify-center border-2 border-white">
                                 <Ionicons name="camera" size={16} color="#202020" />
                             </View>
                         </View>
                     </TouchableOpacity>
-                    <TextRegular className="text-neutral-gray text-sm mt-2">Toca para cambiar foto</TextRegular>
+                    <MicrotextDark className="text-neutral mt-2">Toca para cambiar foto</MicrotextDark>
                 </View>
 
-                {/* Información del Usuario */}
-                <View className="px-6 py-4 border-b border-neutral-gray/10">
-                    <TextBold className="text-lg text-dark-black mb-2">Información Personal</TextBold>
-                    <View className="bg-neutral-gray/10 p-4 rounded-2xl gap-3">
-                        <View className="flex-row gap-4">
-                            <View className="flex-[0.4]">
-                                <TextRegular className="text-neutral-gray text-sm mb-1">Nombre</TextRegular>
-                                <CustomInput
-                                    value={name}
-                                    onChangeText={setName}
-                                    placeholder="Ingresa tu nombre"
-                                />
-                            </View>
-                            <View className="flex-[0.6]">
-                                <TextRegular className="text-neutral-gray text-sm mb-1">Apellidos</TextRegular>
-                                <CustomInput
-                                    value={lastname}
-                                    onChangeText={setLastname}
-                                    placeholder="Ingresa tus apellidos"
-                                />
-                            </View>
+                {/* Información personal */}
+                <View className="px-6 py-5 border-b border-neutral/10 gap-4">
+                    <SubtitleSemibold>Información personal</SubtitleSemibold>
+                    <View className="flex-row gap-3">
+                        <View className="flex-1">
+                            <CustomInput label="Nombre" value={name} onChangeText={setName} placeholder="Tu nombre" />
                         </View>
-
-                        <View>
-                            <TextRegular className="text-neutral-gray text-sm mb-1">Username</TextRegular>
-                            <CustomInput
-                                value={username}
-                                onChangeText={setUsername}
-                                placeholder="@username"
-                            />
-                        </View>
-
-                        <View>
-                            <TextRegular className="text-neutral-gray text-sm mb-1">Correo Electrónico</TextRegular>
-                            <CustomInput
-                                value={email}
-                                onChangeText={setEmail}
-                                placeholder="correo@ejemplo.com"
-                                keyboardType="email-address"
-                                autoCapitalize="none"
-                            />
+                        <View className="flex-[1.5]">
+                            <CustomInput label="Apellidos" value={lastname} onChangeText={setLastname} placeholder="Tus apellidos" />
                         </View>
                     </View>
+                    <CustomInput label="Username" value={username} onChangeText={setUsername} placeholder="@username" autoCapitalize="none" />
+                    <CustomInput label="Correo electrónico" value={email} onChangeText={setEmail} placeholder="correo@ejemplo.com" keyboardType="email-address" autoCapitalize="none" />
                 </View>
 
                 {/* Intereses */}
-                <View className="px-6 py-4 border-b border-neutral-gray/10">
-                    <TextBold className="text-lg text-dark-black mb-2">Mis Intereses</TextBold>
-                    <View className="bg-neutral-gray/10 p-4 rounded-2xl">
-                        <InterestSelector
-                            selectedInterests={userInterests}
-                            onInterestsChange={setUserInterests}
-                            multiple={true}
-                        />
-                    </View>
+                <View className="px-6 py-5 border-b border-neutral/10 gap-4">
+                    <SubtitleSemibold>Mis intereses</SubtitleSemibold>
+                    <InterestSelector selectedInterests={userInterests} onInterestsChange={setUserInterests} multiple />
                 </View>
 
-                {/* Cambiar Contraseña */}
-                <View className="px-6 py-4 border-b border-neutral-gray/10">
+                {/* Cambiar contraseña */}
+                <View className="px-6 py-5 border-b border-neutral/10">
                     <TouchableOpacity
-                        onPress={() => setShowPasswordSection(!showPasswordSection)}
-                        className="flex-row items-center justify-between mb-3"
+                        onPress={() => setShowPasswordSection(v => !v)}
+                        className="flex-row items-center justify-between mb-1"
                         activeOpacity={0.7}
                     >
-                        <TextBold className="text-lg text-dark-black">Cambiar Contraseña</TextBold>
-                        <Ionicons
-                            name={showPasswordSection ? 'chevron-up' : 'chevron-down'}
-                            size={20}
-                            color="#666"
-                        />
+                        <SubtitleSemibold>Cambiar contraseña</SubtitleSemibold>
+                        <Ionicons name={showPasswordSection ? 'chevron-up' : 'chevron-down'} size={20} color="#999999" />
                     </TouchableOpacity>
 
                     {showPasswordSection && (
-                        <View className="bg-neutral-gray/10 p-4 rounded-2xl gap-3">
-                            <View>
-                                <TextRegular className="text-neutral-gray text-sm mb-1">Contraseña Actual</TextRegular>
-                                <View className="flex-row items-center bg-white border-2 border-neutral-gray/30 rounded-xl px-3">
-                                    <CustomInput
-                                        value={currentPassword}
-                                        onChangeText={setCurrentPassword}
-                                        placeholder="Ingresa tu contraseña actual"
-                                        secureTextEntry={!showCurrentPassword}
-                                        className="flex-1"
-                                    />
-                                    <TouchableOpacity onPress={() => setShowCurrentPassword(!showCurrentPassword)}>
-                                        <Ionicons
-                                            name={showCurrentPassword ? 'eye-off' : 'eye'}
-                                            size={20}
-                                            color="#999"
-                                        />
+                        <View className="gap-4 mt-4">
+                            <CustomInput
+                                label="Contraseña actual"
+                                placeholder="Ingresa tu contraseña actual"
+                                value={currentPassword}
+                                onChangeText={setCurrentPassword}
+                                secureTextEntry={!showCurrentPassword}
+                                rightElement={
+                                    <TouchableOpacity onPress={() => setShowCurrentPassword(v => !v)} className="px-3 py-3">
+                                        <Ionicons name={showCurrentPassword ? 'eye-off' : 'eye'} size={20} color="#999999" />
                                     </TouchableOpacity>
-                                </View>
-                            </View>
-
-                            <View>
-                                <TextRegular className="text-neutral-gray text-sm mb-1">Nueva Contraseña</TextRegular>
-                                <View className="flex-row items-center bg-white border-2 border-neutral-gray/30 rounded-xl px-3">
-                                    <CustomInput
-                                        value={newPassword}
-                                        onChangeText={setNewPassword}
-                                        placeholder="Mínimo 6 caracteres"
-                                        secureTextEntry={!showNewPassword}
-                                        className="flex-1"
-                                    />
-                                    <TouchableOpacity onPress={() => setShowNewPassword(!showNewPassword)}>
-                                        <Ionicons
-                                            name={showNewPassword ? 'eye-off' : 'eye'}
-                                            size={20}
-                                            color="#999"
-                                        />
+                                }
+                            />
+                            <CustomInput
+                                label="Nueva contraseña"
+                                placeholder="Mínimo 6 caracteres"
+                                value={newPassword}
+                                onChangeText={setNewPassword}
+                                secureTextEntry={!showNewPassword}
+                                rightElement={
+                                    <TouchableOpacity onPress={() => setShowNewPassword(v => !v)} className="px-3 py-3">
+                                        <Ionicons name={showNewPassword ? 'eye-off' : 'eye'} size={20} color="#999999" />
                                     </TouchableOpacity>
-                                </View>
-                            </View>
-
-                            <View>
-                                <TextRegular className="text-neutral-gray text-sm mb-1">Confirmar Nueva Contraseña</TextRegular>
-                                <View className="flex-row items-center bg-white border-2 border-neutral-gray/30 rounded-xl px-3">
-                                    <CustomInput
-                                        value={confirmPassword}
-                                        onChangeText={setConfirmPassword}
-                                        placeholder="Confirma tu nueva contraseña"
-                                        secureTextEntry={!showConfirmPassword}
-                                        className="flex-1"
-                                    />
-                                    <TouchableOpacity onPress={() => setShowConfirmPassword(!showConfirmPassword)}>
-                                        <Ionicons
-                                            name={showConfirmPassword ? 'eye-off' : 'eye'}
-                                            size={20}
-                                            color="#999"
-                                        />
+                                }
+                            />
+                            <CustomInput
+                                label="Confirmar nueva contraseña"
+                                placeholder="Repite la nueva contraseña"
+                                value={confirmPassword}
+                                onChangeText={setConfirmPassword}
+                                secureTextEntry={!showConfirmPassword}
+                                rightElement={
+                                    <TouchableOpacity onPress={() => setShowConfirmPassword(v => !v)} className="px-3 py-3">
+                                        <Ionicons name={showConfirmPassword ? 'eye-off' : 'eye'} size={20} color="#999999" />
                                     </TouchableOpacity>
-                                </View>
-                            </View>
-
-                            <View className="bg-primary-yellow/10 p-3 rounded-xl">
-                                <View className="flex-row items-start">
-                                    <Ionicons name="information-circle-outline" size={20} color="#FDB40F" style={{ marginTop: 2 }} />
-                                    <TextRegular className="text-dark-black text-xs ml-2 flex-1">
-                                        La contraseña debe tener al menos 6 caracteres. Si cambias tu contraseña, deberás iniciar sesión nuevamente.
-                                    </TextRegular>
-                                </View>
+                                }
+                            />
+                            <View className="bg-primary/10 p-3 rounded-xl flex-row items-start gap-2">
+                                <Ionicons name="information-circle-outline" size={18} color="#202020" style={{ marginTop: 1 }} />
+                                <TextRegular className="flex-1 text-dark" style={{ fontSize: 12 }}>
+                                    La contraseña debe tener al menos 6 caracteres. Si la cambias, deberás iniciar sesión nuevamente.
+                                </TextRegular>
                             </View>
                         </View>
                     )}
                 </View>
 
-                {/* Preferencias de Viajes */}
-                <View className="px-6 py-4">
-                    <TextBold className="text-lg text-dark-black mb-3">Preferencias de usuario</TextBold>
+                {/* Preferencias */}
+                <View className="px-6 py-5 gap-4">
+                    <SubtitleSemibold>Preferencias</SubtitleSemibold>
 
                     {isLoading ? (
-                        <View className="py-8 items-center">
-                            <ActivityIndicator size="large" color="#FBD85D" />
-                            <TextRegular className="text-neutral-gray mt-4">Cargando preferencias...</TextRegular>
+                        <View className="py-6 items-center">
+                            <ActivityIndicator size="large" color="#FFD54D" />
                         </View>
                     ) : (
                         <>
-                            {/* Auto-actualización de Estados */}
-                            <View className="bg-neutral-gray/10 p-4 rounded-2xl mb-4">
-                                <View className="flex-row items-center justify-between mb-2">
+                            {/* Auto-actualización */}
+                            <View className="border border-neutral/20 rounded-2xl p-4 gap-3">
+                                <View className="flex-row items-center justify-between">
                                     <View className="flex-1 mr-4">
-                                        <TextBold className="text-dark-black mb-1">
-                                            Actualización Automática
-                                        </TextBold>
-                                        <TextRegular className="text-neutral-gray text-sm">
-                                            Actualiza automáticamente el estado de tus viajes sin necesidad de
-                                            confirmación
-                                        </TextRegular>
+                                        <TextRegular style={{ fontFamily: 'Urbanist-SemiBold', color: '#202020' }}>Actualización automática</TextRegular>
+                                        <MicrotextDark className="text-neutral mt-1">
+                                            Cambia el estado de tus viajes automáticamente según las fechas
+                                        </MicrotextDark>
                                     </View>
                                     <Switch
                                         value={autoUpdate}
                                         onValueChange={setAutoUpdate}
-                                        trackColor={{ false: '#D1D5DB', true: '#FBD85D' }}
-                                        thumbColor={autoUpdate ? '#FDB40F' : '#F3F4F6'}
+                                        trackColor={{ false: '#D1D5DB', true: '#FFD54D' }}
+                                        thumbColor={autoUpdate ? '#202020' : '#F3F4F6'}
                                         ios_backgroundColor="#D1D5DB"
                                     />
                                 </View>
-
-                                {/* Información adicional */}
-                                <View className="mt-3 p-3 bg-primary-yellow/10 rounded-xl">
-                                    <View className="flex-row items-start">
-                                        <Ionicons
-                                            name="information-circle-outline"
-                                            size={20}
-                                            color="#FDB40F"
-                                            style={{ marginTop: 2 }}
-                                        />
-                                        <TextRegular className="text-dark-black text-xs ml-2 flex-1">
-                                            {autoUpdate
-                                                ? 'Tus viajes cambiarán de estado automáticamente según las fechas programadas.'
-                                                : 'Recibirás notificaciones para confirmar manualmente el inicio y fin de tus viajes.'}
-                                        </TextRegular>
-                                    </View>
-                                </View>
                             </View>
 
-                            {/* Zona Horaria */}
-                            <View className="bg-neutral-gray/10 p-4 rounded-2xl mb-4">
-                                <TextBold className="text-dark-black mb-2">Zona Horaria</TextBold>
-                                <TextRegular className="text-neutral-gray text-sm mb-3">
-                                    Selecciona tu zona horaria para gestionar correctamente tus viajes
-                                </TextRegular>
-
+                            {/* Zona horaria */}
+                            <View className="border border-neutral/20 rounded-2xl p-4 gap-3">
+                                <TextRegular style={{ fontFamily: 'Urbanist-SemiBold', color: '#202020' }}>Zona horaria</TextRegular>
                                 <TouchableOpacity
-                                    onPress={() => setShowTimezoneList(!showTimezoneList)}
-                                    className="bg-white border-2 border-neutral-gray/30 p-4 rounded-xl flex-row items-center justify-between"
+                                    onPress={() => setShowTimezoneList(v => !v)}
+                                    className="bg-white border border-neutral/30 p-4 rounded-xl flex-row items-center justify-between"
                                     activeOpacity={0.7}
                                 >
-                                    <View className="flex-row items-center flex-1">
-                                        <Ionicons name="globe-outline" size={20} color="#666" />
-                                        <TextRegular className="text-dark-black ml-2 flex-1">
-                                            {getTimezoneLabel(selectedTimezone)}
-                                        </TextRegular>
+                                    <View className="flex-row items-center flex-1 gap-2">
+                                        <Ionicons name="globe-outline" size={18} color="#999999" />
+                                        <TextRegular className="text-dark flex-1">{getTimezoneLabel(selectedTimezone)}</TextRegular>
                                     </View>
-                                    <Ionicons
-                                        name={showTimezoneList ? 'chevron-up' : 'chevron-down'}
-                                        size={20}
-                                        color="#666"
-                                    />
+                                    <Ionicons name={showTimezoneList ? 'chevron-up' : 'chevron-down'} size={18} color="#999999" />
                                 </TouchableOpacity>
-
-                                {/* Lista de Zonas Horarias */}
                                 {showTimezoneList && (
-                                    <View className="mt-2 bg-white border-2 border-neutral-gray/30 rounded-xl overflow-hidden">
-                                        <ScrollView style={{ maxHeight: 250 }} showsVerticalScrollIndicator={true}>
-                                            {COMMON_TIMEZONES.map((tz) => (
+                                    <View className="bg-white border border-neutral/30 rounded-xl overflow-hidden">
+                                        <ScrollView style={{ maxHeight: 240 }} showsVerticalScrollIndicator>
+                                            {COMMON_TIMEZONES.map(tz => (
                                                 <TouchableOpacity
                                                     key={tz.value}
-                                                    onPress={() => {
-                                                        setSelectedTimezone(tz.value);
-                                                        setShowTimezoneList(false);
-                                                    }}
-                                                    className={`p-4 border-b border-neutral-gray/10 ${selectedTimezone === tz.value ? 'bg-primary-yellow/20' : ''
-                                                        }`}
+                                                    onPress={() => { setSelectedTimezone(tz.value); setShowTimezoneList(false); }}
+                                                    className={`p-4 border-b border-neutral/10 flex-row items-center justify-between ${selectedTimezone === tz.value ? 'bg-primary/10' : ''}`}
                                                     activeOpacity={0.7}
                                                 >
-                                                    <View className="flex-row items-center justify-between">
-                                                        <TextRegular className="text-dark-black flex-1">
-                                                            {tz.label}
-                                                        </TextRegular>
-                                                        {selectedTimezone === tz.value && (
-                                                            <Ionicons name="checkmark-circle" size={20} color="#FDB40F" />
-                                                        )}
-                                                    </View>
+                                                    <TextRegular className="text-dark flex-1">{tz.label}</TextRegular>
+                                                    {selectedTimezone === tz.value && <Ionicons name="checkmark-circle" size={18} color="#FFD54D" />}
                                                 </TouchableOpacity>
                                             ))}
                                         </ScrollView>
@@ -545,30 +373,31 @@ export default function EditProfileScreen() {
                 </View>
             </ScrollView>
 
-            {/* Footer con Botones */}
-            <View className="px-6 py-4 border-t border-neutral-gray/20 flex-row gap-3 bg-white">
-                <TouchableOpacity
-                    onPress={() => router.back()}
-                    className="flex-1 bg-neutral-gray/20 py-4 rounded-2xl items-center"
-                    activeOpacity={0.7}
-                >
-                    <TextBold className="text-dark-black">Cancelar</TextBold>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                    onPress={handleSave}
-                    disabled={isSaving}
-                    className={`flex-1 py-4 rounded-2xl items-center ${isSaving ? 'bg-primary-yellow/50' : 'bg-primary-yellow'
-                        }`}
-                    activeOpacity={0.7}
-                >
-                    {isSaving ? (
-                        <ActivityIndicator color="#202020" />
-                    ) : (
-                        <TextBold className="text-dark-black">Guardar Cambios</TextBold>
-                    )}
-                </TouchableOpacity>
+            {/* Footer */}
+            <View className="px-6 py-4 border-t border-neutral/10 flex-row gap-3 bg-white">
+                <View className="flex-1">
+                    <CustomButton title="Cancelar" variant="outline" size="large" onPress={() => router.back()} disabled={isSaving} />
+                </View>
+                <View className="flex-1">
+                    <CustomButton
+                        title="Guardar"
+                        variant="primary"
+                        size="large"
+                        onPress={handleSave}
+                        disabled={isSaving}
+                        loading={isSaving}
+                    />
+                </View>
             </View>
+
+            <CustomAlert
+                visible={alertState.visible}
+                title={alertState.title}
+                message={alertState.message}
+                type={alertState.type}
+                actions={alertState.actions}
+                onClose={alertState.onClose ?? closeAlert}
+            />
         </SafeAreaView>
     );
 }

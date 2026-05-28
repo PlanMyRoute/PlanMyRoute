@@ -1,3 +1,4 @@
+import { ROUTES } from '@/constants/routes';
 import { useAuth } from '@/context/AuthContext';
 import { Vehicle, VehicleService } from '@/services/VehicleService';
 import { useFocusEffect, useRouter } from 'expo-router';
@@ -54,15 +55,21 @@ export function useVehicles(userId: string | undefined) {
                 `Solo puedes tener un máximo de ${MAX_VEHICLES} vehículos registrados.`,
                 [{ text: 'Entendido' }]
             );
+            setAlert({
+                visible: true,
+                title: 'Límite alcanzado',
+                message: `Solo puedes tener un máximo de ${MAX_VEHICLES} vehículos registrados.`,
+                type: 'warning'
+            });
             return;
         }
-        router.push('/profile/AddVehicleScreen' as any);
+        router.push(ROUTES.addVehicle);
     }, [vehicles.length, router]);
 
     const handleEditVehicle = useCallback(
         (vehicle: Vehicle) => {
             router.push({
-                pathname: '/profile/EditVehicleScreen',
+                pathname: ROUTES.editVehicle,
                 params: {
                     id: vehicle.id,
                     brand: vehicle.brand,

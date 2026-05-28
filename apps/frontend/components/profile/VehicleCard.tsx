@@ -36,7 +36,7 @@ interface VehicleCardProps {
     isSelected?: boolean;
     isInTrip?: boolean; // Si está mostrando el vehículo dentro de un viaje
     canRemove?: boolean; // Si el usuario puede eliminar el vehículo del viaje
-    onEdit?: (vehicle: Vehicle) => void;
+    onEdit: (vehicle: Vehicle) => void;
     onDelete?: (vehicle: Vehicle) => void;
     onRemoveFromTrip?: (vehicle: Vehicle) => void;
     onPress?: () => void;
@@ -57,7 +57,12 @@ export function VehicleCard({
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
     const handleSettingsPress = () => {
-        setShowAlert(true);
+        if (isInTrip) {
+            // Dentro de un viaje: solo opción de eliminar del viaje
+            setShowAlert(true);
+        } else {
+            onEdit(vehicle);
+        }
     };
 
     const handleDeletePress = () => {

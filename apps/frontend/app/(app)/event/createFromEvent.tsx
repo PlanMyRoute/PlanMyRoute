@@ -1,7 +1,8 @@
 import { LocationSearchInput } from '@/components/customElements/LocationSearchInput';
+import { InterestSelector } from '@/components/interests/InterestSelector';
 import { useAuth } from '@/context/AuthContext';
-import { TmEvent } from '@/services/eventService';
 import { TripService } from '@/services/tripService';
+import { Interest } from '@planmyroute/types';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
@@ -30,9 +31,16 @@ type Params = {
     date: string;
 };
 
+type TravelStyle = 'explorer' | 'balanced' | 'sedentary';
+
+const TRAVEL_STYLES: { key: TravelStyle; label: string; description: string }[] = [
+    { key: 'explorer',  label: 'Explorador',  description: 'Ciudad que piso, ciudad que exploro' },
+    { key: 'balanced',  label: 'Equilibrado',  description: 'Un poco de todo' },
+    { key: 'sedentary', label: 'Sedentario',   description: 'Mejor me limito al destino' },
+];
+
 function parseEventDate(dateStr: string): Date {
     if (!dateStr) return new Date();
-    // dateStr formato: "2025-06-15"
     const [y, m, d] = dateStr.split('-').map(Number);
     return new Date(y, m - 1, d);
 }
@@ -48,7 +56,6 @@ export default function CreateFromEventScreen() {
     const params = useLocalSearchParams<Params>();
 
     const {
-        eventId,
         eventName = '',
         city = '',
         country = '',
@@ -60,9 +67,9 @@ export default function CreateFromEventScreen() {
     const dayAfter = new Date(eventDate);
     dayAfter.setDate(dayAfter.getDate() + 1);
 
-    // Destino construido a partir de los datos del evento
     const destinationLabel = [address, city, country].filter(Boolean).join(', ') || city || 'Destino del evento';
 
+    const [isAiMode, setIsAiMode] = useState(false);
     const [tripName, setTripName] = useState(`Viaje a ${eventName}`);
     const [origin, setOrigin] = useState('');
     const [startDate, setStartDate] = useState<Date>(eventDate);
@@ -71,7 +78,12 @@ export default function CreateFromEventScreen() {
     const [showEndPicker, setShowEndPicker] = useState(false);
     const [creating, setCreating] = useState(false);
 
-    const isValid = tripName.trim().length > 0 && origin.trim().length > 0;
+    // AI mode fields
+    const [selectedInterests, setSelectedInterests] = useState<Interest[]>(['leisure']);
+    const [travelStyle, setTravelStyle] = useState<TravelStyle>('balanced');
+
+    const isValid = tripName.trim().length > 0 && origin.trim().length > 0 &&
+        (!isAiMode || selectedInterests.length > 0);
 
     const handleCreate = async () => {
         if (!isValid || creating || !user?.id) return;
@@ -90,15 +102,15 @@ export default function CreateFromEventScreen() {
                 n_pets: 0,
                 circular: false,
                 estimated_price_min: 0,
-                estimated_price_max: 0,
+                estimated_price_max: 500,
                 origin: origin.trim(),
                 destination: destinationLabel,
                 vehicleIds: [],
-                travelStyle: 'balanced',
-                type: ['leisure'],
+                travelStyle: isAiMode ? travelStyle : 'balanced',
+                type: isAiMode ? selectedInterests : ['leisure'],
             };
 
-            const response = await TripService.createTrip(payload, user.id, false, token || undefined);
+            const response = await TripService.createTrip(payload as any, user.id, isAiMode, token || undefined);
             const tripId = response?.trip?.id;
 
             if (tripId) {
@@ -162,6 +174,29 @@ export default function CreateFromEventScreen() {
                     ) : null}
                 </View>
 
+                {/* Toggle Manual / Con IA */}
+                <View className="flex-row bg-gray-100 rounded-2xl p-1 mb-5">
+                    <TouchableOpacity
+                        className={`flex-1 py-2.5 rounded-xl items-center ${!isAiMode ? 'bg-white shadow-sm' : ''}`}
+                        onPress={() => setIsAiMode(false)}
+                        activeOpacity={0.7}
+                    >
+                        <Text className={`text-sm font-semibold ${!isAiMode ? 'text-dark-black' : 'text-gray-400'}`}>
+                            Manual
+                        </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                        className={`flex-1 py-2.5 rounded-xl items-center flex-row justify-center gap-x-1.5 ${isAiMode ? 'bg-dark-black shadow-sm' : ''}`}
+                        onPress={() => setIsAiMode(true)}
+                        activeOpacity={0.7}
+                    >
+                        <Ionicons name="sparkles" size={14} color={isAiMode ? '#FFD54D' : '#aaa'} />
+                        <Text className={`text-sm font-semibold ${isAiMode ? 'text-primary-yellow' : 'text-gray-400'}`}>
+                            Generar con IA
+                        </Text>
+                    </TouchableOpacity>
+                </View>
+
                 {/* Nombre del viaje */}
                 <Text className="text-sm font-semibold text-dark-black mb-1.5">Nombre del viaje</Text>
                 <View className="bg-white rounded-xl border border-gray-200 px-4 py-3 mb-4">
@@ -198,10 +233,9 @@ export default function CreateFromEventScreen() {
                     </View>
                 </View>
 
-                {/* Fechas */}
+                {/* Fechas del viaje */}
                 <Text className="text-sm font-semibold text-dark-black mb-1.5">Fechas del viaje</Text>
                 <View className="flex-row gap-x-3 mb-5">
-                    {/* Fecha inicio */}
                     <TouchableOpacity
                         className="flex-1 bg-white rounded-xl border border-gray-200 px-3 py-3"
                         onPress={() => setShowStartPicker(true)}
@@ -213,7 +247,6 @@ export default function CreateFromEventScreen() {
                         </View>
                     </TouchableOpacity>
 
-                    {/* Fecha fin */}
                     <TouchableOpacity
                         className="flex-1 bg-white rounded-xl border border-gray-200 px-3 py-3"
                         onPress={() => setShowEndPicker(true)}
@@ -251,6 +284,51 @@ export default function CreateFromEventScreen() {
                     />
                 )}
 
+                {/* Opciones de IA (solo en modo IA) */}
+                {isAiMode && (
+                    <View className="mb-5">
+                        <View className="bg-gray-100 rounded-2xl p-4 mb-4">
+                            <View className="flex-row items-center mb-1">
+                                <Ionicons name="sparkles" size={14} color="#202020" />
+                                <Text className="text-dark-black font-semibold text-sm ml-1.5">
+                                    La IA planificará tu viaje
+                                </Text>
+                            </View>
+                            <Text className="text-gray-500 text-xs leading-4">
+                                Elige tus intereses y cómo te gusta viajar. La IA buscará alojamiento, actividades y restaurantes adaptados al evento.
+                            </Text>
+                        </View>
+
+                        {/* Intereses */}
+                        <Text className="text-sm font-semibold text-dark-black mb-3">Tus intereses</Text>
+                        <InterestSelector
+                            selectedInterests={selectedInterests}
+                            onInterestsChange={setSelectedInterests}
+                            multiple={true}
+                        />
+
+                        {/* Estilo de viaje */}
+                        <Text className="text-sm font-semibold text-dark-black mt-5 mb-3">¿Cómo te gusta viajar?</Text>
+                        <View className="flex-row gap-x-2">
+                            {TRAVEL_STYLES.map(({ key, label, description }) => (
+                                <TouchableOpacity
+                                    key={key}
+                                    className={`flex-1 rounded-2xl border-2 py-3 px-2 items-center ${travelStyle === key ? 'bg-primary-yellow border-primary-yellow' : 'bg-white border-gray-200'}`}
+                                    onPress={() => setTravelStyle(key)}
+                                    activeOpacity={0.7}
+                                >
+                                    <Text className={`text-xs font-bold text-center ${travelStyle === key ? 'text-dark-black' : 'text-gray-700'}`}>
+                                        {label}
+                                    </Text>
+                                    <Text className={`text-[10px] text-center mt-0.5 leading-3 ${travelStyle === key ? 'text-gray-600' : 'text-gray-400'}`}>
+                                        {description}
+                                    </Text>
+                                </TouchableOpacity>
+                            ))}
+                        </View>
+                    </View>
+                )}
+
                 {/* Botón crear */}
                 <TouchableOpacity
                     className={`rounded-2xl py-4 items-center justify-center flex-row ${
@@ -264,13 +342,17 @@ export default function CreateFromEventScreen() {
                         <ActivityIndicator color="#FFD54D" />
                     ) : (
                         <>
-                            <Ionicons name="map" size={18} color={isValid ? '#FFD54D' : '#aaa'} />
+                            <Ionicons
+                                name={isAiMode ? 'sparkles' : 'map'}
+                                size={18}
+                                color={isValid ? '#FFD54D' : '#aaa'}
+                            />
                             <Text
                                 className={`font-bold text-base ml-2 ${
                                     isValid ? 'text-primary-yellow' : 'text-gray-400'
                                 }`}
                             >
-                                Crear viaje
+                                {isAiMode ? 'Generar viaje con IA' : 'Crear viaje'}
                             </Text>
                         </>
                     )}

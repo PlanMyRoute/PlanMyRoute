@@ -1,15 +1,14 @@
-import { MapLocationPicker } from '@/components/maps/MapLocationPicker';
-import { GetLocationModal, LocationCoordinates } from '@/components/modals/GetLocationModal';
+import { formatMapAddress, MapLocationPicker, MapPickerCoords } from '@/components/maps/MapLocationPicker';
+import type { LocationCoordinates } from '@/components/modals/GetLocationModal';
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
     ActivityIndicator,
     FlatList,
     Modal,
     Platform,
-    Pressable,
-    StyleSheet,
+    TextInput,
     TouchableOpacity,
     View,
 } from 'react-native';
@@ -34,97 +33,79 @@ type LocationSearchInputProps = {
     currentCoordinates?: LocationCoordinates | null;
 };
 
-export const LocationSearchInput = ({
-    value,
+// ── Internal search modal ─────────────────────────────────────────────────────
+
+type LocationSearchModalProps = {
+    visible: boolean;
+    onClose: () => void;
+    onLocationSelect: (address: string, coords: LocationCoordinates) => void;
+    onOpenMap: () => void;
+    showLocationButton?: boolean;
+};
+
+const LocationSearchModal = ({
+    visible,
+    onClose,
     onLocationSelect,
-    placeholder = 'Calle, ciudad o lugar',
-    editable = true,
+    onOpenMap,
     showLocationButton = true,
-    currentCoordinates = null,
-}: LocationSearchInputProps) => {
-    const containerRef = useRef<View>(null);
-    const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-    const [searchText, setSearchText] = useState(value);
+}: LocationSearchModalProps) => {
+    const [query, setQuery] = useState('');
     const [predictions, setPredictions] = useState<LocationPrediction[]>([]);
     const [loading, setLoading] = useState(false);
-    const [showMapModal, setShowMapModal] = useState(false);
-    const [showMapPicker, setShowMapPicker] = useState(false);
-    const [currentLocation, setCurrentLocation] = useState<LocationCoordinates | null>(null);
-    const [locationLoading, setLocationLoading] = useState(false);
-    const [isFocused, setIsFocused] = useState(false);
-    const [dropdownPos, setDropdownPos] = useState<{ top: number; left: number; width: number } | null>(null);
+    const [gpsLoading, setGpsLoading] = useState(false);
+    const inputRef = useRef<TextInput>(null);
+    const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-    // Sync value prop → local text
-    const prevValue = useRef(value);
-    if (value !== prevValue.current) {
-        prevValue.current = value;
-        setSearchText(value);
-    }
-
-    const measureInputPosition = useCallback(() => {
-        // Delay to let keyboard animation finish before measuring screen coordinates
-        setTimeout(() => {
-            containerRef.current?.measureInWindow((x, y, w, h) => {
-                if (w > 0) {
-                    setDropdownPos({ top: y + h + 4, left: x, width: w });
-                }
-            });
-        }, 350);
-    }, []);
-
-    // Fetch Nominatim predictions (debounced to respect 1 req/s rate limit)
-    const handleSearch = useCallback((text: string) => {
-        setSearchText(text);
-
-        if (debounceRef.current) clearTimeout(debounceRef.current);
-
-        if (!text || text.length < 3) {
+    useEffect(() => {
+        if (visible) {
+            setQuery('');
             setPredictions([]);
-            return;
+            const t = setTimeout(() => inputRef.current?.focus(), 100);
+            return () => clearTimeout(t);
         }
+    }, [visible]);
 
+    const handleSearch = (text: string) => {
+        setQuery(text);
+        if (debounceRef.current) clearTimeout(debounceRef.current);
+        if (text.length < 3) { setPredictions([]); return; }
         debounceRef.current = setTimeout(async () => {
             setLoading(true);
             try {
                 const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
-                const response = await fetch(
+                const res = await fetch(
                     `${apiUrl}/api/places/autocomplete?input=${encodeURIComponent(text)}&language=es`
                 );
-                const data = await response.json();
-                if (data.predictions) {
-                    setPredictions(
-                        data.predictions.map((p: any) => ({
-                            place_id: p.place_id,
-                            description: p.description,
-                            main_text: p.structured_formatting?.main_text || p.description,
-                            secondary_text: p.structured_formatting?.secondary_text || '',
-                        }))
-                    );
-                    measureInputPosition();
-                }
+                const data = await res.json();
+                setPredictions(
+                    (data.predictions ?? []).map((p: any) => ({
+                        place_id: p.place_id,
+                        description: p.description,
+                        main_text: p.structured_formatting?.main_text || p.description,
+                        secondary_text: p.structured_formatting?.secondary_text || '',
+                    }))
+                );
             } catch {
-                // silently ignore network errors for search
+                setPredictions([]);
             } finally {
                 setLoading(false);
             }
         }, 500);
-    }, [measureInputPosition]);
+    };
 
-    // Resolve place_id → coordinates + formatted address
     const handleSelectPrediction = useCallback(async (prediction: LocationPrediction) => {
         setLoading(true);
-        closePredictions();
         try {
             const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
-            const response = await fetch(
+            const res = await fetch(
                 `${apiUrl}/api/places/details?place_id=${prediction.place_id}&fields=geometry,formatted_address`
             );
-            const data = await response.json();
+            const data = await res.json();
             if (data.result?.geometry) {
                 const { lat, lng } = data.result.geometry.location;
                 const address = data.result.formatted_address || prediction.description;
                 onLocationSelect(address, { latitude: lat, longitude: lng });
-                setSearchText(address);
             }
         } catch {
             // silently ignore
@@ -133,177 +114,229 @@ export const LocationSearchInput = ({
         }
     }, [onLocationSelect]);
 
-    const closePredictions = () => {
-        setIsFocused(false);
-        setPredictions([]);
-    };
-
-    // GPS current location → open map modal for confirmation
-    const handleGetCurrentLocation = useCallback(async () => {
-        setLocationLoading(true);
+    const handleGPS = async () => {
+        setGpsLoading(true);
         try {
             const { status } = await Location.requestForegroundPermissionsAsync();
             if (status !== 'granted') return;
             const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-            setCurrentLocation({ latitude: loc.coords.latitude, longitude: loc.coords.longitude });
-            setShowMapModal(true);
-        } catch {
-            // ignore
-        } finally {
-            setLocationLoading(false);
-        }
-    }, []);
-
-    // Reverse-geocode after map selection
-    const handleMapLocationSelected = useCallback(async (coords: LocationCoordinates) => {
-        try {
+            const coords: LocationCoordinates = {
+                latitude: loc.coords.latitude,
+                longitude: loc.coords.longitude,
+            };
             const results = await Location.reverseGeocodeAsync(coords);
-            if (results.length > 0) {
-                const r = results[0];
-                const parts: string[] = [];
-                if (r.street) parts.push(r.streetNumber ? `${r.street} ${r.streetNumber}` : r.street);
-                if (r.city) parts.push(r.city);
-                else if (r.district) parts.push(r.district);
-                if (r.postalCode) parts.push(r.postalCode);
-                if (r.region && !r.city) parts.push(r.region);
-                const address = parts.join(', ') || 'Ubicación seleccionada';
-                onLocationSelect(address, coords);
-                setSearchText(address);
-            }
+            const address = formatMapAddress(results[0]) ?? 'Ubicación actual';
+            onLocationSelect(address, coords);
         } catch {
             // ignore
         } finally {
-            setShowMapModal(false);
+            setGpsLoading(false);
         }
-    }, [onLocationSelect]);
-
-    const showDropdown = isFocused && predictions.length > 0 && !!dropdownPos;
+    };
 
     return (
-        <View ref={containerRef} style={{ overflow: 'visible' }}>
-            <CustomInput
-                placeholder={placeholder}
-                value={searchText}
-                onChangeText={handleSearch}
-                editable={editable}
-                onFocus={() => {
-                    setIsFocused(true);
-                    measureInputPosition();
-                }}
-                onBlur={() => {
-                    // Delay to allow prediction tap to register before hiding
-                    setTimeout(closePredictions, 200);
-                }}
-                rightElement={showLocationButton || loading ? (
-                    <View className="flex-row items-center pr-3">
-                        {loading && <ActivityIndicator size="small" color="#FFD54D" />}
-                        {showLocationButton && (
-                            <>
-                                {Platform.OS !== 'web' && (
-                                    <TouchableOpacity
-                                        onPress={() => setShowMapPicker(true)}
-                                        className="ml-1 p-1"
-                                        activeOpacity={0.7}
-                                    >
-                                        <Ionicons name="map-outline" size={20} color="#FFD54D" />
-                                    </TouchableOpacity>
-                                )}
-                            </>
-                        )}
-                    </View>
-                ) : undefined}
-            />
+        <Modal
+            visible={visible}
+            animationType="slide"
+            presentationStyle="fullScreen"
+            onRequestClose={onClose}
+        >
+            <View style={{ flex: 1, backgroundColor: '#fff' }}>
+                {/* Header */}
+                <View style={{
+                    flexDirection: 'row', alignItems: 'center',
+                    paddingTop: 52, paddingHorizontal: 16, paddingBottom: 12,
+                    borderBottomWidth: 1, borderBottomColor: 'rgba(153,153,153,0.15)',
+                    gap: 8,
+                }}>
+                    <TouchableOpacity onPress={onClose} style={{ padding: 4 }} activeOpacity={0.7}>
+                        <Ionicons name="arrow-back" size={24} color="#202020" />
+                    </TouchableOpacity>
+                    <TextInput
+                        ref={inputRef}
+                        value={query}
+                        onChangeText={handleSearch}
+                        placeholder="Buscar ciudad o lugar..."
+                        placeholderTextColor="#999999"
+                        style={{ flex: 1, fontFamily: 'Urbanist-Medium', fontSize: 15, color: '#202020' }}
+                        autoCorrect={false}
+                        autoCapitalize="none"
+                        returnKeyType="search"
+                    />
+                    {loading && <ActivityIndicator size="small" color="#FFD54D" />}
+                    {query.length > 0 && !loading && (
+                        <TouchableOpacity
+                            onPress={() => { setQuery(''); setPredictions([]); }}
+                            style={{ padding: 4 }}
+                            activeOpacity={0.7}
+                        >
+                            <Ionicons name="close-circle" size={20} color="#999999" />
+                        </TouchableOpacity>
+                    )}
+                </View>
 
-            {/* Predictions rendered in a transparent Modal to avoid z-index / overflow-clip issues */}
-            <Modal
-                visible={showDropdown}
-                transparent
-                animationType="none"
-                statusBarTranslucent
-                onRequestClose={closePredictions}
-            >
-                {/* Backdrop — tap to dismiss */}
-                <Pressable style={StyleSheet.absoluteFillObject} onPress={closePredictions}>
-                    {/* Inner Pressable stops backdrop from firing when tapping the list */}
-                    <Pressable
-                        style={[
-                            styles.dropdown,
-                            dropdownPos ? {
-                                position: 'absolute',
-                                top: dropdownPos.top,
-                                left: dropdownPos.left,
-                                width: dropdownPos.width,
-                            } : undefined,
-                        ]}
+                {/* Quick action buttons */}
+                <View style={{
+                    flexDirection: 'row', gap: 12,
+                    paddingHorizontal: 16, paddingVertical: 12,
+                    borderBottomWidth: 1, borderBottomColor: 'rgba(153,153,153,0.08)',
+                }}>
+                    <TouchableOpacity
+                        onPress={handleGPS}
+                        disabled={gpsLoading}
+                        style={{
+                            flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8,
+                            backgroundColor: 'rgba(255,213,77,0.12)', borderRadius: 14,
+                            paddingVertical: 10, paddingHorizontal: 14,
+                        }}
+                        activeOpacity={0.7}
                     >
-                        <FlatList
-                            data={predictions}
-                            keyExtractor={(item) => item.place_id}
-                            keyboardShouldPersistTaps="handled"
-                            style={{ maxHeight: 280 }}
-                            renderItem={({ item }) => (
-                                <TouchableOpacity
-                                    onPress={() => handleSelectPrediction(item)}
-                                    className="px-4 py-3 border-b border-neutral-gray/10"
-                                    activeOpacity={0.7}
-                                >
-                                    <TextRegular className="font-semibold text-dark-black">
-                                        {item.main_text}
-                                    </TextRegular>
-                                    {item.secondary_text ? (
-                                        <MicrotextDark className="text-neutral-gray mt-1">
-                                            {item.secondary_text}
-                                        </MicrotextDark>
-                                    ) : null}
-                                </TouchableOpacity>
-                            )}
-                        />
-                    </Pressable>
-                </Pressable>
-            </Modal>
+                        {gpsLoading
+                            ? <ActivityIndicator size="small" color="#FFD54D" />
+                            : <Ionicons name="navigate" size={18} color="#FFD54D" />
+                        }
+                        <TextRegular style={{ color: '#202020', fontSize: 13 }}>Usar mi ubicación</TextRegular>
+                    </TouchableOpacity>
+                    {showLocationButton && Platform.OS !== 'web' && (
+                        <TouchableOpacity
+                            onPress={onOpenMap}
+                            style={{
+                                flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8,
+                                backgroundColor: 'rgba(32,32,32,0.06)', borderRadius: 14,
+                                paddingVertical: 10, paddingHorizontal: 14,
+                            }}
+                            activeOpacity={0.7}
+                        >
+                            <Ionicons name="map-outline" size={18} color="#202020" />
+                            <TextRegular style={{ color: '#202020', fontSize: 13 }}>Elegir en el mapa</TextRegular>
+                        </TouchableOpacity>
+                    )}
+                </View>
 
-            <GetLocationModal
-                visible={showMapModal}
-                initialLocation={currentLocation}
-                onLocationSelect={handleMapLocationSelected}
-                onClose={() => setShowMapModal(false)}
-            />
-
-            <MapLocationPicker
-                visible={showMapPicker}
-                initialLocation={
-                    currentCoordinates
-                        ? { latitude: currentCoordinates.latitude, longitude: currentCoordinates.longitude }
-                        : currentLocation
-                            ? { latitude: currentLocation.latitude, longitude: currentLocation.longitude }
-                            : null
-                }
-                userLocation={
-                    currentLocation
-                        ? { latitude: currentLocation.latitude, longitude: currentLocation.longitude }
-                        : null
-                }
-                onLocationSelect={async (coords) => {
-                    setShowMapPicker(false);
-                    await handleMapLocationSelected(coords);
-                }}
-                onClose={() => setShowMapPicker(false)}
-            />
-        </View>
+                {/* Results */}
+                <FlatList
+                    data={predictions}
+                    keyExtractor={(item) => item.place_id}
+                    keyboardShouldPersistTaps="handled"
+                    renderItem={({ item }) => (
+                        <TouchableOpacity
+                            onPress={() => handleSelectPrediction(item)}
+                            style={{
+                                paddingHorizontal: 16, paddingVertical: 14,
+                                borderBottomWidth: 1, borderBottomColor: 'rgba(153,153,153,0.08)',
+                                flexDirection: 'row', alignItems: 'center', gap: 12,
+                            }}
+                            activeOpacity={0.7}
+                        >
+                            <Ionicons name="location-outline" size={18} color="#999999" />
+                            <View style={{ flex: 1 }}>
+                                <TextRegular className="font-semibold text-dark-black">
+                                    {item.main_text}
+                                </TextRegular>
+                                {item.secondary_text ? (
+                                    <MicrotextDark className="text-neutral-gray mt-0.5">
+                                        {item.secondary_text}
+                                    </MicrotextDark>
+                                ) : null}
+                            </View>
+                        </TouchableOpacity>
+                    )}
+                    ListEmptyComponent={
+                        query.length >= 3 && !loading ? (
+                            <View style={{ paddingVertical: 48, alignItems: 'center', gap: 8 }}>
+                                <Ionicons name="search-outline" size={32} color="#999999" />
+                                <MicrotextDark className="text-neutral-gray">
+                                    Sin resultados para "{query}"
+                                </MicrotextDark>
+                            </View>
+                        ) : null
+                    }
+                />
+            </View>
+        </Modal>
     );
 };
 
-const styles = StyleSheet.create({
-    dropdown: {
-        backgroundColor: 'white',
-        borderRadius: 16,
-        borderWidth: 1,
-        borderColor: 'rgba(153,153,153,0.3)',
-        overflow: 'hidden',
-        elevation: 10,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.15,
-        shadowRadius: 8,
-    },
-});
+// ── Main exported component ───────────────────────────────────────────────────
+
+export const LocationSearchInput = ({
+    value,
+    onLocationSelect,
+    placeholder = 'Calle, ciudad o lugar',
+    editable = true,
+    showLocationButton = true,
+    currentCoordinates = null,
+}: LocationSearchInputProps) => {
+    const [modalOpen, setModalOpen] = useState(false);
+    const [mapOpen, setMapOpen] = useState(false);
+
+    const handleLocationSelect = useCallback(
+        (address: string, coords: LocationCoordinates) => {
+            onLocationSelect(address, coords);
+            setModalOpen(false);
+        },
+        [onLocationSelect]
+    );
+
+    const handleMapLocationSelected = useCallback(
+        async (coords: MapPickerCoords, address?: string) => {
+            let resolvedAddress = address;
+            if (!resolvedAddress) {
+                try {
+                    const results = await Location.reverseGeocodeAsync(coords);
+                    resolvedAddress = formatMapAddress(results[0]) ?? 'Ubicación seleccionada';
+                } catch {
+                    resolvedAddress = 'Ubicación seleccionada';
+                }
+            }
+            onLocationSelect(resolvedAddress, coords);
+            setMapOpen(false);
+        },
+        [onLocationSelect]
+    );
+
+    return (
+        <View>
+            {/* Tappable display input */}
+            <CustomInput
+                placeholder={placeholder}
+                value={value}
+                onPress={editable ? () => setModalOpen(true) : undefined}
+                rightElement={
+                    <View style={{ paddingRight: 12 }}>
+                        {currentCoordinates
+                            ? <Ionicons name="checkmark-circle" size={20} color="#FFD54D" />
+                            : <Ionicons name="chevron-forward" size={18} color="#999999" />
+                        }
+                    </View>
+                }
+            />
+
+            {/* Full-screen search modal */}
+            <LocationSearchModal
+                visible={modalOpen}
+                onClose={() => setModalOpen(false)}
+                onLocationSelect={handleLocationSelect}
+                onOpenMap={() => {
+                    setMapOpen(true);
+                    setModalOpen(false);
+                }}
+                showLocationButton={showLocationButton}
+            />
+
+            {/* Map picker (independent modal, avoids nesting) */}
+            {Platform.OS !== 'web' && (
+                <MapLocationPicker
+                    visible={mapOpen}
+                    initialLocation={
+                        currentCoordinates
+                            ? { latitude: currentCoordinates.latitude, longitude: currentCoordinates.longitude }
+                            : null
+                    }
+                    onLocationSelect={handleMapLocationSelected}
+                    onClose={() => setMapOpen(false)}
+                />
+            )}
+        </View>
+    );
+};

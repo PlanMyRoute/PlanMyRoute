@@ -1,8 +1,12 @@
-import React from 'react';
+import React, { forwardRef, useImperativeHandle, useRef } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { WebView } from 'react-native-webview';
 
 export type PinState = 'standard' | 'visited' | 'next' | 'future';
+
+export interface MapRef {
+    recenterTo: (lat: number, lng: number) => void;
+}
 
 interface Marker {
     id: string;
@@ -11,6 +15,7 @@ interface Marker {
     description?: string;
     number: number;
     pinState?: PinState;
+    segment?: string;
 }
 
 interface MapComponentProps {
@@ -22,18 +27,30 @@ interface MapComponentProps {
     };
     markers?: Marker[];
     routeCoordinates?: Array<{ latitude: number; longitude: number }>;
-    visitedUpToIndex?: number; // índice hasta el que la ruta está recorrida
+    visitedUpToIndex?: number;
     onMarkerPress?: (markerId: string) => void;
+    userLocation?: { lat: number; lng: number } | null;
 }
 
-export const MapComponent: React.FC<MapComponentProps> = ({
+export const MapComponent = forwardRef<MapRef, MapComponentProps>(({
     initialRegion,
     markers = [],
     routeCoordinates = [],
     visitedUpToIndex,
     onMarkerPress,
-}) => {
-    const mapHtml = generateMapHTML(initialRegion, markers, routeCoordinates, visitedUpToIndex);
+    userLocation,
+}, ref) => {
+    const webViewRef = useRef<WebView>(null);
+
+    useImperativeHandle(ref, () => ({
+        recenterTo: (lat: number, lng: number) => {
+            webViewRef.current?.injectJavaScript(
+                `map.setView([${lat}, ${lng}], map.getZoom()); true;`
+            );
+        },
+    }));
+
+    const mapHtml = generateMapHTML(initialRegion, markers, routeCoordinates, visitedUpToIndex, userLocation);
 
     const handleMessage = (event: any) => {
         try {
@@ -49,6 +66,7 @@ export const MapComponent: React.FC<MapComponentProps> = ({
     return (
         <View style={styles.container}>
             <WebView
+                ref={webViewRef}
                 source={{ html: mapHtml }}
                 style={styles.webView}
                 javaScriptEnabled
@@ -57,9 +75,9 @@ export const MapComponent: React.FC<MapComponentProps> = ({
             />
         </View>
     );
-};
+});
 
-// Colores y tamaños por estado del pin
+// Colores y tamaños por estado del pin (paradas de viaje)
 function pinConfig(state: PinState): { bg: string; text: string; w: number; h: number } {
     switch (state) {
         case 'visited': return { bg: '#999999', text: '#FFFFFF', w: 24, h: 30 };
@@ -69,22 +87,57 @@ function pinConfig(state: PinState): { bg: string; text: string; w: number; h: n
     }
 }
 
+// Color e icono por segmento de evento (Ticketmaster)
+function segmentPinConfig(segment: string): { bg: string; icon: string } {
+    switch (segment) {
+        case 'Music':           return { bg: '#FFD54D', icon: '&#9835;' };
+        case 'Sports':          return { bg: '#4A90E2', icon: '&#9917;' };
+        case 'Arts & Theatre':  return { bg: '#9B59B6', icon: '&#127914;' };
+        case 'Film':            return { bg: '#E74C3C', icon: '&#127916;' };
+        default:                return { bg: '#202020', icon: '&#9733;' };
+    }
+}
+
 function generateMapHTML(
     initialRegion: MapComponentProps['initialRegion'],
     markers: Marker[],
     routeCoordinates: Array<{ latitude: number; longitude: number }>,
-    visitedUpToIndex?: number
+    visitedUpToIndex?: number,
+    userLocation?: { lat: number; lng: number } | null,
 ): string {
-    // Generar JS de marcadores (sin agrupamiento — cada parada es única)
     const markersJS = markers
         .filter(m => m.coordinate.latitude && m.coordinate.longitude)
         .map((m, idx) => {
-            const cfg = pinConfig(m.pinState ?? 'standard');
-            const fontSize = cfg.w <= 24 ? 10 : cfg.w <= 28 ? 11 : 13;
-            const borderWidth = m.pinState === 'next' ? 3 : 2;
-            const borderColor = m.pinState === 'next' ? '#202020' : '#FFFFFF';
+            let pinHtml: string;
+            let pinW: number;
+            let pinH: number;
 
-            const pinHtml = `
+            if (m.segment) {
+                const segCfg = segmentPinConfig(m.segment);
+                const textColor = m.segment === 'Music' ? '#202020' : '#FFFFFF';
+                pinW = 32; pinH = 38;
+                pinHtml = `
+                <div style="
+                    width:32px;height:38px;position:relative;
+                    background:${segCfg.bg};
+                    border-radius:50% 50% 50% 0;
+                    transform:rotate(-45deg);
+                    border:2px solid #FFFFFF;
+                    box-shadow:0 2px 8px rgba(0,0,0,0.35);
+                ">
+                    <span style="
+                        position:absolute;top:50%;left:50%;
+                        transform:translate(-50%,-50%) rotate(45deg);
+                        color:${textColor};font-size:14px;line-height:1;
+                    ">${segCfg.icon}</span>
+                </div>`;
+            } else {
+                const cfg = pinConfig(m.pinState ?? 'standard');
+                const fontSize = cfg.w <= 24 ? 10 : cfg.w <= 28 ? 11 : 13;
+                const borderWidth = m.pinState === 'next' ? 3 : 2;
+                const borderColor = m.pinState === 'next' ? '#202020' : '#FFFFFF';
+                pinW = cfg.w; pinH = cfg.h;
+                pinHtml = `
                 <div style="
                     width:${cfg.w}px;height:${cfg.h}px;position:relative;
                     background:${cfg.bg};
@@ -100,20 +153,20 @@ function generateMapHTML(
                         font-family:sans-serif;line-height:1;
                     ">${m.number}</span>
                 </div>`;
+            }
 
-            // Escapar para JavaScript
             const escapedPin = pinHtml.replace(/`/g, '\\`').replace(/\$/g, '\\$').replace(/\n\s*/g, '');
             const escapedTitle = m.title.replace(/'/g, "\\'").replace(/"/g, '\\"');
             const escapedDesc = (m.description || '').replace(/'/g, "\\'").replace(/"/g, '\\"');
-            const iconAnchorX = Math.round(cfg.w / 2);
+            const iconAnchorX = Math.round(pinW / 2);
 
             return `
                 var icon${idx} = L.divIcon({
                     html: \`${escapedPin}\`,
                     className: '',
-                    iconSize: [${cfg.w}, ${cfg.h}],
-                    iconAnchor: [${iconAnchorX}, ${cfg.h}],
-                    popupAnchor: [0, -${cfg.h}]
+                    iconSize: [${pinW}, ${pinH}],
+                    iconAnchor: [${iconAnchorX}, ${pinH}],
+                    popupAnchor: [0, -${pinH}]
                 });
                 var marker${idx} = L.marker(
                     [${m.coordinate.latitude}, ${m.coordinate.longitude}],
@@ -126,7 +179,6 @@ function generateMapHTML(
         })
         .join('\n');
 
-    // Polyline: sección recorrida en gris, sección pendiente en negro
     let routeJS = '';
     if (routeCoordinates.length > 1) {
         const allCoords = JSON.stringify(routeCoordinates.map(c => [c.latitude, c.longitude]));
@@ -146,27 +198,18 @@ function generateMapHTML(
         }
     }
 
-    // Marcador de ubicación del usuario (círculo azul pulsante)
-    const userLocationJS = `
-        var userMarker = null;
-        if (navigator.geolocation) {
-            navigator.geolocation.watchPosition(function(pos) {
-                var lat = pos.coords.latitude;
-                var lng = pos.coords.longitude;
-                var userIcon = L.divIcon({
-                    html: '<div class="user-dot"></div>',
-                    className: '',
-                    iconSize: [20, 20],
-                    iconAnchor: [10, 10]
-                });
-                if (userMarker) {
-                    userMarker.setLatLng([lat, lng]);
-                } else {
-                    userMarker = L.marker([lat, lng], { icon: userIcon }).addTo(map);
-                }
-            }, null, { enableHighAccuracy: true, maximumAge: 10000 });
-        }
-    `;
+    // Render user location dot directly from native coords (watchPosition unreliable in WebView)
+    const userLocationJS = userLocation
+        ? `
+            var userIcon = L.divIcon({
+                html: '<div class="user-dot"></div>',
+                className: '',
+                iconSize: [12, 12],
+                iconAnchor: [6, 6]
+            });
+            L.marker([${userLocation.lat}, ${userLocation.lng}], { icon: userIcon }).addTo(map);
+        `
+        : '';
 
     const zoom = Math.max(1, 12 - Math.log2(Math.max(initialRegion.latitudeDelta, 0.001)));
 
@@ -180,17 +223,17 @@ function generateMapHTML(
     body,html{margin:0;padding:0;height:100%;width:100%}
     #map{height:100%;width:100%}
     .user-dot{
-      width:20px;height:20px;
+      width:12px;height:12px;
       background:#3B82F6;
       border-radius:50%;
-      border:3px solid #FFFFFF;
-      box-shadow:0 0 0 4px rgba(59,130,246,0.3);
+      border:2px solid #FFFFFF;
+      box-shadow:0 0 0 3px rgba(59,130,246,0.25);
       animation:pulse 2s infinite;
     }
     @keyframes pulse{
-      0%{box-shadow:0 0 0 4px rgba(59,130,246,0.3)}
-      50%{box-shadow:0 0 0 10px rgba(59,130,246,0.1)}
-      100%{box-shadow:0 0 0 4px rgba(59,130,246,0.3)}
+      0%{box-shadow:0 0 0 3px rgba(59,130,246,0.25)}
+      50%{box-shadow:0 0 0 7px rgba(59,130,246,0.08)}
+      100%{box-shadow:0 0 0 3px rgba(59,130,246,0.25)}
     }
     .leaflet-popup-content{font-size:14px;font-family:sans-serif}
   </style>

@@ -249,7 +249,7 @@ export const validateStopOrderRestrictions = async (
         // Obtener TODAS las paradas del viaje (no filtrar por día)
         const { data: allStops, error } = await supabase
             .from(STOP_TABLE)
-            .select('*')
+            .select('id, type, day, estimated_arrival')
             .eq('trip_id', tripId)
             .not('id', 'is', null);
 
@@ -737,16 +737,15 @@ export const createAccommodationStop = async (stopData: Partial<Stop>, accommoda
     try {
         const newStop = await createStop(stopData, tripId);
 
-        // Calcular total_cost si se proporcionan nights y price_per_night
         let accommodationPayload: any = {
             id: newStop.id,
             ...removeUndefinedFields(accommodationData)
         };
 
-        // Si existen nights y price_per_night, calcular total_cost
-        if (accommodationPayload.nights && accommodationPayload.price_per_night) {
-            accommodationPayload.total_cost = accommodationPayload.nights * accommodationPayload.price_per_night;
-            console.log(`Total cost calculado: ${accommodationPayload.nights} noches × ${accommodationPayload.price_per_night}€ = ${accommodationPayload.total_cost}€`);
+        // Si existen nights y price_per_night, calcular estimated_price (precio total estimado)
+        if (accommodationPayload.nights && accommodationPayload.price_per_night && accommodationPayload.estimated_price == null) {
+            accommodationPayload.estimated_price = accommodationPayload.nights * accommodationPayload.price_per_night;
+            console.log(`Precio estimado calculado: ${accommodationPayload.nights} noches × ${accommodationPayload.price_per_night}€ = ${accommodationPayload.estimated_price}€`);
         }
 
         const { data: accommodation, error } = await supabase
@@ -927,10 +926,10 @@ export const updateAccommodationStop = async (stopId: string, stopData: Partial<
         // 2. Actualizar el registro de accommodation
         let accommodationPayload: any = removeUndefinedFields(accommodationData);
 
-        // Si existen nights y price_per_night, calcular total_cost
-        if (accommodationPayload.nights && accommodationPayload.price_per_night) {
-            accommodationPayload.total_cost = accommodationPayload.nights * accommodationPayload.price_per_night;
-            console.log(`Total cost calculado: ${accommodationPayload.nights} noches × ${accommodationPayload.price_per_night}€ = ${accommodationPayload.total_cost}€`);
+        // Si existen nights y price_per_night, calcular estimated_price (precio total estimado)
+        if (accommodationPayload.nights && accommodationPayload.price_per_night && accommodationPayload.estimated_price == null) {
+            accommodationPayload.estimated_price = accommodationPayload.nights * accommodationPayload.price_per_night;
+            console.log(`Precio estimado calculado: ${accommodationPayload.nights} noches × ${accommodationPayload.price_per_night}€ = ${accommodationPayload.estimated_price}€`);
         }
 
         const { data: accommodation, error } = await supabase
@@ -1596,33 +1595,43 @@ const removeUndefinedFields = <T extends Record<string, any>>(obj: T): Partial<T
 };
 
 export const getCoordinatesForAddress = async (address: string): Promise<{ latitude: number; longitude: number }> => {
-    try {
-        console.log(`Intentando geocodificar dirección: "${address}"`);
-        const geocodingResult = await geocoder.geocode(address);
+    console.log(`Intentando geocodificar dirección: "${address}"`);
 
-        if (geocodingResult?.length > 0) {
-            const { latitude, longitude } = geocodingResult[0];
+    // Generar variantes progresivamente menos específicas eliminando el primer segmento
+    // (el más específico: nombre de calle, número, etc.). Ejemplo:
+    //  "Port de la Conférence, Pont de l'Alma, 75008 París, Francia"
+    //  → "Pont de l'Alma, 75008 París, Francia"
+    //  → "75008 París, Francia"
+    //  → "París, Francia"
+    //  → "Francia"
+    const segments = address.split(',').map(s => s.trim()).filter(Boolean);
+    const variants = segments.length > 0
+        ? segments.map((_, i) => segments.slice(i).join(', '))
+        : [address];
 
-            // Validar que las coordenadas sean válidas
-            if (typeof latitude === 'number' && typeof longitude === 'number' &&
-                latitude !== 0 && longitude !== 0) {
-                console.log(`Coordenadas obtenidas: lat=${latitude}, lon=${longitude}`);
-                return {
-                    latitude,
-                    longitude,
-                };
+    for (let i = 0; i < variants.length; i++) {
+        const tryAddress = variants[i];
+        try {
+            const geocodingResult = await geocoder.geocode(tryAddress);
+            if (geocodingResult?.length > 0) {
+                const { latitude, longitude } = geocodingResult[0];
+                if (typeof latitude === 'number' && typeof longitude === 'number' &&
+                    latitude !== 0 && longitude !== 0) {
+                    if (i > 0) {
+                        console.warn(`⚠️  Geocoding fallback: "${address}" → "${tryAddress}" (lat=${latitude}, lon=${longitude})`);
+                    } else {
+                        console.log(`Coordenadas obtenidas: lat=${latitude}, lon=${longitude}`);
+                    }
+                    return { latitude, longitude };
+                }
             }
+        } catch (e) {
+            // Continuar al siguiente fallback
         }
-
-        console.error(`No se encontraron coordenadas válidas para la dirección: "${address}"`);
-        throw new Error(`No se pudo geocodificar la dirección: "${address}". Por favor, verifica que la dirección sea correcta.`);
-    } catch (e) {
-        console.error(`Error al obtener coordenadas para "${address}":`, e);
-        if (e instanceof Error) {
-            throw e;
-        }
-        throw new Error(`Error al geocodificar la dirección: "${address}"`);
     }
+
+    console.error(`No se encontraron coordenadas válidas para la dirección: "${address}"`);
+    throw new Error(`No se pudo geocodificar la dirección: "${address}". Por favor, verifica que la dirección sea correcta.`);
 };
 
 export const orderStop = async (tripId: number) => {
@@ -1803,16 +1812,17 @@ export const getAllStopsInATrip = async (tripId: number) => {
         .order('day', { ascending: true })
         .order('position', { ascending: true });
 
-    if (error) {
-        console.error('Error obteniendo paradas del viaje:', error);
-        // Fallback a traversal por rutas si trip_id no funciona aún
+    // Fallback para viajes antiguos cuyas paradas tienen trip_id = NULL
+    if (error || !stops || stops.length === 0) {
+        if (error) console.error('Error obteniendo paradas del viaje:', error);
         const routesWithStops = (await getTripItinerary(tripId)).routesWithStops;
         const allStops = routesWithStops.flatMap((r: any) => (r.stops ?? []));
         const uniqueStopsMap: Record<string, any> = {};
         for (const stop of allStops) {
             if (stop && stop.id) uniqueStopsMap[stop.id] = stop;
         }
-        return Object.values(uniqueStopsMap);
+        const fallbackStops = Object.values(uniqueStopsMap);
+        if (fallbackStops.length > 0) return fallbackStops;
     }
 
     return stops || [];
@@ -1868,39 +1878,45 @@ export const getTotalRefuelCostByUser = async (userId: string) => {
             };
         }
 
+        const tripIds = trips.map(trip => trip.id);
+
+        // 2. Batch: obtener todas las paradas de todos los viajes en una sola query
+        const { data: allStops, error: stopsError } = await supabase
+            .from(STOP_TABLE)
+            .select('id')
+            .in('trip_id', tripIds);
+
+        if (stopsError) {
+            console.error('Error al obtener paradas del usuario:', stopsError);
+            throw new Error(`Error al obtener paradas: ${stopsError.message}`);
+        }
+
+        if (!allStops || allStops.length === 0) {
+            return { user_id: userId, total_cost: 0, refuel_count: 0, trips_count: trips.length };
+        }
+
+        const stopIds = allStops.map(stop => stop.id);
+
+        // 3. Batch: obtener todos los repostajes de esas paradas en una sola query
+        const { data: refuels, error: refuelsError } = await supabase
+            .from(REFUEL_TABLE)
+            .select('total_cost')
+            .in('id', stopIds);
+
+        if (refuelsError) {
+            console.error('Error al obtener repostajes del usuario:', refuelsError);
+            throw new Error(`Error al obtener repostajes: ${refuelsError.message}`);
+        }
+
         let totalCost = 0;
         let refuelCount = 0;
 
-        // 2. Para cada viaje, obtener todas las paradas de refuel
-        for (const trip of trips) {
-            const allStops = await getAllStopsInATrip(trip.id);
-
-            if (!allStops || allStops.length === 0) {
-                continue;
+        (refuels || []).forEach(refuel => {
+            if (refuel.total_cost) {
+                totalCost += refuel.total_cost;
+                refuelCount += 1;
             }
-
-            const stopIds = allStops.map(stop => stop.id);
-
-            // Obtener todos los repostajes de esas paradas
-            const { data: refuels, error } = await supabase
-                .from(REFUEL_TABLE)
-                .select('total_cost')
-                .in('id', stopIds);
-
-            if (error) {
-                console.error(`Error al obtener repostajes del viaje ${trip.id}:`, error);
-                continue;
-            }
-
-            if (refuels && refuels.length > 0) {
-                refuels.forEach(refuel => {
-                    if (refuel.total_cost) {
-                        totalCost += refuel.total_cost;
-                        refuelCount += 1;
-                    }
-                });
-            }
-        }
+        });
 
         return {
             user_id: userId,

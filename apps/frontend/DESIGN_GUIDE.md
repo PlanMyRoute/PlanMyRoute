@@ -1,6 +1,6 @@
 # Guía de Diseño — PlanMyRoute
 
-Documento de referencia para todo el equipo (desarrollo y diseño). Define decisiones de diseño, tokens del sistema, guía de componentes y patrones de pantalla. Si hay conflicto entre este documento y el Figma, este documento es la fuente de verdad para la implementación.
+Documento de referencia para todo el equipo (desarrollo y diseño). Define decisiones de diseño, tokens del sistema, guía de componentes y patrones de pantalla. Si hay conflicto entre este documento y el Figma, este documento es la fuente de verdad para la implementación. Para aplicar los estilos de la web siempre hay que usar Tailwind, en este caso NativeWdind ya que estamos en React Native.
 
 ---
 

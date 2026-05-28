@@ -38,13 +38,15 @@ function normalizeEvent(event: any) {
         event.images?.[0];
     const priceRange = event.priceRanges?.[0];
     const classification = event.classifications?.[0];
+    const localDate = event.dates?.start?.localDate as string | null;
 
     return {
         id: event.id as string,
         name: event.name as string,
         url: event.url as string | null,
         image: (image?.url as string) || null,
-        date: event.dates?.start?.localDate as string | null,
+        date: localDate,
+        dates: localDate ? [localDate] : [],
         time: event.dates?.start?.localTime as string | null,
         status: (event.dates?.status?.code as string) || 'onsale',
         venue: venue
@@ -76,6 +78,29 @@ function normalizeEvent(event: any) {
     };
 }
 
+function groupMultiDayEvents(events: NonNullable<ReturnType<typeof normalizeEvent>>[]) {
+    const grouped = new Map<string, NonNullable<ReturnType<typeof normalizeEvent>>>();
+
+    for (const event of events) {
+        const venueName = event.venue?.name ?? '';
+        const venueCity = event.venue?.city ?? '';
+        const key = `${event.name.toLowerCase()}|${venueName}|${venueCity}`;
+
+        const existing = grouped.get(key);
+        if (existing) {
+            if (event.date && !existing.dates.includes(event.date)) {
+                existing.dates.push(event.date);
+                existing.dates.sort();
+                existing.date = existing.dates[0];
+            }
+        } else {
+            grouped.set(key, { ...event });
+        }
+    }
+
+    return Array.from(grouped.values());
+}
+
 async function fetchTM(url: URL) {
     const res = await fetch(url.toString());
     if (!res.ok) throw new Error(`Ticketmaster API error: ${res.status}`);
@@ -86,11 +111,13 @@ export interface GetEventsParams {
     page?: number;
     countryCode?: string;
     keyword?: string;
+    lat?: number;
+    lng?: number;
 }
 
 export const getMajorEvents = async (params: GetEventsParams = {}) => {
-    const { page = 0, countryCode, keyword } = params;
-    const cacheKey = `events_${page}_${countryCode}_${keyword}`;
+    const { page = 0, countryCode, keyword, lat, lng } = params;
+    const cacheKey = `events_${page}_${countryCode}_${keyword}_${lat}_${lng}`;
     const cached = fromCache<any>(cacheKey);
     if (cached) return cached;
 
@@ -100,7 +127,14 @@ export const getMajorEvents = async (params: GetEventsParams = {}) => {
         url.searchParams.set('sort', 'relevance,desc');
         url.searchParams.set('size', String(size));
         url.searchParams.set('page', String(page));
-        if (countryCode) url.searchParams.set('countryCode', countryCode);
+        if (countryCode) {
+            url.searchParams.set('countryCode', countryCode);
+        } else if (lat != null && lng != null) {
+            // No country filter: use geo-coordinates so Ticketmaster returns nearby events
+            url.searchParams.set('latlong', `${lat},${lng}`);
+            url.searchParams.set('radius', '300');
+            url.searchParams.set('unit', 'km');
+        }
         if (keyword) url.searchParams.set('keyword', keyword);
         return url;
     };
@@ -120,9 +154,9 @@ export const getMajorEvents = async (params: GetEventsParams = {}) => {
     const musicEvents: any[] = musicData?._embedded?.events || [];
     const sportsEvents: any[] = sportsData?._embedded?.events || [];
 
-    const events = [...musicEvents, ...sportsEvents]
-        .map(normalizeEvent)
-        .filter(Boolean);
+    const events = groupMultiDayEvents(
+        [...musicEvents, ...sportsEvents].map(normalizeEvent).filter(Boolean) as NonNullable<ReturnType<typeof normalizeEvent>>[]
+    );
 
     const result = {
         events,
@@ -135,6 +169,60 @@ export const getMajorEvents = async (params: GetEventsParams = {}) => {
 
     setCache(cacheKey, result);
     return result;
+};
+
+export interface NearStopInput {
+    city: string;
+    date: string;
+    countryCode?: string;
+}
+
+export const getEventsNearStops = async (stops: NearStopInput[], limit = 10) => {
+    if (!stops.length) return [];
+
+    const unique = stops.filter(
+        (s, i, arr) => s.city && s.date && arr.findIndex((x) => x.city === s.city && x.date === s.date) === i,
+    );
+
+    const resultsPerStop = await Promise.all(
+        unique.map(async (stop) => {
+            const cacheKey = `near_${stop.city}_${stop.date}`;
+            const cached = fromCache<any[]>(cacheKey);
+            if (cached) return cached;
+
+            const url = new URL(`${TM_BASE}/events.json`);
+            url.searchParams.set('apikey', TM_KEY);
+            url.searchParams.set('city', stop.city);
+            url.searchParams.set('startDateTime', `${stop.date}T00:00:00Z`);
+            url.searchParams.set('endDateTime', `${stop.date}T23:59:59Z`);
+            url.searchParams.set('size', '3');
+            url.searchParams.set('sort', 'relevance,desc');
+            if (stop.countryCode) url.searchParams.set('countryCode', stop.countryCode);
+
+            try {
+                const data = await fetchTM(url);
+                const events = ((data?._embedded?.events as any[]) || [])
+                    .map(normalizeEvent)
+                    .filter(Boolean) as NonNullable<ReturnType<typeof normalizeEvent>>[];
+                setCache(cacheKey, events, 2 * 60 * 60 * 1000);
+                return events;
+            } catch {
+                return [];
+            }
+        }),
+    );
+
+    const seen = new Set<string>();
+    const all: NonNullable<ReturnType<typeof normalizeEvent>>[] = [];
+    for (const batch of resultsPerStop) {
+        for (const ev of batch) {
+            if (!seen.has(ev.id)) {
+                seen.add(ev.id);
+                all.push(ev);
+            }
+        }
+    }
+    return all.slice(0, limit);
 };
 
 export const getEventById = async (eventId: string) => {

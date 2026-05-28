@@ -157,11 +157,18 @@ export function requirePermission(action: TripAction) {
     return async (req: Request, res: Response, next: NextFunction) => {
         try {
             // Obtener el tripId de los parámetros de la ruta
-            const tripId = req.params.tripId || req.params.id;
+            const rawTripId = req.params.tripId || req.params.id;
 
-            if (!tripId) {
+            if (!rawTripId) {
                 return res.status(400).json({
                     error: 'No se proporcionó el ID del viaje'
+                });
+            }
+
+            const tripId = Number(rawTripId);
+            if (!Number.isInteger(tripId) || tripId <= 0) {
+                return res.status(400).json({
+                    error: 'ID de viaje inválido'
                 });
             }
 
@@ -185,10 +192,10 @@ export function requirePermission(action: TripAction) {
             }
 
             // Obtener el rol del usuario en el viaje (puede ser 'guest')
-            const role = await getUserRoleInTrip(userId, Number(tripId));
+            const role = await getUserRoleInTrip(userId, tripId);
 
             // Obtener el estado del viaje
-            const tripStatus = await getTripStatus(Number(tripId));
+            const tripStatus = await getTripStatus(tripId);
 
             // Verificar si tiene permiso considerando el rol y el estado del viaje
             if (!hasPermission(role, action, tripStatus)) {

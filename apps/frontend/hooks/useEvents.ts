@@ -2,11 +2,11 @@ import { useAuth } from '@/context/AuthContext';
 import { EventService, EventsPage, TmEvent } from '@/services/eventService';
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 
-export function useEvents(params: { countryCode?: string; keyword?: string } = {}) {
+export function useEvents(params: { countryCode?: string; keyword?: string; lat?: number; lng?: number } = {}) {
     const { token } = useAuth();
 
     return useInfiniteQuery<EventsPage, Error>({
-        queryKey: ['events', params.countryCode, params.keyword],
+        queryKey: ['events', params.countryCode, params.keyword, params.lat, params.lng],
         queryFn: ({ pageParam = 0 }) =>
             EventService.getEvents({ page: pageParam as number, ...params }, { token }),
         getNextPageParam: (last) =>

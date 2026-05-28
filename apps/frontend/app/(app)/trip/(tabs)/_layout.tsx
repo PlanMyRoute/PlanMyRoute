@@ -129,7 +129,7 @@ export default function TripTabsLayout() {
     const deleteTripMutation = useDeleteTrip();
     const leaveTripMutation = useLeaveTrip();
 
-    const goBack = () => router.replace(ROUTES.tabsHome);
+    const goBack = () => router.canGoBack() ? router.back() : router.replace(ROUTES.tabsHome);
 
     const handleLeaveTrip = () => {
         leaveTripMutation.mutate(tripId as string, {

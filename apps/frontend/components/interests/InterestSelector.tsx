@@ -60,12 +60,12 @@ export const InterestSelector = ({
                         onPress={() => toggleInterest(interest)}
                         className={`px-4 py-2.5 rounded-full border-2 ${isSelected
                             ? 'bg-primary-yellow border-primary-yellow'
-                            : 'bg-white border-neutral-gray/30'
+                            : 'bg-white border-gray-200'
                             }`}
                         activeOpacity={0.7}
                     >
                         <MicrotextDark
-                            className={isSelected ? 'text-dark-black' : 'text-neutral-gray'}
+                            style={{ color: isSelected ? '#202020' : '#888888' }}
                         >
                             {INTEREST_LABELS[interest]}
                         </MicrotextDark>

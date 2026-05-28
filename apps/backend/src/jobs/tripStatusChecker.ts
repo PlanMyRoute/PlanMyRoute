@@ -5,54 +5,31 @@ import * as NotificationService from '../api/notifications/notifications.service
 import { supabase } from '../supabase.js';
 
 /**
- * Verifica y procesa viajes que deberían comenzar
- * Se ejecuta cada hora por el cron job
+ * Verifica y procesa viajes que deberían comenzar.
+ * Busca todos los viajes en estado 'planning' cuya fecha de inicio ya ha pasado
+ * y que aún no tienen una notificación pendiente de confirmación.
  */
 export const checkTripsToStart = async (): Promise<void> => {
-    console.log('\n🔍 [TripStatusChecker] Iniciando verificación de viajes para empezar...');
-    const startTime = Date.now();
-
     try {
-        // Buscar viajes que deberían empezar (en la última hora)
-        const tripsToStart = await TripService.getTripsReadyToStart(1);
+        const tripsToStart = await TripService.getTripsReadyToStart();
 
-        if (tripsToStart.length === 0) {
-            console.log('✅ [TripStatusChecker] No hay viajes para empezar en este momento');
-            return;
-        }
+        if (tripsToStart.length === 0) return;
 
-        console.log(`📋 [TripStatusChecker] Encontrados ${tripsToStart.length} viaje(s) para procesar`);
-
-        let processedCount = 0;
         let autoUpdatedCount = 0;
         let notificationsSentCount = 0;
-        let errorsCount = 0;
 
-        // Procesar cada viaje
         for (const trip of tripsToStart) {
             try {
-                console.log(`\n🚗 [TripStatusChecker] Procesando viaje: "${trip.name}" (ID: ${trip.id})`);
-
-                // Obtener el propietario del viaje
                 const owner = await TripService.getTripOwner(trip.id);
-                console.log(`👤 [TripStatusChecker] Owner: ${owner.username} (${owner.id})`);
-
-                // Obtener preferencias del usuario
                 const preferences = await UserService.getUserPreferences(owner.id);
-                console.log(`⚙️  [TripStatusChecker] Preferencias: auto=${preferences.autoTripStatusUpdate}, tz=${preferences.timezone}`);
 
                 if (preferences.autoTripStatusUpdate) {
-                    // Actualización automática
-                    console.log('🤖 [TripStatusChecker] Actualizando estado automáticamente...');
-
                     await TripService.updateTripStatus(
                         trip.id,
                         'going',
                         'auto',
                         'Estado actualizado automáticamente según preferencias del usuario'
                     );
-
-                    // Crear notificación informativa
                     await NotificationService.create({
                         user_receiver_id: owner.id,
                         related_trip_id: trip.id,
@@ -60,47 +37,19 @@ export const checkTripsToStart = async (): Promise<void> => {
                         content: `Tu viaje "${trip.name}" ha comenzado automáticamente. ¡Buen viaje! 🚗`,
                         status: 'unread',
                     });
-
-                    console.log('✅ [TripStatusChecker] Estado actualizado automáticamente');
                     autoUpdatedCount++;
                 } else {
-                    // Verificar si ya existe una notificación pendiente para este viaje
-                    console.log(`🔍 [TripStatusChecker] Checking for existing notifications:`, {
-                        user_receiver_id: owner.id,
-                        related_trip_id: trip.id,
-                        type: 'trip_status_check',
-                        action_status: 'pending'
-                    });
-
-                    // Buscar notificaciones pendientes de inicio para este viaje
-                    // Usamos .or() en lugar de .like() para buscar en múltiples patrones
-                    const { data: allPending, error: checkError } = await supabase
+                    // Evitar duplicados: comprobar si ya existe una notificación pendiente de inicio
+                    const { data: existing } = await supabase
                         .from('notifications')
-                        .select('id, action_status, content, status, type')
+                        .select('id')
                         .eq('user_receiver_id', owner.id)
                         .eq('related_trip_id', trip.id)
                         .eq('type', 'trip_status_check')
-                        .eq('action_status', 'pending');
+                        .eq('action_status', 'pending')
+                        .limit(1);
 
-                    console.log(`📊 [TripStatusChecker] Query result (all pending):`, {
-                        count: allPending?.length || 0,
-                        error: checkError,
-                        notifications: allPending
-                    });
-
-                    // Filtrar en JS las que contienen palabras de inicio
-                    const existingNotification = allPending?.find(n =>
-                        n.content?.toLowerCase().includes('empezar') ||
-                        n.content?.toLowerCase().includes('comenzar') ||
-                        n.content?.toLowerCase().includes('partir')
-                    );
-
-                    if (existingNotification) {
-                        console.log('ℹ️  [TripStatusChecker] Ya existe una notificación pendiente, no se envía duplicado');
-                    } else {
-                        // Enviar notificación para confirmar
-                        console.log('📬 [TripStatusChecker] Enviando notificación de confirmación...');
-
+                    if (!existing || existing.length === 0) {
                         await NotificationService.create({
                             user_receiver_id: owner.id,
                             related_trip_id: trip.id,
@@ -109,28 +58,17 @@ export const checkTripsToStart = async (): Promise<void> => {
                             status: 'unread',
                             action_status: 'pending',
                         });
-
-                        console.log('✅ [TripStatusChecker] Notificación enviada');
                         notificationsSentCount++;
                     }
                 }
-
-                processedCount++;
             } catch (error) {
                 console.error(`❌ [TripStatusChecker] Error procesando viaje ${trip.id}:`, error);
-                errorsCount++;
             }
         }
 
-        const duration = Date.now() - startTime;
-        console.log('\n📊 [TripStatusChecker] Resumen de verificación de inicio:');
-        console.log(`   • Total procesados: ${processedCount}/${tripsToStart.length}`);
-        console.log(`   • Actualizados automáticamente: ${autoUpdatedCount}`);
-        console.log(`   • Notificaciones enviadas: ${notificationsSentCount}`);
-        console.log(`   • Errores: ${errorsCount}`);
-        console.log(`   • Duración: ${duration}ms`);
-        console.log('✅ [TripStatusChecker] Verificación de inicio completada\n');
-
+        if (autoUpdatedCount > 0 || notificationsSentCount > 0) {
+            console.log(`🚗 [TripStatusChecker] Inicio: ${notificationsSentCount} notificaciones, ${autoUpdatedCount} auto-actualizados`);
+        }
     } catch (error) {
         console.error('❌ [TripStatusChecker] Error fatal en verificación de inicio:', error);
         throw error;
@@ -138,54 +76,30 @@ export const checkTripsToStart = async (): Promise<void> => {
 };
 
 /**
- * Verifica y procesa viajes que deberían terminar
- * Se ejecuta cada hora por el cron job
+ * Verifica y procesa viajes que deberían terminar.
+ * Busca todos los viajes en estado 'going' cuya fecha de fin superó el período de gracia.
  */
 export const checkTripsToComplete = async (): Promise<void> => {
-    console.log('\n🔍 [TripStatusChecker] Iniciando verificación de viajes para completar...');
-    const startTime = Date.now();
-
     try {
-        // Buscar viajes que deberían terminar (24h después del end_date, en la última hora)
-        const tripsToComplete = await TripService.getTripsReadyToComplete(1, 24);
+        const tripsToComplete = await TripService.getTripsReadyToComplete(24);
 
-        if (tripsToComplete.length === 0) {
-            console.log('✅ [TripStatusChecker] No hay viajes para completar en este momento');
-            return;
-        }
+        if (tripsToComplete.length === 0) return;
 
-        console.log(`📋 [TripStatusChecker] Encontrados ${tripsToComplete.length} viaje(s) para procesar`);
-
-        let processedCount = 0;
         let autoUpdatedCount = 0;
         let notificationsSentCount = 0;
-        let errorsCount = 0;
 
-        // Procesar cada viaje
         for (const trip of tripsToComplete) {
             try {
-                console.log(`\n🏠 [TripStatusChecker] Procesando viaje: "${trip.name}" (ID: ${trip.id})`);
-
-                // Obtener el propietario del viaje
                 const owner = await TripService.getTripOwner(trip.id);
-                console.log(`👤 [TripStatusChecker] Owner: ${owner.username} (${owner.id})`);
-
-                // Obtener preferencias del usuario
                 const preferences = await UserService.getUserPreferences(owner.id);
-                console.log(`⚙️  [TripStatusChecker] Preferencias: auto=${preferences.autoTripStatusUpdate}, tz=${preferences.timezone}`);
 
                 if (preferences.autoTripStatusUpdate) {
-                    // Actualización automática
-                    console.log('🤖 [TripStatusChecker] Actualizando estado automáticamente...');
-
                     await TripService.updateTripStatus(
                         trip.id,
                         'completed',
                         'auto',
                         'Estado actualizado automáticamente según preferencias del usuario'
                     );
-
-                    // Crear notificación informativa
                     await NotificationService.create({
                         user_receiver_id: owner.id,
                         related_trip_id: trip.id,
@@ -193,46 +107,19 @@ export const checkTripsToComplete = async (): Promise<void> => {
                         content: `Tu viaje "${trip.name}" ha sido marcado como completado. ¡Esperamos que hayas disfrutado! 🎉`,
                         status: 'unread',
                     });
-
-                    console.log('✅ [TripStatusChecker] Estado actualizado automáticamente');
                     autoUpdatedCount++;
                 } else {
-                    // Verificar si ya existe una notificación pendiente para este viaje
-                    console.log(`🔍 [TripStatusChecker] Checking for existing completion notifications:`, {
-                        user_receiver_id: owner.id,
-                        related_trip_id: trip.id,
-                        type: 'trip_status_check',
-                        action_status: 'pending'
-                    });
-
-                    // Buscar notificaciones pendientes de finalización para este viaje
-                    const { data: allPending, error: checkError } = await supabase
+                    // Evitar duplicados: comprobar si ya existe una notificación pendiente de finalización
+                    const { data: existing } = await supabase
                         .from('notifications')
-                        .select('id, action_status, content, status, type')
+                        .select('id')
                         .eq('user_receiver_id', owner.id)
                         .eq('related_trip_id', trip.id)
                         .eq('type', 'trip_status_check')
-                        .eq('action_status', 'pending');
+                        .eq('action_status', 'pending')
+                        .limit(1);
 
-                    console.log(`📊 [TripStatusChecker] Query result (all pending):`, {
-                        count: allPending?.length || 0,
-                        error: checkError,
-                        notifications: allPending
-                    });
-
-                    // Filtrar en JS las que contienen palabras de finalización
-                    const existingNotification = allPending?.find(n =>
-                        n.content?.toLowerCase().includes('terminado') ||
-                        n.content?.toLowerCase().includes('completar') ||
-                        n.content?.toLowerCase().includes('terminaste')
-                    );
-
-                    if (existingNotification) {
-                        console.log('ℹ️  [TripStatusChecker] Ya existe una notificación pendiente, no se envía duplicado');
-                    } else {
-                        // Enviar notificación para confirmar
-                        console.log('📬 [TripStatusChecker] Enviando notificación de confirmación...');
-
+                    if (!existing || existing.length === 0) {
                         await NotificationService.create({
                             user_receiver_id: owner.id,
                             related_trip_id: trip.id,
@@ -241,28 +128,17 @@ export const checkTripsToComplete = async (): Promise<void> => {
                             status: 'unread',
                             action_status: 'pending',
                         });
-
-                        console.log('✅ [TripStatusChecker] Notificación enviada');
                         notificationsSentCount++;
                     }
                 }
-
-                processedCount++;
             } catch (error) {
                 console.error(`❌ [TripStatusChecker] Error procesando viaje ${trip.id}:`, error);
-                errorsCount++;
             }
         }
 
-        const duration = Date.now() - startTime;
-        console.log('\n📊 [TripStatusChecker] Resumen de verificación de finalización:');
-        console.log(`   • Total procesados: ${processedCount}/${tripsToComplete.length}`);
-        console.log(`   • Actualizados automáticamente: ${autoUpdatedCount}`);
-        console.log(`   • Notificaciones enviadas: ${notificationsSentCount}`);
-        console.log(`   • Errores: ${errorsCount}`);
-        console.log(`   • Duración: ${duration}ms`);
-        console.log('✅ [TripStatusChecker] Verificación de finalización completada\n');
-
+        if (autoUpdatedCount > 0 || notificationsSentCount > 0) {
+            console.log(`🏁 [TripStatusChecker] Fin: ${notificationsSentCount} notificaciones, ${autoUpdatedCount} auto-actualizados`);
+        }
     } catch (error) {
         console.error('❌ [TripStatusChecker] Error fatal en verificación de finalización:', error);
         throw error;
@@ -270,107 +146,119 @@ export const checkTripsToComplete = async (): Promise<void> => {
 };
 
 /**
- * Verifica notificaciones pendientes sin respuesta y envía recordatorios
- * Se ejecuta cada hora por el cron job
- * Envía máximo 2 recordatorios por notificación antes de actualizar automáticamente
+ * Procesa recordatorios para notificaciones pendientes sin respuesta.
+ *
+ * Flujo por notificación:
+ *   reminder_count=0, edad > 24h  → push recordatorio 1, reminder_count=1
+ *   reminder_count=1, edad > 24h  → push recordatorio 2, reminder_count=2
+ *   reminder_count≥2, edad > 48h  → auto-actualiza el viaje, cierra la notificación
+ *
+ * Cuando hay varias notificaciones pendientes para el mismo viaje (legado de bugs
+ * anteriores), se procesa sólo la más antigua y las demás se descartan.
+ *
+ * IMPORTANTE: los recordatorios NO crean nuevos registros en la BD; sólo envían
+ * un push y actualizan el reminder_count de la notificación original.
  */
 export const checkPendingNotifications = async (): Promise<void> => {
-    console.log('\n🔍 [TripStatusChecker] Iniciando verificación de recordatorios...');
     const startTime = Date.now();
 
     try {
-        // Buscar notificaciones de tipo trip_status_check que:
-        // 1. Estén pendientes (action_status = 'pending')
-        // 2. Tengan más de 24 horas de antigüedad
-        // 3. Tengan menos de 2 recordatorios enviados
-        const twentyFourHoursAgo = new Date();
-        twentyFourHoursAgo.setHours(twentyFourHoursAgo.getHours() - 24);
+        const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+        const fortyEightHoursAgo = new Date(Date.now() - 48 * 60 * 60 * 1000);
 
-        const { data: pendingNotifications, error } = await supabase
+        // Query A: notificaciones que necesitan un recordatorio (reminder_count < 2, edad > 24h)
+        const { data: pendingForReminder, error: errorA } = await supabase
             .from('notifications')
             .select('id, user_receiver_id, related_trip_id, content, reminder_count, created_at, trip:related_trip_id(id, name)')
             .eq('type', 'trip_status_check')
             .eq('action_status', 'pending')
             .lt('created_at', twentyFourHoursAgo.toISOString())
             .lt('reminder_count', 2)
-            .order('created_at', { ascending: true })
-            .limit(200);
+            .order('created_at', { ascending: true });
 
-        if (error) {
-            throw new Error(`Error al obtener notificaciones pendientes: ${error.message}`);
-        }
+        if (errorA) throw new Error(`Error al obtener notificaciones pendientes: ${errorA.message}`);
 
-        if (!pendingNotifications || pendingNotifications.length === 0) {
-            console.log('✅ [TripStatusChecker] No hay notificaciones pendientes para recordar');
-            return;
-        }
+        // Query B: notificaciones que ya recibieron 2 recordatorios y deben auto-actualizarse (edad > 48h)
+        const { data: pendingForAutoUpdate, error: errorB } = await supabase
+            .from('notifications')
+            .select('id, user_receiver_id, related_trip_id, content, reminder_count, created_at, trip:related_trip_id(id, name)')
+            .eq('type', 'trip_status_check')
+            .eq('action_status', 'pending')
+            .lt('created_at', fortyEightHoursAgo.toISOString())
+            .gte('reminder_count', 2)
+            .order('created_at', { ascending: true });
 
-        console.log(`📋 [TripStatusChecker] Encontradas ${pendingNotifications.length} notificación(es) pendientes`);
+        if (errorB) throw new Error(`Error al obtener notificaciones para auto-actualizar: ${errorB.message}`);
 
-        let remindersSentCount = 0;
-        let autoUpdatedCount = 0;
-        let errorsCount = 0;
+        let remindersSent = 0;
+        let duplicatesCleared = 0;
+        let autoUpdated = 0;
 
-        // Procesar cada notificación
-        for (const notification of pendingNotifications) {
-            try {
-                const trip = Array.isArray(notification.trip) ? notification.trip[0] : notification.trip;
+        // --- Procesar recordatorios (Query A) ---
+        if (pendingForReminder && pendingForReminder.length > 0) {
+            // Agrupar por viaje: procesar sólo la más antigua, descartar duplicados
+            const byTrip = new Map<number, typeof pendingForReminder>();
+            for (const n of pendingForReminder) {
+                if (!n.related_trip_id) continue;
+                if (!byTrip.has(n.related_trip_id)) byTrip.set(n.related_trip_id, []);
+                byTrip.get(n.related_trip_id)!.push(n);
+            }
 
-                if (!trip) {
-                    console.warn(`⚠️ [TripStatusChecker] Viaje no encontrado para notificación ${notification.id}`);
-                    continue;
+            for (const [, notifications] of byTrip) {
+                // La más antigua es la primera (ordenadas ASC)
+                const primary = notifications[0];
+                const duplicates = notifications.slice(1);
+
+                // Marcar duplicados como rechazados para limpiar la BD progresivamente
+                if (duplicates.length > 0) {
+                    const dupIds = duplicates.map(d => d.id);
+                    await supabase
+                        .from('notifications')
+                        .update({ status: 'read', action_status: 'rejected' })
+                        .in('id', dupIds);
+                    duplicatesCleared += duplicates.length;
                 }
 
-                console.log(`\n📬 [TripStatusChecker] Procesando notificación ${notification.id} (viaje: "${trip.name}")`);
-                console.log(`   Recordatorios previos: ${notification.reminder_count}/2`);
+                const trip = Array.isArray(primary.trip) ? primary.trip[0] : primary.trip;
+                if (!trip) continue;
 
-                const currentReminderCount = notification.reminder_count || 0;
+                const reminderNumber = (primary.reminder_count || 0) + 1;
+                const isStart = primary.content?.includes('partir') ||
+                    primary.content?.includes('empezar') ||
+                    primary.content?.includes('comenzar');
 
-                if (currentReminderCount < 2) {
-                    // Enviar recordatorio
-                    const reminderNumber = currentReminderCount + 1;
-                    console.log(`📨 [TripStatusChecker] Enviando recordatorio ${reminderNumber}/2...`);
+                const content = isStart
+                    ? `🔔 Recordatorio ${reminderNumber}/2: ¿Ya empezaste tu viaje "${trip.name}"? Por favor confirma el estado.`
+                    : `🔔 Recordatorio ${reminderNumber}/2: ¿Ya terminaste tu viaje "${trip.name}"? Por favor confirma el estado.`;
 
-                    // Determinar el tipo de recordatorio según el contenido
-                    const isStartNotification = notification.content?.includes('comenzar') ||
+                // Enviar push sin crear nuevo registro en la BD
+                await NotificationService.sendPushToUser(
+                    primary.user_receiver_id,
+                    'trip_status_check',
+                    content,
+                    trip.id
+                );
+
+                await supabase
+                    .from('notifications')
+                    .update({ reminder_count: reminderNumber })
+                    .eq('id', primary.id);
+
+                remindersSent++;
+            }
+        }
+
+        // --- Procesar auto-actualizaciones (Query B) ---
+        if (pendingForAutoUpdate && pendingForAutoUpdate.length > 0) {
+            for (const notification of pendingForAutoUpdate) {
+                try {
+                    const trip = Array.isArray(notification.trip) ? notification.trip[0] : notification.trip;
+                    if (!trip) continue;
+
+                    const isStart = notification.content?.includes('partir') ||
                         notification.content?.includes('empezar') ||
-                        notification.content?.includes('partir');
-
-                    const reminderContent = isStartNotification
-                        ? `🔔 Recordatorio ${reminderNumber}/2: ¿Ya empezó tu viaje "${trip.name}"? Por favor confirma el estado.`
-                        : `🔔 Recordatorio ${reminderNumber}/2: ¿Ya terminó tu viaje "${trip.name}"? Por favor confirma el estado.`;
-
-                    // Crear nuevo recordatorio
-                    await NotificationService.create({
-                        user_receiver_id: notification.user_receiver_id,
-                        related_trip_id: trip.id,
-                        type: 'trip_status_check',
-                        content: reminderContent,
-                        status: 'unread',
-                        action_status: 'pending',
-                    });
-
-                    // Actualizar contador de recordatorios en la notificación original
-                    const { error: updateError } = await supabase
-                        .from('notifications')
-                        .update({ reminder_count: reminderNumber })
-                        .eq('id', notification.id);
-
-                    if (updateError) {
-                        console.error(`❌ Error actualizando contador:`, updateError);
-                    } else {
-                        console.log(`✅ [TripStatusChecker] Recordatorio ${reminderNumber} enviado`);
-                        remindersSentCount++;
-                    }
-                } else {
-                    // Ya se enviaron 2 recordatorios, actualizar automáticamente
-                    console.log(`🤖 [TripStatusChecker] Límite de recordatorios alcanzado. Actualizando automáticamente...`);
-
-                    const isStartNotification = notification.content?.includes('comenzar') ||
-                        notification.content?.includes('empezar') ||
-                        notification.content?.includes('partir');
-
-                    const newStatus = isStartNotification ? 'going' : 'completed';
+                        notification.content?.includes('comenzar');
+                    const newStatus = isStart ? 'going' : 'completed';
 
                     await TripService.updateTripStatus(
                         trip.id,
@@ -380,42 +268,30 @@ export const checkPendingNotifications = async (): Promise<void> => {
                         notification.user_receiver_id
                     );
 
-                    // Marcar notificación como procesada
                     await supabase
                         .from('notifications')
-                        .update({
-                            status: 'read',
-                            action_status: 'accepted',
-                        })
+                        .update({ status: 'read', action_status: 'accepted' })
                         .eq('id', notification.id);
 
-                    // Enviar notificación informativa
                     await NotificationService.create({
                         user_receiver_id: notification.user_receiver_id,
                         related_trip_id: trip.id,
                         type: 'trip_update',
-                        content: `Tu viaje "${trip.name}" ha sido actualizado automáticamente a "${newStatus}" después de no recibir respuesta. 🤖`,
+                        content: `Tu viaje "${trip.name}" ha sido actualizado automáticamente a "${newStatus === 'going' ? 'en curso' : 'completado'}" tras no recibir respuesta. 🤖`,
                         status: 'unread',
                     });
 
-                    console.log(`✅ [TripStatusChecker] Viaje actualizado automáticamente a "${newStatus}"`);
-                    autoUpdatedCount++;
+                    autoUpdated++;
+                } catch (error) {
+                    console.error(`❌ [TripStatusChecker] Error auto-actualizando notificación ${notification.id}:`, error);
                 }
-
-            } catch (error) {
-                console.error(`❌ [TripStatusChecker] Error procesando notificación ${notification.id}:`, error);
-                errorsCount++;
             }
         }
 
         const duration = Date.now() - startTime;
-        console.log('\n📊 [TripStatusChecker] Resumen de verificación de recordatorios:');
-        console.log(`   • Total procesadas: ${pendingNotifications.length}`);
-        console.log(`   • Recordatorios enviados: ${remindersSentCount}`);
-        console.log(`   • Actualizaciones automáticas: ${autoUpdatedCount}`);
-        console.log(`   • Errores: ${errorsCount}`);
-        console.log(`   • Duración: ${duration}ms`);
-        console.log('✅ [TripStatusChecker] Verificación de recordatorios completada\n');
+        if (remindersSent > 0 || autoUpdated > 0 || duplicatesCleared > 0) {
+            console.log(`📊 [TripStatusChecker] Recordatorios: ${remindersSent} enviados, ${autoUpdated} auto-actualizados, ${duplicatesCleared} duplicados eliminados (${duration}ms)`);
+        }
 
     } catch (error) {
         console.error('❌ [TripStatusChecker] Error fatal en verificación de recordatorios:', error);
@@ -424,27 +300,20 @@ export const checkPendingNotifications = async (): Promise<void> => {
 };
 
 /**
- * Ejecuta todas las verificaciones (inicio, fin y recordatorios)
- * Función principal llamada por el cron job
+ * Ejecuta todas las verificaciones (inicio, fin y recordatorios).
+ * Función principal llamada por el cron job.
  */
 export const runAllChecks = async (): Promise<void> => {
-    console.log('\n' + '='.repeat(80));
-    console.log('🕐 [TripStatusChecker] Ejecutando verificación periódica de estados de viaje');
-    console.log('   Hora: ' + new Date().toISOString());
-    console.log('='.repeat(80));
+    const ts = new Date().toISOString();
+    console.log(`🕐 [TripStatusChecker] Verificación periódica iniciada (${ts})`);
 
     try {
-        // Ejecutar todas las verificaciones
         await checkTripsToStart();
         await checkTripsToComplete();
         await checkPendingNotifications();
-
-        console.log('='.repeat(80));
-        console.log('✅ [TripStatusChecker] Todas las verificaciones completadas exitosamente');
-        console.log('='.repeat(80) + '\n');
+        console.log('✅ [TripStatusChecker] Verificación completada');
     } catch (error) {
         console.error('❌ [TripStatusChecker] Error en las verificaciones:', error);
-        console.log('='.repeat(80) + '\n');
         // No lanzamos el error para que el cron continúe en la siguiente ejecución
     }
 };

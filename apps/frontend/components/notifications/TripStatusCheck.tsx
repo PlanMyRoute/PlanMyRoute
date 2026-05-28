@@ -76,7 +76,7 @@ export const TripStatusCheck: React.FC<TripStatusCheckProps> = ({ notification, 
     const handleDeny = async () => {
         setIsLoading(true);
         try {
-            const response = await fetch(`${API_URL}/api/trip/${notification.related_trip_id}/status/respond`, {
+            const response = await fetch(`${process.env.EXPO_PUBLIC_API_URL}/api/trip/${notification.related_trip_id}/status/respond`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

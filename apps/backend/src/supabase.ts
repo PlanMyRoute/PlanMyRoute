@@ -4,10 +4,10 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_KEY;
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 if (!supabaseUrl || !supabaseKey) {
-    throw new Error('Faltan las variables de entorno de Supabase (URL o SERVICE_ROLE_KEY)');
+    throw new Error('Faltan las variables de entorno de Supabase: SUPABASE_URL y SUPABASE_SERVICE_ROLE_KEY son obligatorias');
 }
 
 // Inicializamos el cliente. 

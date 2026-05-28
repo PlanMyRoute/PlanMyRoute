@@ -52,10 +52,20 @@ export async function verifyToken(req: Request, res: Response, next: NextFunctio
       const authStatus = (error as any)?.status;
       const authMessage = (error as any)?.message as string | undefined;
 
+      console.error('[verifyToken] Supabase auth error — status:', authStatus, '| message:', authMessage, '| full:', error);
+
       // Error real de autenticación: token inválido/expirado
       if (authStatus === 401 || authStatus === 403 || isInvalidOrExpiredTokenError(authMessage)) {
         return res.status(401).json({
           error: 'Token inválido o expirado',
+          details: authMessage,
+        });
+      }
+
+      // Rate limiting de Supabase Auth API
+      if (authStatus === 429 || (authMessage && authMessage.toLowerCase().includes('rate limit'))) {
+        return res.status(429).json({
+          error: 'Demasiadas solicitudes, intenta de nuevo en unos segundos',
           details: authMessage,
         });
       }

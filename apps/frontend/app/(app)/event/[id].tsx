@@ -8,9 +8,10 @@ import { useEffect, useRef, useState } from 'react';
 import {
     ActivityIndicator,
     FlatList,
-    Linking,
     Image,
     KeyboardAvoidingView,
+    Linking,
+    Modal,
     Platform,
     ScrollView,
     Text,
@@ -69,15 +70,11 @@ function ChatBubble({ msg, isOwn }: { msg: ChatMessage; isOwn: boolean }) {
                 )}
                 <View
                     className={`px-3 py-2 rounded-2xl ${
-                        isOwn
-                            ? 'bg-primary-yellow rounded-tr-sm'
-                            : 'bg-white rounded-tl-sm'
+                        isOwn ? 'bg-primary-yellow rounded-tr-sm' : 'bg-white rounded-tl-sm'
                     }`}
                     style={{ elevation: 1 }}
                 >
-                    <Text className={`text-sm ${isOwn ? 'text-dark-black' : 'text-dark-black'}`}>
-                        {msg.message}
-                    </Text>
+                    <Text className="text-sm text-dark-black">{msg.message}</Text>
                 </View>
                 <Text className="text-[10px] text-gray-400 mt-0.5 mx-1">
                     {timeAgo(msg.created_at)}
@@ -87,11 +84,139 @@ function ChatBubble({ msg, isOwn }: { msg: ChatMessage; isOwn: boolean }) {
     );
 }
 
+// Full-screen chat modal with proper KeyboardAvoidingView
+function ChatModal({
+    visible,
+    onClose,
+    messages,
+    loadingMessages,
+    text,
+    setText,
+    sending,
+    onSend,
+    userId,
+}: {
+    visible: boolean;
+    onClose: () => void;
+    messages: ChatMessage[];
+    loadingMessages: boolean;
+    text: string;
+    setText: (t: string) => void;
+    sending: boolean;
+    onSend: () => void;
+    userId: string | undefined;
+}) {
+    const insets = useSafeAreaInsets();
+    const listRef = useRef<FlatList>(null);
+
+    useEffect(() => {
+        if (visible && messages.length > 0) {
+            setTimeout(() => listRef.current?.scrollToEnd({ animated: false }), 150);
+        }
+    }, [visible, messages.length]);
+
+    return (
+        <Modal
+            visible={visible}
+            animationType="slide"
+            presentationStyle="pageSheet"
+            onRequestClose={onClose}
+        >
+            <KeyboardAvoidingView
+                className="flex-1 bg-gray-50"
+                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            >
+                {/* Header */}
+                <View
+                    className="bg-white border-b border-gray-100 px-4 flex-row items-center"
+                    style={{ paddingTop: insets.top + 12, paddingBottom: 12 }}
+                >
+                    <TouchableOpacity
+                        className="mr-3 w-9 h-9 rounded-full bg-gray-100 items-center justify-center"
+                        onPress={onClose}
+                        activeOpacity={0.7}
+                    >
+                        <Ionicons name="chevron-down" size={20} color="#202020" />
+                    </TouchableOpacity>
+                    <View className="flex-1">
+                        <Text className="text-base font-bold text-dark-black">Chat del evento</Text>
+                        <Text className="text-xs text-gray-400">
+                            {messages.length} {messages.length === 1 ? 'mensaje' : 'mensajes'}
+                        </Text>
+                    </View>
+                </View>
+
+                {/* Messages */}
+                {loadingMessages ? (
+                    <View className="flex-1 items-center justify-center">
+                        <ActivityIndicator color="#FFD54D" />
+                    </View>
+                ) : messages.length === 0 ? (
+                    <View className="flex-1 items-center justify-center px-8">
+                        <Ionicons name="chatbubbles-outline" size={40} color="#ccc" />
+                        <Text className="text-gray-400 text-sm mt-2 text-center">
+                            Sé el primero en comentar este evento
+                        </Text>
+                    </View>
+                ) : (
+                    <FlatList
+                        ref={listRef}
+                        data={messages}
+                        keyExtractor={(m) => String(m.id)}
+                        renderItem={({ item }) => (
+                            <ChatBubble msg={item} isOwn={item.user_id === userId} />
+                        )}
+                        contentContainerStyle={{ padding: 16, paddingBottom: 8 }}
+                        showsVerticalScrollIndicator={false}
+                        onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: true })}
+                    />
+                )}
+
+                {/* Input */}
+                <View
+                    className="bg-white border-t border-gray-100 px-4 py-2 flex-row items-center"
+                    style={{ paddingBottom: insets.bottom + 8 }}
+                >
+                    {userId ? (
+                        <>
+                            <TextInput
+                                className="flex-1 bg-gray-100 rounded-2xl px-4 py-2.5 text-sm text-dark-black mr-2"
+                                placeholder="Escribe un mensaje…"
+                                placeholderTextColor="#aaa"
+                                value={text}
+                                onChangeText={setText}
+                                multiline
+                                maxLength={500}
+                                returnKeyType="send"
+                                onSubmitEditing={onSend}
+                                blurOnSubmit
+                            />
+                            <TouchableOpacity
+                                className="w-10 h-10 bg-primary-yellow rounded-full items-center justify-center"
+                                onPress={onSend}
+                                disabled={sending || !text.trim()}
+                                style={{ opacity: sending || !text.trim() ? 0.5 : 1 }}
+                            >
+                                <Ionicons name="send" size={16} color="#202020" />
+                            </TouchableOpacity>
+                        </>
+                    ) : (
+                        <View className="flex-1 bg-gray-100 rounded-2xl py-3 items-center">
+                            <Text className="text-gray-500 text-sm">Inicia sesión para chatear</Text>
+                        </View>
+                    )}
+                </View>
+            </KeyboardAvoidingView>
+        </Modal>
+    );
+}
+
 export default function EventDetailScreen() {
-    const { id } = useLocalSearchParams<{ id: string }>();
+    const { id, dates: datesParam } = useLocalSearchParams<{ id: string; dates?: string }>();
     const router = useRouter();
     const insets = useSafeAreaInsets();
     const { user, token } = useAuth();
+    const allDates: string[] = datesParam ? (JSON.parse(datesParam) as string[]) : [];
 
     const { data: event, isLoading, isError } = useEvent(id ?? null);
 
@@ -99,7 +224,7 @@ export default function EventDetailScreen() {
     const [loadingMessages, setLoadingMessages] = useState(true);
     const [text, setText] = useState('');
     const [sending, setSending] = useState(false);
-    const listRef = useRef<FlatList>(null);
+    const [chatModalVisible, setChatModalVisible] = useState(false);
 
     // Cargar mensajes históricos
     useEffect(() => {
@@ -127,13 +252,11 @@ export default function EventDetailScreen() {
                 },
                 (payload) => {
                     const newMsg = payload.new as ChatMessage;
-                    // Si el mensaje es del usuario actual, ya lo tenemos optimista; si no, añadir
                     setMessages((prev) => {
                         const exists = prev.some((m) => m.id === newMsg.id);
                         if (exists) return prev;
                         return [...prev, newMsg];
                     });
-                    setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100);
                 },
             )
             .subscribe();
@@ -149,7 +272,6 @@ export default function EventDetailScreen() {
         setText('');
         setSending(true);
 
-        // Optimistic: añadir mensaje temporal
         const optimistic: ChatMessage = {
             id: Date.now(),
             ticketmaster_event_id: id,
@@ -159,11 +281,9 @@ export default function EventDetailScreen() {
             user: { id: user?.id || '', username: 'Tú', img: null },
         };
         setMessages((prev) => [...prev, optimistic]);
-        setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100);
 
         try {
             const realMsg = await EventService.sendChatMessage(id, msg, { token });
-            // Replace optimistic with real DB message (preserves user info; real id enables dedup in realtime handler)
             setMessages((prev) =>
                 prev.map((m) => (m.id === optimistic.id ? { ...realMsg, user: optimistic.user } : m)),
             );
@@ -213,45 +333,38 @@ export default function EventDetailScreen() {
         );
     }
 
-    return (
-        <KeyboardAvoidingView
-            className="flex-1 bg-gray-50"
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-            keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
-        >
-            {/* Header con imagen */}
-            <View className="relative" style={{ height: 220 }}>
-                {event.image ? (
-                    <Image
-                        source={{ uri: event.image }}
-                        className="w-full h-full"
-                        resizeMode="cover"
-                    />
-                ) : (
-                    <View className="w-full h-full bg-gray-200 items-center justify-center">
-                        <Ionicons name="musical-notes" size={64} color="#aaa" />
-                    </View>
-                )}
-                {/* Gradiente oscuro */}
-                <View
-                    className="absolute inset-0 bg-dark-black"
-                    style={{ opacity: 0.35 }}
-                />
-                {/* Botón atrás */}
-                <TouchableOpacity
-                    className="absolute top-3 left-4 w-9 h-9 bg-white/80 rounded-full items-center justify-center"
-                    style={{ marginTop: insets.top }}
-                    onPress={() => router.back()}
-                >
-                    <Ionicons name="chevron-back" size={20} color="#202020" />
-                </TouchableOpacity>
-            </View>
+    const previewMessages = messages.slice(-3);
 
+    return (
+        <>
             <ScrollView
-                className="flex-1"
+                className="flex-1 bg-gray-50"
                 showsVerticalScrollIndicator={false}
-                keyboardShouldPersistTaps="handled"
+                contentContainerStyle={{ paddingBottom: insets.bottom + 24 }}
             >
+                {/* Header con imagen */}
+                <View className="relative" style={{ height: 220 }}>
+                    {event.image ? (
+                        <Image
+                            source={{ uri: event.image }}
+                            className="w-full h-full"
+                            resizeMode="cover"
+                        />
+                    ) : (
+                        <View className="w-full h-full bg-gray-200 items-center justify-center">
+                            <Ionicons name="musical-notes" size={64} color="#aaa" />
+                        </View>
+                    )}
+                    <View className="absolute inset-0 bg-dark-black" style={{ opacity: 0.35 }} />
+                    <TouchableOpacity
+                        className="absolute top-3 left-4 w-9 h-9 bg-white/80 rounded-full items-center justify-center"
+                        style={{ marginTop: insets.top }}
+                        onPress={() => router.back()}
+                    >
+                        <Ionicons name="chevron-back" size={20} color="#202020" />
+                    </TouchableOpacity>
+                </View>
+
                 {/* Info del evento */}
                 <View className="bg-white px-5 pt-5 pb-4">
                     {(event.segment || event.genre) && (
@@ -271,26 +384,45 @@ export default function EventDetailScreen() {
 
                     <Text className="text-2xl font-bold text-dark-black leading-tight">{event.name}</Text>
 
-                    {/* Artistas */}
                     {event.artists.length > 0 && (
                         <View className="flex-row flex-wrap mt-2 gap-x-2">
                             {event.artists.map((a) => (
-                                <Text key={a.id} className="text-gray-500 text-sm">
-                                    {a.name}
-                                </Text>
+                                <Text key={a.id} className="text-gray-500 text-sm">{a.name}</Text>
                             ))}
                         </View>
                     )}
 
-                    {/* Fecha */}
-                    <View className="flex-row items-center mt-4">
-                        <View className="w-8 h-8 bg-primary-yellow/20 rounded-full items-center justify-center mr-3">
-                            <Ionicons name="calendar" size={16} color="#202020" />
+                    {/* Fecha(s) */}
+                    {allDates.length > 1 ? (
+                        <View className="mt-4">
+                            <View className="flex-row items-center mb-2">
+                                <View className="w-8 h-8 bg-primary-yellow/20 rounded-full items-center justify-center mr-3">
+                                    <Ionicons name="calendar" size={16} color="#202020" />
+                                </View>
+                                <Text className="text-dark-black text-sm font-semibold">
+                                    {allDates.length} fechas disponibles
+                                </Text>
+                            </View>
+                            <ScrollView horizontal showsHorizontalScrollIndicator={false} className="ml-11">
+                                {allDates.map((d) => (
+                                    <View key={d} className="bg-gray-100 rounded-xl px-3 py-2 mr-2">
+                                        <Text className="text-dark-black text-xs font-medium capitalize">
+                                            {formatDate(d, null)}
+                                        </Text>
+                                    </View>
+                                ))}
+                            </ScrollView>
                         </View>
-                        <Text className="text-dark-black text-sm capitalize">
-                            {formatDate(event.date, event.time)}
-                        </Text>
-                    </View>
+                    ) : (
+                        <View className="flex-row items-center mt-4">
+                            <View className="w-8 h-8 bg-primary-yellow/20 rounded-full items-center justify-center mr-3">
+                                <Ionicons name="calendar" size={16} color="#202020" />
+                            </View>
+                            <Text className="text-dark-black text-sm capitalize">
+                                {formatDate(event.date, event.time)}
+                            </Text>
+                        </View>
+                    )}
 
                     {/* Venue */}
                     {event.venue && (
@@ -342,81 +474,69 @@ export default function EventDetailScreen() {
                     </TouchableOpacity>
                 </View>
 
-                {/* Chat */}
-                <View className="mt-3 bg-white px-4 pt-4">
-                    <Text className="text-base font-bold text-dark-black mb-1">
-                        Chat del evento
-                    </Text>
+                {/* Chat — compact preview */}
+                <View className="mt-3 bg-white px-4 pt-4 pb-2">
+                    <View className="flex-row items-center justify-between mb-1">
+                        <Text className="text-base font-bold text-dark-black">Chat del evento</Text>
+                        {messages.length > 0 && (
+                            <Text className="text-xs text-gray-400">{messages.length} mensajes</Text>
+                        )}
+                    </View>
                     <Text className="text-xs text-gray-400 mb-3">
                         Habla con otros fans que van a este evento
                     </Text>
 
                     {loadingMessages ? (
-                        <View className="items-center py-6">
+                        <View className="items-center py-4">
                             <ActivityIndicator color="#FFD54D" />
                         </View>
                     ) : messages.length === 0 ? (
-                        <View className="items-center py-8">
-                            <Ionicons name="chatbubbles-outline" size={36} color="#ccc" />
+                        <View className="items-center py-6">
+                            <Ionicons name="chatbubbles-outline" size={32} color="#ccc" />
                             <Text className="text-gray-400 text-sm mt-2">
                                 Sé el primero en comentar este evento
                             </Text>
                         </View>
                     ) : (
-                        <FlatList
-                            ref={listRef}
-                            data={messages}
-                            keyExtractor={(m) => String(m.id)}
-                            renderItem={({ item }) => (
-                                <ChatBubble msg={item} isOwn={item.user_id === user?.id} />
+                        // Show last 3 messages as a non-scrollable preview
+                        <View className="mb-1">
+                            {previewMessages.map((msg) => (
+                                <ChatBubble key={msg.id} msg={msg} isOwn={msg.user_id === user?.id} />
+                            ))}
+                            {messages.length > 3 && (
+                                <Text className="text-xs text-gray-400 text-center mb-2">
+                                    y {messages.length - 3} mensajes más…
+                                </Text>
                             )}
-                            scrollEnabled={false}
-                            onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: false })}
-                        />
+                        </View>
                     )}
 
-                    {/* Spacer para el input */}
-                    <View style={{ height: 80 }} />
+                    {/* Open full chat button */}
+                    <TouchableOpacity
+                        className="flex-row items-center justify-center bg-gray-100 rounded-2xl py-3 mt-1 mb-2"
+                        onPress={() => setChatModalVisible(true)}
+                        activeOpacity={0.8}
+                    >
+                        <Ionicons name="chatbubble-ellipses-outline" size={16} color="#202020" />
+                        <Text className="text-dark-black font-semibold text-sm ml-2">
+                            {user ? 'Abrir chat completo' : 'Ver chat'}
+                        </Text>
+                    </TouchableOpacity>
                 </View>
             </ScrollView>
 
-            {/* Input de chat */}
-            <View
-                className="absolute bottom-0 left-0 right-0 bg-white border-t border-gray-100 px-4 py-2 flex-row items-center"
-                style={{ paddingBottom: insets.bottom + 8 }}
-            >
-                {user ? (
-                    <>
-                        <TextInput
-                            className="flex-1 bg-gray-100 rounded-2xl px-4 py-2.5 text-sm text-dark-black mr-2"
-                            placeholder="Escribe un mensaje…"
-                            placeholderTextColor="#aaa"
-                            value={text}
-                            onChangeText={setText}
-                            multiline
-                            maxLength={500}
-                            returnKeyType="send"
-                            onSubmitEditing={handleSend}
-                            blurOnSubmit
-                        />
-                        <TouchableOpacity
-                            className="w-10 h-10 bg-primary-yellow rounded-full items-center justify-center"
-                            onPress={handleSend}
-                            disabled={sending || !text.trim()}
-                            style={{ opacity: sending || !text.trim() ? 0.5 : 1 }}
-                        >
-                            <Ionicons name="send" size={16} color="#202020" />
-                        </TouchableOpacity>
-                    </>
-                ) : (
-                    <TouchableOpacity
-                        className="flex-1 bg-gray-100 rounded-2xl py-3 items-center"
-                        onPress={() => router.push('/login')}
-                    >
-                        <Text className="text-gray-500 text-sm">Inicia sesión para chatear</Text>
-                    </TouchableOpacity>
-                )}
-            </View>
-        </KeyboardAvoidingView>
+            {/* Full chat modal */}
+            <ChatModal
+                visible={chatModalVisible}
+                onClose={() => setChatModalVisible(false)}
+                messages={messages}
+                loadingMessages={loadingMessages}
+                text={text}
+                setText={setText}
+                sending={sending}
+                onSend={handleSend}
+                userId={user?.id ?? undefined}
+            />
+        </>
     );
 }

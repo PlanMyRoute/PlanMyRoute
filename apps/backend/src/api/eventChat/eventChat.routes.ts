@@ -5,7 +5,7 @@ import { verifyToken } from '../../middleware/auth.js';
 const router = Router({ mergeParams: true });
 
 // GET /api/events/:eventId/chat?page=0
-router.get('/', EventChatController.getMessages);
+router.get('/', verifyToken, EventChatController.getMessages);
 
 // POST /api/events/:eventId/chat  (requiere auth)
 router.post('/', verifyToken, EventChatController.sendMessage);

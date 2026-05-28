@@ -1,9 +1,17 @@
 import { useAuth } from '@/context/AuthContext';
 import { Accommodation, Activity, Refuel, Route, Stop } from '@planmyroute/types';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { apiFetch } from '../lib/apiClient';
 import { GeocodingService, ItineraryService } from '../services/itineraryService';
 
+const TRIP_STALE_TIME = 30_000;
+
 // =============== TYPES ===============
+
+type RefuelCostByUserResponse = { user_id: string; total_cost: number; refuel_count: number; trips_count: number };
+type RefuelCostByTripResponse = { trip_id: number; total_cost: number; refuel_count: number };
+type AccommodationCostByTripResponse = { trip_id: number; total_cost: number; accommodation_count: number };
+type ActivityCostByTripResponse = { trip_id: number; total_cost: number; activity_count: number };
 
 type UseItineraryOptions = {
     token?: string;
@@ -94,7 +102,7 @@ export function useStops(
         queryKey: ['stops', tripId],
         queryFn: () => ItineraryService.getStopsByTripId(tripId as string, { token: finalToken || undefined }),
         enabled,
-        staleTime: 0,
+        staleTime: TRIP_STALE_TIME,
         gcTime: 5 * 60 * 1000,
         refetchInterval: options?.refetchInterval ?? false,
     });
@@ -339,23 +347,11 @@ export function useRefuelCostByUser(userId: string | null | undefined, options?:
     const finalToken = options?.token || token;
     const enabled = options?.enabled !== false && !!userId;
 
-    return useQuery({
+    return useQuery<RefuelCostByUserResponse>({
         queryKey: ['refuelCostByUser', userId],
-        queryFn: async () => {
-            if (!userId) return null;
-            const url = `${process.env.EXPO_PUBLIC_API_URL}/api/refuel/user/${userId}/total-cost`;
-            console.log('Fetching refuel cost by user:', url);
-            const response = await fetch(url, {
-                headers: finalToken ? { Authorization: `Bearer ${finalToken}` } : undefined,
-            });
-            if (!response.ok) {
-                throw new Error(`Error al obtener costos de repostaje: ${response.statusText}`);
-            }
-            const data = await response.json();
-            console.log('Refuel cost by user data:', data);
-            return data;
-        },
+        queryFn: () => apiFetch<RefuelCostByUserResponse>(`/api/refuel/user/${userId}/total-cost`, { token: finalToken || undefined }),
         enabled,
+        staleTime: TRIP_STALE_TIME,
     });
 }
 
@@ -366,25 +362,12 @@ export function useRefuelCostByTrip(tripId: string | number | null | undefined, 
     const { token } = useAuth();
     const finalToken = options?.token || token;
     const enabled = options?.enabled !== false && !!tripId;
-    const queryClient = useQueryClient();
 
-    return useQuery({
+    return useQuery<RefuelCostByTripResponse>({
         queryKey: ['refuelCostByTrip', tripId],
-        queryFn: async () => {
-            if (!tripId) return null;
-            const url = `${process.env.EXPO_PUBLIC_API_URL}/api/refuel/trip/${tripId}/total-cost`;
-            console.log('Fetching refuel cost by trip:', url);
-            const response = await fetch(url, {
-                headers: finalToken ? { Authorization: `Bearer ${finalToken}` } : undefined,
-            });
-            if (!response.ok) {
-                throw new Error(`Error al obtener costos de repostaje del viaje: ${response.statusText}`);
-            }
-            const data = await response.json();
-            console.log('Refuel cost by trip data:', data);
-            return data;
-        },
+        queryFn: () => apiFetch<RefuelCostByTripResponse>(`/api/refuel/trip/${tripId}/total-cost`, { token: finalToken || undefined }),
         enabled,
+        staleTime: TRIP_STALE_TIME,
     });
 }
 
@@ -396,34 +379,17 @@ export function useAccommodationCostByTrip(tripId: string | number | null | unde
     const finalToken = options?.token || token;
     const enabled = options?.enabled !== false && !!tripId;
 
-    console.log('[useAccommodationCostByTrip] Token from auth:', token ? 'exists' : 'missing');
-    console.log('[useAccommodationCostByTrip] Final token:', finalToken ? 'exists' : 'missing');
-
-    return useQuery({
+    return useQuery<AccommodationCostByTripResponse>({
         queryKey: ['accommodationCostByTrip', tripId],
         queryFn: async () => {
-            if (!tripId) return { trip_id: tripId, total_cost: 0, accommodation_count: 0 };
-            const url = `${process.env.EXPO_PUBLIC_API_URL}/api/accommodation/trip/${tripId}/total-cost`;
-            console.log('Fetching accommodation cost by trip:', url, 'Token:', finalToken ? 'exists' : 'missing');
             try {
-                const response = await fetch(url, {
-                    headers: finalToken ? { Authorization: `Bearer ${finalToken}` } : undefined,
-                });
-                if (!response.ok) {
-                    const errorText = await response.text();
-                    console.error('Accommodation cost error response:', errorText);
-                    // Retornar valor por defecto en caso de error
-                    return { trip_id: tripId, total_cost: 0, accommodation_count: 0 };
-                }
-                const data = await response.json();
-                console.log('Accommodation cost by trip data:', data);
-                return data;
-            } catch (error) {
-                console.error('Accommodation cost fetch error:', error);
-                return { trip_id: tripId, total_cost: 0, accommodation_count: 0 };
+                return await apiFetch<AccommodationCostByTripResponse>(`/api/accommodation/trip/${tripId}/total-cost`, { token: finalToken || undefined });
+            } catch {
+                return { trip_id: Number(tripId), total_cost: 0, accommodation_count: 0 };
             }
         },
         enabled,
+        staleTime: TRIP_STALE_TIME,
     });
 }
 
@@ -435,23 +401,11 @@ export function useActivityCostByTrip(tripId: string | number | null | undefined
     const finalToken = options?.token || token;
     const enabled = options?.enabled !== false && !!tripId;
 
-    return useQuery({
+    return useQuery<ActivityCostByTripResponse>({
         queryKey: ['activityCostByTrip', tripId],
-        queryFn: async () => {
-            if (!tripId) return null;
-            const url = `${process.env.EXPO_PUBLIC_API_URL}/api/activity/trip/${tripId}/total-cost`;
-            console.log('Fetching activity cost by trip:', url);
-            const response = await fetch(url, {
-                headers: finalToken ? { Authorization: `Bearer ${finalToken}` } : undefined,
-            });
-            if (!response.ok) {
-                throw new Error(`Error al obtener costos de actividades del viaje: ${response.statusText}`);
-            }
-            const data = await response.json();
-            console.log('Activity cost by trip data:', data);
-            return data;
-        },
+        queryFn: () => apiFetch<ActivityCostByTripResponse>(`/api/activity/trip/${tripId}/total-cost`, { token: finalToken || undefined }),
         enabled,
+        staleTime: TRIP_STALE_TIME,
     });
 }
 

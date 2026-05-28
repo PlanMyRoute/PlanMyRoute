@@ -7,16 +7,37 @@ import { StopGuideItem } from '@/components/trip/StopGuideItem';
 import { TripStatusBanner } from '@/components/trip/TripStatusBadge';
 import { ROUTES } from '@/constants/routes';
 import { useTripContext } from '@/context/TripContext';
-import { useDeleteStop, useStops } from '@/hooks/useItinerary';
+import { useCreateActivityStop, useDeleteStop, useStops } from '@/hooks/useItinerary';
+import { useNearbyRouteEvents } from '@/hooks/useNearbyRouteEvents';
 import useTrips from '@/hooks/useTrips';
 import { useTripPermissions } from '@/hooks/useTripPermissions';
+import { TmEvent } from '@/services/eventService';
 import { Ionicons } from '@expo/vector-icons';
 import { Stop } from '@planmyroute/types';
 import { useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ScrollView, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Image, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+function segmentToCategory(segment: string | null): string {
+    switch (segment) {
+        case 'Music':          return 'concierto';
+        case 'Sports':         return 'deportes';
+        case 'Arts & Theatre': return 'teatro';
+        default:               return 'experiencia_local';
+    }
+}
+
+function eventDayInTrip(eventDate: string | null, tripStartDate: string): number {
+    if (!eventDate) return 1;
+    const start = new Date(tripStartDate);
+    const evDate = new Date(eventDate + 'T00:00:00');
+    start.setHours(0, 0, 0, 0);
+    evDate.setHours(0, 0, 0, 0);
+    const diff = Math.round((evDate.getTime() - start.getTime()) / 86400000);
+    return Math.max(1, diff + 1);
+}
 
 export default function StopsScreen() {
     const router = useRouter();
@@ -52,6 +73,15 @@ export default function StopsScreen() {
     const [selectedStop, setSelectedStop] = useState<Stop | null>(null);
     const [selectedDay, setSelectedDay] = useState<number | null>(null);
     const [deleteConfirm, setDeleteConfirm] = useState<{ id: number; name: string } | null>(null);
+    const [eventsSearchEnabled, setEventsSearchEnabled] = useState(false);
+    const [addingEventId, setAddingEventId] = useState<string | null>(null);
+
+    const createActivityStop = useCreateActivityStop(currentTripId);
+    const { events: nearbyEvents, isLoading: loadingNearby } = useNearbyRouteEvents(
+        localStops,
+        (currentTrip as any)?.start_date,
+        { enabled: eventsSearchEnabled },
+    );
 
     // Ordenar paradas al cargar
     useEffect(() => {
@@ -196,6 +226,35 @@ export default function StopsScreen() {
         return localStops[localStops.length - 1] ?? null;
     }, [localStops, currentTrip?.status]);
 
+    const handleAddEventAsStop = useCallback(async (event: TmEvent) => {
+        if (!currentTrip || addingEventId) return;
+        const startDate = (currentTrip as any).start_date;
+        if (!startDate) return;
+        setAddingEventId(event.id);
+        const day = eventDayInTrip(event.date, startDate);
+        const address = [event.venue?.address, event.venue?.city, event.venue?.country].filter(Boolean).join(', ');
+        try {
+            await createActivityStop.mutateAsync({
+                stopData: {
+                    name: event.name,
+                    address: address || null,
+                    description: event.segment ? `${event.segment}${event.genre ? ` · ${event.genre}` : ''}` : null,
+                    type: 'intermedia',
+                    day,
+                } as any,
+                activityData: {
+                    category: segmentToCategory(event.segment) as any,
+                    entry_price: event.priceMin ?? null,
+                    booking_required: true,
+                    estimated_duration_minutes: 180,
+                    url: event.url ?? null,
+                } as any,
+            });
+        } finally {
+            setAddingEventId(null);
+        }
+    }, [currentTrip, addingEventId, createActivityStop]);
+
     const handleDeleteStop = useCallback((stopId: number, stopName: string) => {
         setDeleteConfirm({ id: stopId, name: stopName });
     }, []);
@@ -209,7 +268,7 @@ export default function StopsScreen() {
     }, [deleteConfirm, deleteStopMutation]);
 
     const handleOpenEditStop = useCallback((stop: Stop) => {
-        router.push(ROUTES.tripEditStop(stop.id));
+        router.push(ROUTES.tripEditStop(String(stop.id)));
     }, [router]);
 
     if (stopsLoading) {
@@ -364,6 +423,87 @@ export default function StopsScreen() {
                         ));
                     })()}
                 </View>
+
+                {/* Sección: Eventos en tu ruta */}
+                {!isGenerating && localStops.length > 0 && !access.isCompleted && (
+                    <View className="px-6 mt-6 mb-4">
+                        <View className="flex-row items-center justify-between mb-3">
+                            <View className="flex-row items-center gap-x-2">
+                                <Ionicons name="ticket-outline" size={18} color="#202020" />
+                                <SubtitleSemibold>Eventos en tu ruta</SubtitleSemibold>
+                            </View>
+                            {!eventsSearchEnabled && (
+                                <TouchableOpacity
+                                    onPress={() => setEventsSearchEnabled(true)}
+                                    className="bg-dark-black px-3 py-1.5 rounded-full flex-row items-center gap-x-1"
+                                    activeOpacity={0.8}
+                                >
+                                    <Ionicons name="search" size={13} color="#FFD54D" />
+                                    <Text className="text-primary-yellow text-xs font-semibold">Buscar</Text>
+                                </TouchableOpacity>
+                            )}
+                        </View>
+
+                        {!eventsSearchEnabled ? (
+                            <View className="bg-gray-50 rounded-2xl p-4 items-center">
+                                <Text className="text-gray-400 text-sm text-center">
+                                    Busca eventos que se celebren cerca de las paradas de tu viaje.
+                                </Text>
+                            </View>
+                        ) : loadingNearby ? (
+                            <View className="py-8 items-center">
+                                <ActivityIndicator color="#FFD54D" />
+                                <Text className="text-gray-400 text-sm mt-2">Buscando eventos…</Text>
+                            </View>
+                        ) : nearbyEvents.length === 0 ? (
+                            <View className="bg-gray-50 rounded-2xl p-4 items-center">
+                                <Ionicons name="calendar-outline" size={32} color="#ccc" />
+                                <Text className="text-gray-400 text-sm text-center mt-2">
+                                    No hay eventos programados cerca de tus paradas en esas fechas.
+                                </Text>
+                            </View>
+                        ) : (
+                            nearbyEvents.map((event) => (
+                                <View
+                                    key={event.id}
+                                    className="flex-row bg-white rounded-2xl mb-3 overflow-hidden border border-gray-100"
+                                    style={{ elevation: 1 }}
+                                >
+                                    {event.image ? (
+                                        <Image source={{ uri: event.image }} style={{ width: 72, height: 72 }} resizeMode="cover" />
+                                    ) : (
+                                        <View style={{ width: 72, height: 72 }} className="bg-gray-200 items-center justify-center">
+                                            <Ionicons name="musical-notes" size={24} color="#bbb" />
+                                        </View>
+                                    )}
+                                    <View className="flex-1 p-3 justify-between">
+                                        <View>
+                                            <Text className="text-dark-black font-semibold text-sm" numberOfLines={1}>{event.name}</Text>
+                                            <Text className="text-gray-400 text-xs mt-0.5" numberOfLines={1}>
+                                                {[event.venue?.city, event.date].filter(Boolean).join(' · ')}
+                                            </Text>
+                                        </View>
+                                        <TouchableOpacity
+                                            onPress={() => handleAddEventAsStop(event)}
+                                            disabled={addingEventId === event.id}
+                                            className="self-start bg-dark-black rounded-full px-3 py-1 mt-1 flex-row items-center gap-x-1"
+                                            activeOpacity={0.8}
+                                        >
+                                            {addingEventId === event.id ? (
+                                                <ActivityIndicator size="small" color="#FFD54D" />
+                                            ) : (
+                                                <>
+                                                    <Ionicons name="add" size={13} color="#FFD54D" />
+                                                    <Text className="text-primary-yellow text-xs font-semibold">Añadir</Text>
+                                                </>
+                                            )}
+                                        </TouchableOpacity>
+                                    </View>
+                                </View>
+                            ))
+                        )}
+                    </View>
+                )}
             </ScrollView>
 
             {/* Botón flotante añadir parada */}

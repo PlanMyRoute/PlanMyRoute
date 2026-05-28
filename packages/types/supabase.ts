@@ -494,6 +494,7 @@ export type Database = {
           position: number | null
           price_level: number | null
           price_symbol: string | null
+          trip_id: number | null
           type: Database["public"]["Enums"]["StopType"]
           updated_at: string | null
         }
@@ -515,6 +516,7 @@ export type Database = {
           position?: number | null
           price_level?: number | null
           price_symbol?: string | null
+          trip_id?: number | null
           type?: Database["public"]["Enums"]["StopType"]
           updated_at?: string | null
         }
@@ -536,10 +538,19 @@ export type Database = {
           position?: number | null
           price_level?: number | null
           price_symbol?: string | null
+          trip_id?: number | null
           type?: Database["public"]["Enums"]["StopType"]
           updated_at?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "stop_trip_id_fkey"
+            columns: ["trip_id"]
+            isOneToOne: false
+            referencedRelation: "trip"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       subscriptions: {
         Row: {
@@ -640,6 +651,7 @@ export type Database = {
           created_at: string
           description: string | null
           end_date: string | null
+          end_time: string | null
           estimated_price_max: number | null
           estimated_price_min: number | null
           generation_status: string
@@ -651,6 +663,7 @@ export type Database = {
           n_pets: number | null
           name: string | null
           start_date: string | null
+          start_time: string | null
           status: Database["public"]["Enums"]["trip_status"] | null
           total_distance_meters: number | null
           total_price: number | null
@@ -664,6 +677,7 @@ export type Database = {
           created_at?: string
           description?: string | null
           end_date?: string | null
+          end_time?: string | null
           estimated_price_max?: number | null
           estimated_price_min?: number | null
           generation_status?: string
@@ -675,6 +689,7 @@ export type Database = {
           n_pets?: number | null
           name?: string | null
           start_date?: string | null
+          start_time?: string | null
           status?: Database["public"]["Enums"]["trip_status"] | null
           total_distance_meters?: number | null
           total_price?: number | null
@@ -688,6 +703,7 @@ export type Database = {
           created_at?: string
           description?: string | null
           end_date?: string | null
+          end_time?: string | null
           estimated_price_max?: number | null
           estimated_price_min?: number | null
           generation_status?: string
@@ -699,6 +715,7 @@ export type Database = {
           n_pets?: number | null
           name?: string | null
           start_date?: string | null
+          start_time?: string | null
           status?: Database["public"]["Enums"]["trip_status"] | null
           total_distance_meters?: number | null
           total_price?: number | null

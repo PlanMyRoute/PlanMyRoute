@@ -39,14 +39,18 @@ if (!fs.existsSync(envPath)) {
 }
 
 const original = fs.readFileSync(envPath, 'utf8');
-const updated = original.replace(
-    /EXPO_PUBLIC_API_URL=.*/,
-    `EXPO_PUBLIC_API_URL='http://${ip}:3000'`
-);
 
-if (original === updated) {
+if (!/EXPO_PUBLIC_API_URL=/.test(original)) {
     console.warn('⚠️  EXPO_PUBLIC_API_URL line not found in .env — nothing changed.');
     process.exit(1);
+}
+
+const newLine = `EXPO_PUBLIC_API_URL='http://${ip}:3000'`;
+const updated = original.replace(/EXPO_PUBLIC_API_URL=.*/, newLine);
+
+if (original === updated) {
+    console.log(`✅ EXPO_PUBLIC_API_URL already set to http://${ip}:3000 — no change needed.`);
+    process.exit(0);
 }
 
 fs.writeFileSync(envPath, updated, 'utf8');

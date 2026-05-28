@@ -7,9 +7,9 @@ const router = Router();
 const BASE_PATH = '/user';
 
 // Ruta de búsqueda (debe ir ANTES de /:id para evitar conflictos)
-router.get(`${BASE_PATH}/search/username/:username`, UserController.searchUsersByUsername);
+router.get(`${BASE_PATH}/search/username/:username`, verifyToken, UserController.searchUsersByUsername);
 // Ruta para obtener usuario por username (debe ir ANTES de /:id)
-router.get(`${BASE_PATH}/username/:username`, UserController.getUserByUsername);
+router.get(`${BASE_PATH}/username/:username`, verifyToken, UserController.getUserByUsername);
 
 // Rutas específicas de usuario
 // Profile es público (solo requiere token para ver estadísticas propias)

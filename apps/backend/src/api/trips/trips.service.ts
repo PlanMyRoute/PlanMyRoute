@@ -32,43 +32,19 @@ export const getById = async (id: number) => {
 export const getTravelersInTrip = async (tripId: number) => {
     const { data, error } = await supabase
         .from(TRAVELERS_TABLE_NAME)
-        .select('*')
+        .select('user_role, user:user_id(id, name, username, img, lastname, email, bio, location, timezone)')
         .eq('trip_id', tripId);
 
     if (error) {
         throw new Error(`Error al obtener los viajeros del viaje: ${error.message}`);
     }
 
-    // Si no hay viajeros, devolvemos un array vacío
     if (!data || data.length === 0) {
         return [];
     }
 
-    // Extraemos los ids de usuario y pedimos todos los usuarios en una sola consulta
-    const userIds = Array.from(new Set(data.map((t: any) => t.user_id).filter(Boolean)));
-
-    if (userIds.length === 0) {
-        // No hay user_id válidos, devolvemos los datos crudos
-        return data;
-    }
-
-    const { data: users, error: usersError } = await supabase
-        .from('user')
-        .select('*')
-        .in('id', userIds as any[]);
-
-    if (usersError) {
-        throw new Error(`Error al obtener los usuarios relacionados: ${usersError.message}`);
-    }
-
-    // Mapear usuarios por id para buscar rápidamente
-    const usersById = new Map<string, any>();
-    (users || []).forEach((u: any) => usersById.set(String(u.id), u));
-
-    // Devolver la información completa del usuario junto con su rol en el viaje
-    // Estructura: { user: { ...userData }, role: traveler.user_role }
     return data.map((traveler: any) => ({
-        user: usersById.get(String(traveler.user_id)) || { id: traveler.user_id },
+        user: traveler.user || { id: null },
         role: traveler.user_role,
     }));
 };
@@ -581,25 +557,19 @@ export const updateTripStatus = async (
  * @param hoursWindow - Ventana de horas para buscar (por defecto 1 hora)
  * @returns Array de viajes listos para empezar
  */
-export const getTripsReadyToStart = async (hoursWindow: number = 1) => {
-    console.log('🔍 [TripService.getTripsReadyToStart] Searching trips...');
-
+export const getTripsReadyToStart = async () => {
     const now = new Date();
-    const windowStart = new Date(now.getTime() - hoursWindow * 60 * 60 * 1000);
 
     const { data, error } = await supabase
         .from(TABLE_NAME)
         .select('*')
         .eq('status', 'planning')
-        .lte('start_date', now.toISOString())
-        .gte('start_date', windowStart.toISOString());
+        .lte('start_date', now.toISOString());
 
     if (error) {
-        console.error('❌ [TripService.getTripsReadyToStart] Error:', error);
         throw new Error(`Error al buscar viajes listos para empezar: ${error.message}`);
     }
 
-    console.log(`✅ [TripService.getTripsReadyToStart] Found ${data?.length || 0} trips`);
     return data || [];
 };
 
@@ -609,30 +579,50 @@ export const getTripsReadyToStart = async (hoursWindow: number = 1) => {
  * @param graceHours - Horas de gracia después del fin del viaje (por defecto 24)
  * @returns Array de viajes listos para completar
  */
-export const getTripsReadyToComplete = async (
-    hoursWindow: number = 1,
-    graceHours: number = 24
-) => {
-    console.log('🔍 [TripService.getTripsReadyToComplete] Searching trips...');
-
+export const getTripsReadyToComplete = async (graceHours: number = 24) => {
     const now = new Date();
     const targetTime = new Date(now.getTime() - graceHours * 60 * 60 * 1000);
-    const windowStart = new Date(targetTime.getTime() - hoursWindow * 60 * 60 * 1000);
 
     const { data, error } = await supabase
         .from(TABLE_NAME)
         .select('*')
         .eq('status', 'going')
-        .lte('end_date', targetTime.toISOString())
-        .gte('end_date', windowStart.toISOString());
+        .lte('end_date', targetTime.toISOString());
 
     if (error) {
-        console.error('❌ [TripService.getTripsReadyToComplete] Error:', error);
         throw new Error(`Error al buscar viajes listos para completar: ${error.message}`);
     }
 
-    console.log(`✅ [TripService.getTripsReadyToComplete] Found ${data?.length || 0} trips`);
     return data || [];
+};
+
+/**
+ * Desplaza las fechas de inicio y fin de un viaje el número de días indicado,
+ * preservando la duración original del viaje.
+ */
+export const shiftTripDates = async (tripId: number, daysToAdd: number): Promise<void> => {
+    const trip = await getById(tripId);
+
+    if (!trip.start_date || !trip.end_date) return;
+
+    const newStartDate = new Date(trip.start_date);
+    newStartDate.setDate(newStartDate.getDate() + daysToAdd);
+
+    const newEndDate = new Date(trip.end_date);
+    newEndDate.setDate(newEndDate.getDate() + daysToAdd);
+
+    const { error } = await supabase
+        .from(TABLE_NAME)
+        .update({
+            start_date: newStartDate.toISOString(),
+            end_date: newEndDate.toISOString(),
+            updated_at: new Date().toISOString(),
+        })
+        .eq('id', tripId);
+
+    if (error) {
+        throw new Error(`Error al ajustar fechas del viaje: ${error.message}`);
+    }
 };
 
 /**
@@ -698,21 +688,18 @@ export const respondToStatusCheck = async (
         throw new Error(`Solo el propietario del viaje puede responder a estas notificaciones`);
     }
 
-    // 2. Obtener el viaje actual con trip_status
+    // 2. Obtener el viaje actual
     const { data: tripData, error: tripError } = await supabase
         .from(TABLE_NAME)
-        .select('id, name, status')
+        .select('id, name, status, start_date, end_date')
         .eq('id', tripId)
         .single();
-
-    console.log(`🔍 [respondToStatusCheck] Query result:`, { tripData, tripError });
 
     if (tripError || !tripData) {
         throw new Error(`No se encontró el viaje: ${tripError?.message || 'Sin datos'}`);
     }
 
     const trip = tripData as any;
-    console.log(`📊 [respondToStatusCheck] Current trip status: ${trip.status}`);
 
     // 3. Determinar el nuevo estado basado en la respuesta
     let newStatus: 'planning' | 'going' | 'completed' | null = null;
@@ -727,10 +714,25 @@ export const respondToStatusCheck = async (
         if (response.started) {
             newStatus = 'going';
             actionStatus = 'accepted';
-            console.log(`✅ User confirmed trip started`);
         } else {
-            console.log(`❌ User denied trip started`);
             actionStatus = 'rejected';
+            // Desplazar fechas si el viaje ya debería haber empezado
+            if (trip.start_date) {
+                const now = new Date();
+                const startDate = new Date(trip.start_date);
+                if (now > startDate) {
+                    const daysLate = Math.ceil((now.getTime() - startDate.getTime()) / 86400000);
+                    await shiftTripDates(tripId, daysLate);
+                }
+            }
+            // Limpiar otras notificaciones pendientes para este viaje (el cron creará una nueva cuando llegue la fecha)
+            await supabase
+                .from('notifications')
+                .update({ status: 'read', action_status: 'rejected' })
+                .eq('related_trip_id', tripId)
+                .eq('type', 'trip_status_check')
+                .eq('action_status', 'pending')
+                .neq('id', notificationId);
         }
     } else if (response.completed !== undefined) {
         // Respuesta para finalización de viaje
