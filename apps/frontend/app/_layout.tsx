@@ -10,6 +10,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import 'react-native-reanimated';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import Toast from 'react-native-toast-message';
+import { AlertProvider } from '../context/AlertContext';
 import { AuthProvider } from '../context/AuthContext';
 import { SubscriptionProvider } from '../context/SubscriptionContext';
 import '../index.css';
@@ -142,8 +143,10 @@ export default function RootLayout() {
         <QueryClientProvider client={queryClient}>
           <AuthProvider>
             <SubscriptionProvider>
-              <Slot />
-              <Toast config={toastConfig} />
+              <AlertProvider>
+                <Slot />
+                <Toast config={toastConfig} />
+              </AlertProvider>
             </SubscriptionProvider>
           </AuthProvider>
         </QueryClientProvider>

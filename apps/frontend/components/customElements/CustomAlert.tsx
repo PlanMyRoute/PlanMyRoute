@@ -4,7 +4,7 @@ import CustomButton from './CustomButton';
 import { SubtitleSemibold, TextRegular } from './CustomText';
 
 // Tipos de alerta según severidad
-export type AlertType = 'error' | 'warning' | 'success' | 'info';
+export type AlertType = 'error' | 'warning' | 'success' | 'info' | 'question';
 
 // Acción de botón
 export interface AlertAction {
@@ -63,6 +63,10 @@ export default function CustomAlert({
     },
     info: {
       iconName: 'information-circle' as keyof typeof Ionicons.glyphMap,
+      iconColor: '#FFD54D',
+    },
+    question: {
+      iconName: 'help-circle' as keyof typeof Ionicons.glyphMap,
       iconColor: '#FFD54D',
     },
   };

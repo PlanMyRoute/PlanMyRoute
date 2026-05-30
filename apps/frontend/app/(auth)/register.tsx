@@ -108,13 +108,7 @@ export default function RegisterScreen() {
       console.log('🔵 Registro exitoso, redirigiendo a verify-email...');
       console.log('🔵 Email:', email);
 
-      // Usar setTimeout para asegurar que la redirección ocurra después del render
-      setTimeout(() => {
-        console.log('🔵 Ejecutando redirección...');
-        router.replace(ROUTES.verifyEmail(email));
-      }, 100);
-
-      console.log('🔵 Redirección programada');
+      router.replace(ROUTES.verifyEmail(email));
     } catch (e) {
       console.error('🔴 Error en registro:', e);
       const message = (e as Error).message;

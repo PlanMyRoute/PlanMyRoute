@@ -56,6 +56,14 @@ export const createVehicle = async (
     userId: string,
     payload: CreateVehiclePayload
 ): Promise<Vehicle> => {
+    const { count, error: countError } = await supabase
+        .from(TABLE_NAME)
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', userId);
+
+    if (countError) throw new Error(`Error al verificar vehículos: ${countError.message}`);
+    if ((count ?? 0) >= 3) throw new Error('VEHICLE_LIMIT_REACHED');
+
     const { data, error } = await supabase
         .from(TABLE_NAME)
         .insert({

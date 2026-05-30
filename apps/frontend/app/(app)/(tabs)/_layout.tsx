@@ -1,5 +1,6 @@
 import { SettingsIcon } from '@/components/assets/Icons';
 import { TabEventsIcon, TabFeedIcon, TabHomeIcon, TabNewTripIcon, TabProfileIcon } from '@/components/assets/TabsIcons';
+import { useAlert } from '@/context/AlertContext';
 import { DropdownMenu, DropdownMenuItem } from '@/components/modals/DropdownMenu';
 import { FlappyBirdGame } from '@/components/trip/FlappyBirdGame';
 import { useClientOnlyValue } from '@/components/useClientOnlyValue.web';
@@ -12,7 +13,7 @@ import { useProfile } from '@/hooks/users/useUsers';
 import { Ionicons } from '@expo/vector-icons';
 import { Tabs, useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { Alert, Modal, Text, TouchableOpacity, View } from 'react-native';
+import { Modal, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function TabLayout() {
@@ -24,6 +25,8 @@ export default function TabLayout() {
 
   const [settingsMenuVisible, setSettingsMenuVisible] = useState(false);
   const [gameModalVisible, setGameModalVisible] = useState(false);
+
+  const { showAlert, closeAlert } = useAlert();
 
   const { data: profile } = useProfile(userId, undefined);
   const { data: notifications } = useNotifications(userId, { enabled: Boolean(userId) });
@@ -47,29 +50,24 @@ export default function TabLayout() {
   };
 
   const handleSignOut = () => {
-    const isWeb = typeof window !== 'undefined' && window.confirm;
-
-    if (isWeb) {
-      if (window.confirm('¿Estás seguro de que quieres cerrar sesión?')) {
-        signOut().then(() => router.replace(ROUTES.login));
-      }
-    } else {
-      Alert.alert(
-        'Cerrar sesión',
-        '¿Estás seguro de que quieres cerrar sesión?',
-        [
-          { text: 'Cancelar', style: 'cancel' },
-          {
-            text: 'Cerrar sesión',
-            style: 'destructive',
-            onPress: async () => {
-              await signOut();
-              router.replace(ROUTES.login);
-            },
+    setSettingsMenuVisible(false);
+    showAlert({
+      title: 'Cerrar sesión',
+      message: '¿Estás seguro de que quieres cerrar sesión?',
+      type: 'warning',
+      actions: [
+        { text: 'Cancelar', onPress: closeAlert, variant: 'outline' },
+        {
+          text: 'Cerrar sesión',
+          variant: 'danger',
+          onPress: async () => {
+            closeAlert();
+            await signOut();
+            router.replace(ROUTES.login);
           },
-        ]
-      );
-    }
+        },
+      ],
+    });
   };
 
   // Configurar items del menú

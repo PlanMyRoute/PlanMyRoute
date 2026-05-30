@@ -1,7 +1,7 @@
-import CustomAlert from '@/components/customElements/CustomAlert';
 import CustomButton from '@/components/customElements/CustomButton';
 import CustomInput from '@/components/customElements/CustomInput';
 import { MicrotextDark, SubtitleSemibold, TextRegular } from '@/components/customElements/CustomText';
+import { useAlert } from '@/context/AlertContext';
 import { FuelType, Vehicle, VehicleService } from '@/services/VehicleService';
 import { Ionicons } from '@expo/vector-icons';
 import { VehicleType } from '@planmyroute/types';
@@ -34,15 +34,6 @@ interface VehicleFormScreenProps {
     onDelete?: () => void;
 }
 
-type AlertState = {
-    visible: boolean;
-    title: string;
-    message: string;
-    type: 'error' | 'success' | 'info' | 'warning';
-    actions?: { text: string; onPress: () => void; variant?: 'primary' | 'outline' | 'danger' }[];
-};
-
-const EMPTY_ALERT: AlertState = { visible: false, title: '', message: '', type: 'info' };
 
 export default function VehicleFormScreen({
     userId,
@@ -62,10 +53,7 @@ export default function VehicleFormScreen({
     const [fuelTankCapacity, setFuelTankCapacity] = useState(initialData?.fuel_tank_capacity?.toString() || '');
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
-    const [alertState, setAlertState] = useState<AlertState>(EMPTY_ALERT);
-
-    const showAlert = (s: Omit<AlertState, 'visible'>) => setAlertState({ ...s, visible: true });
-    const closeAlert = () => setAlertState(EMPTY_ALERT);
+    const { showAlert, closeAlert } = useAlert();
 
     const isElectric = selectedFuelType === 'electric';
 
@@ -310,14 +298,6 @@ export default function VehicleFormScreen({
                 </ScrollView>
             </KeyboardAvoidingView>
 
-            <CustomAlert
-                visible={alertState.visible}
-                title={alertState.title}
-                message={alertState.message}
-                type={alertState.type}
-                actions={alertState.actions}
-                onClose={closeAlert}
-            />
         </SafeAreaView>
     );
 }

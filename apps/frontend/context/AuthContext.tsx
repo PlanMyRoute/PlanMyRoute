@@ -38,12 +38,43 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   useEffect(() => {
     setIsLoading(true);
-    // Carga la sesión al iniciar
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      setIsLoading(false);
-    });
+    let sessionSettled = false;
+    const sessionTimeoutId = setTimeout(() => {
+      if (!sessionSettled) {
+        sessionSettled = true;
+        setSession(null);
+        setUser(null);
+        setIsLoading(false);
+      }
+    }, 6000);
+
+    const resolveSession = (session: import('@supabase/supabase-js').Session | null) => {
+      if (!sessionSettled) {
+        sessionSettled = true;
+        clearTimeout(sessionTimeoutId);
+        setSession(session);
+        setUser(session?.user ?? null);
+        setIsLoading(false);
+      }
+    };
+
+    supabase.auth.getSession()
+      .then(({ data: { session }, error }) => {
+        if (error) {
+          // Token inválido/expirado — limpiar estado sin bloquear la app
+          console.warn('getSession: token inválido, cerrando sesión local:', error.message);
+          supabase.auth.signOut({ scope: 'local' }).catch(() => {});
+          resolveSession(null);
+        } else {
+          resolveSession(session);
+        }
+      })
+      .catch((err: Error) => {
+        // getSession rechazó la promesa — nunca dejar isLoading en true
+        console.warn('getSession rechazado, cerrando sesión local:', err.message);
+        supabase.auth.signOut({ scope: 'local' }).catch(() => {});
+        resolveSession(null);
+      });
 
     // Escucha cambios en la autenticación (login, logout)
     const { data: authListener } = supabase.auth.onAuthStateChange(
@@ -60,6 +91,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
     // Limpia el listener al desmontar
     return () => {
+      clearTimeout(sessionTimeoutId);
       authListener.subscription.unsubscribe();
     };
   }, []);
@@ -68,7 +100,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   // El estado "necesita completar perfil" se deriva en el cliente desde public.user
   // mediante el hook useNeedsProfileCompletion, así no dependemos de flags persistidos.
   const syncAvatarIfGoogle = async (authUser: User) => {
-    if ((authUser as any).is_anonymous) return;
+    if (authUser.is_anonymous) return;
     const provider = (authUser.app_metadata as any)?.provider;
     if (provider !== 'google') return;
     const avatarUrl = authUser.user_metadata?.avatar_url;
@@ -107,10 +139,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     });
 
     // Solo usar redirect URL si estamos en web de producción (no app nativa)
-    const isWebProduction = Platform.OS === 'web' &&
-      typeof window !== 'undefined' &&
-      !window.location.href.includes('localhost') &&
-      !window.location.href.match(/192\.168\.\d+\.\d+/);
+    const isWebProduction = Platform.OS === 'web' && (
+      process.env.EXPO_PUBLIC_ENV === 'production' ||
+      (typeof window !== 'undefined' && window.location.hostname === 'www.planmyroute.es')
+    );
     const emailRedirectTo = isWebProduction ? 'https://www.planmyroute.es/auth/callback' : undefined;
 
     // 1. Crear usuario en Supabase Auth con metadata del username y OTP
@@ -220,28 +252,23 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   const signOut = async () => {
-    console.log('=== signOut llamado ===');
+    let isTimeout = false;
+    const timeoutPromise = new Promise<never>((_, reject) =>
+      setTimeout(() => {
+        isTimeout = true;
+        reject(new Error('Timeout'));
+      }, 3000)
+    );
     try {
-      // Intentar cerrar sesión en Supabase con timeout
-      const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('Timeout')), 3000)
-      );
-
-      const signOutPromise = supabase.auth.signOut();
-
-      await Promise.race([signOutPromise, timeoutPromise]).catch((error) => {
-        console.warn('Advertencia en signOut (puede ser timeout):', error.message);
-      });
-
-      // Forzar limpieza local del estado
-      console.log('Limpiando estado local...');
-      setUser(null);
-      setSession(null);
-
-      console.log('signOut completado');
+      await Promise.race([supabase.auth.signOut(), timeoutPromise]);
     } catch (error) {
-      console.error('Error en signOut:', error);
-      // Aún así limpiar el estado local
+      const err = error as Error;
+      if (isTimeout) {
+        console.warn('signOut: timeout al contactar Supabase, cerrando sesión localmente');
+      } else {
+        console.error('signOut: error al cerrar sesión en el servidor:', err.message);
+      }
+    } finally {
       setUser(null);
       setSession(null);
     }
@@ -286,10 +313,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const requestPasswordReset = async (email: string) => {
     // En nativo, el deep link va al esquema de la app. En web, a la URL pública.
-    const isWebProduction = Platform.OS === 'web' &&
-      typeof window !== 'undefined' &&
-      !window.location.href.includes('localhost') &&
-      !window.location.href.match(/192\.168\.\d+\.\d+/);
+    const isWebProduction = Platform.OS === 'web' && (
+      process.env.EXPO_PUBLIC_ENV === 'production' ||
+      (typeof window !== 'undefined' && window.location.hostname === 'www.planmyroute.es')
+    );
     const redirectTo = Platform.OS === 'web'
       ? (isWebProduction ? 'https://www.planmyroute.es/auth/reset-password' : `${window.location.origin}/reset-password`)
       : 'planmyroute://auth/reset-password';
@@ -305,9 +332,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const signInWithGoogle = async () => {
     if (Platform.OS === 'web') {
-      const isWebProduction = typeof window !== 'undefined' &&
-        !window.location.href.includes('localhost') &&
-        !window.location.href.match(/192\.168\.\d+\.\d+/);
+      const isWebProduction = process.env.EXPO_PUBLIC_ENV === 'production' ||
+        (typeof window !== 'undefined' && window.location.hostname === 'www.planmyroute.es');
       const redirectUrl = isWebProduction
         ? 'https://www.planmyroute.es/auth/callback'
         : `${window.location.origin}/callback`;
@@ -359,7 +385,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, session, token: session?.access_token || null, isLoading, login, signUp, verifyOtp, resendOtp, signOut, signInWithGoogle, signInAsGuest, isGuest: Boolean((user as any)?.is_anonymous), requestPasswordReset, updatePassword }}>
+    <AuthContext.Provider value={{ user, session, token: session?.access_token || null, isLoading, login, signUp, verifyOtp, resendOtp, signOut, signInWithGoogle, signInAsGuest, isGuest: user?.is_anonymous === true, requestPasswordReset, updatePassword }}>
       {children}
     </AuthContext.Provider>
   );

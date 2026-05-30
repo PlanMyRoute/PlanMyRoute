@@ -1,4 +1,4 @@
-import CustomAlert from '@/components/customElements/CustomAlert';
+import { useAlert } from '@/context/AlertContext';
 import CustomDateTimePicker from '@/components/customElements/CustomDateTimePicker';
 import { LocationSearchInput } from '@/components/customElements/LocationSearchInput';
 import { TimePickerInput } from '@/components/modals/TimePickerInput';
@@ -14,7 +14,6 @@ import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import {
     ActivityIndicator,
-    Alert,
     KeyboardAvoidingView,
     ScrollView,
     Text,
@@ -109,9 +108,7 @@ export default function AddNewStopScreen() {
     const { stops } = useStops(tripId as string, { enabled: !!tripId });
     const [formData, setFormData] = useState<StopFormState>(initialFormState);
     const [originalAddress, setOriginalAddress] = useState<string>('');
-    const [alertState, setAlertState] = useState<{ visible: boolean; title: string; message: string; type: 'success' | 'error' }>({
-        visible: false, title: '', message: '', type: 'error'
-    });
+    const { showAlert } = useAlert();
     const [showDatePicker, setShowDatePicker] = useState(false);
     const [selectedDate, setSelectedDate] = useState<Date>(() => {
         if (currentTrip?.start_date) return new Date(currentTrip.start_date);
@@ -399,7 +396,7 @@ export default function AddNewStopScreen() {
     const handleSubmitStop = async () => {
         try {
             const validation = validateOrderRestrictions();
-            if (!validation.valid) { Alert.alert('Restricción de orden', validation.message || 'No se puede guardar esta parada'); return; }
+            if (!validation.valid) { showAlert({ title: 'Restricción de orden', message: validation.message || 'No se puede guardar esta parada', type: 'warning' }); return; }
             let coordinates = formData.stopData.coordinates;
             const addressChanged = isEditing && formData.stopData.address !== originalAddress;
             const needsGeocoding = !formData.stopData.coordinates;
@@ -407,13 +404,13 @@ export default function AddNewStopScreen() {
                 const newCoordinates = await geocodeStop(formData.stopData.address);
                 if (newCoordinates) { coordinates = newCoordinates; }
                 else {
-                    Alert.alert('Advertencia', 'No se pudieron obtener las coordenadas. ¿Deseas continuar?', [{ text: 'Cancelar', style: 'cancel' }, { text: 'Continuar', onPress: async () => await submitStopData(undefined) }]);
+                    showAlert({ title: 'Advertencia', message: 'No se pudieron obtener las coordenadas. ¿Deseas continuar?', type: 'warning', actions: [{ text: 'Cancelar', onPress: () => {}, variant: 'outline' }, { text: 'Continuar', onPress: async () => await submitStopData(undefined), variant: 'primary' }] });
                     return;
                 }
             }
             await submitStopData(coordinates);
         } catch (error: any) {
-            Alert.alert('Error', `No se pudo ${isEditing ? 'actualizar' : 'crear'} la parada: ${error?.message || 'Error desconocido'}`);
+            showAlert({ title: 'Error', message: `No se pudo ${isEditing ? 'actualizar' : 'crear'} la parada: ${error?.message || 'Error desconocido'}`, type: 'error' });
         }
     };
 
@@ -458,17 +455,17 @@ export default function AddNewStopScreen() {
                         if (!session) throw new Error('No hay sesión activa');
                         await ItineraryService.uploadReservationFile(createdOrUpdatedStopId, reservationFile, session.access_token);
                     } catch (uploadError: any) {
-                        Alert.alert('Error al subir archivo', `La parada se guardó pero hubo un error al subir el archivo:\n\n${uploadError?.message || 'Error desconocido'}`, [{ text: 'OK' }]);
+                        showAlert({ title: 'Error al subir archivo', message: `La parada se guardó pero hubo un error al subir el archivo: ${uploadError?.message || 'Error desconocido'}`, type: 'error' });
                     }
                 }
             }
-            setAlertState({ visible: true, title: '¡Listo!', message: isEditing ? 'Parada actualizada correctamente' : 'Parada creada correctamente', type: 'success' });
+            showAlert({ title: '¡Listo!', message: isEditing ? 'Parada actualizada correctamente' : 'Parada creada correctamente', type: 'success' });
             setTimeout(() => router.back(), 2000);
         } catch (error: any) {
             const errorMessage = error?.message || error?.toString() || 'Error desconocido';
             let userMessage = errorMessage;
             if (errorMessage.includes('invalid input syntax for type timestamp')) userMessage = 'Error al procesar la hora. Asegúrate de seleccionar una hora válida.';
-            setAlertState({ visible: true, title: 'Error', message: `No se pudo ${isEditing ? 'actualizar' : 'crear'} la parada:\n\n${userMessage}`, type: 'error' });
+            showAlert({ title: 'Error', message: `No se pudo ${isEditing ? 'actualizar' : 'crear'} la parada: ${userMessage}`, type: 'error' });
         }
     };
 
@@ -701,14 +698,6 @@ export default function AddNewStopScreen() {
                 </ScrollView>
             </KeyboardAvoidingView>
 
-            <CustomAlert
-                visible={alertState.visible}
-                title={alertState.title}
-                message={alertState.message}
-                type={alertState.type}
-                onClose={() => setAlertState({ ...alertState, visible: false })}
-            />
-
             <CustomDateTimePicker
                 value={selectedDate}
                 mode="date"
@@ -725,10 +714,10 @@ export default function AddNewStopScreen() {
                         let diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24)) + 1;
                         diffDays = Math.max(1, diffDays);
                         if (!isEditing && !allowedDays.includes(diffDays)) {
-                            setAlertState({
-                                visible: true, title: 'Fecha no permitida',
+                            showAlert({
+                                title: 'Fecha no permitida',
                                 message: formData.stopData.type === 'origen' ? 'El Origen debe estar en el Día 1' : formData.stopData.type === 'destino' ? `El Destino debe estar en el Día ${Math.min(...allowedDays)} o posterior` : 'Selecciona una fecha válida',
-                                type: 'error'
+                                type: 'error',
                             });
                             return;
                         }

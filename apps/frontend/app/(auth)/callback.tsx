@@ -1,76 +1,59 @@
 import { useEffect, useState } from 'react';
 import { View, ActivityIndicator, Text } from 'react-native';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { ROUTES } from '@/constants/routes';
 
 export default function AuthCallbackScreen() {
   const router = useRouter();
-  const params = useLocalSearchParams();
   const [status, setStatus] = useState('Procesando...');
 
   useEffect(() => {
     const handleCallback = async () => {
       try {
-        console.log('📍 [Callback] Iniciando proceso de callback...');
         setStatus('Obteniendo sesión...');
 
-        // Esperar un momento para que la URL se procese
-        await new Promise(resolve => setTimeout(resolve, 500));
-
-        const { data: { session }, error } = await supabase.auth.getSession();
-        
-        if (error) {
-          console.error('❌ [Callback] Error en autenticación:', error);
-          setStatus('Error en autenticación');
-          await new Promise(resolve => setTimeout(resolve, 1000));
-          router.replace(ROUTES.login);
-          return;
+        // OAuth redirect processing may need a moment — retry up to 5 times (500ms apart)
+        let session = null;
+        for (let attempt = 0; attempt < 5; attempt++) {
+          const { data, error } = await supabase.auth.getSession();
+          if (error) {
+            console.error('❌ [Callback] Error en autenticación:', error);
+            router.replace(ROUTES.login);
+            return;
+          }
+          if (data.session) {
+            session = data.session;
+            break;
+          }
+          if (attempt < 4) {
+            await new Promise(resolve => setTimeout(resolve, 500));
+          }
         }
 
         if (!session) {
-          console.log('⚠️ [Callback] No hay sesión, redirigiendo a login');
+          console.log('⚠️ [Callback] No hay sesión tras reintentos, redirigiendo a login');
           router.replace(ROUTES.login);
           return;
         }
 
-        console.log('✅ [Callback] Sesión obtenida:', session.user.email);
         setStatus('Verificando usuario...');
 
-        // Esperar a que AuthContext procese el usuario
-        await new Promise(resolve => setTimeout(resolve, 2000));
-
-        // Verificar si el usuario existe en la tabla user
-        const { data: userProfile, error: profileError } = await supabase
+        const { data: userProfile } = await supabase
           .from('user')
-          .select('*')
+          .select('id, username')
           .eq('id', session.user.id)
-          .single();
+          .maybeSingle();
 
-        if (profileError && profileError.code !== 'PGRST116') {
-          console.error('❌ [Callback] Error al verificar perfil:', profileError);
-        }
-
-        console.log('👤 [Callback] Usuario en BD:', userProfile ? 'Existe' : 'No existe');
-
-        // Verificar si necesita completar perfil
-        if (!userProfile || !userProfile.username || userProfile.username === '') {
-          console.log('🚩 [Callback] Usuario necesita completar perfil');
-          setStatus('Completando perfil...');
-          await new Promise(resolve => setTimeout(resolve, 500));
+        if (!userProfile?.username) {
           router.replace(ROUTES.completeProfile);
           return;
         }
 
-        console.log('✅ [Callback] Todo correcto, redirigiendo a home');
-        setStatus('Iniciando...');
-        await new Promise(resolve => setTimeout(resolve, 500));
         router.replace(ROUTES.tabsHome);
 
       } catch (error) {
         console.error('❌ [Callback] Error crítico:', error);
-        setStatus('Error inesperado');
-        await new Promise(resolve => setTimeout(resolve, 1000));
         router.replace(ROUTES.login);
       }
     };

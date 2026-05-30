@@ -1,4 +1,3 @@
-import CustomAlert from '@/components/customElements/CustomAlert';
 import CustomButton from '@/components/customElements/CustomButton';
 import { MicrotextDark, SubtitleSemibold, TextRegular, Title2Semibold } from '@/components/customElements/CustomText';
 import { SkeletonBox } from '@/components/customElements/SkeletonBox';
@@ -6,6 +5,7 @@ import { ReviewModal } from '@/components/modals/ReviewModal';
 import { PastTripsGallery } from '@/components/profile/PastTripsGallery';
 import { VehiclesSection } from '@/components/profile/VehiclesSection';
 import { ROUTES } from '@/constants/routes';
+import { useAlert } from '@/context/AlertContext';
 import { useAuth } from '@/context/AuthContext';
 import { useSubscription } from '@/context/SubscriptionContext';
 import { useCreateReview, useUserTripReview } from '@/hooks/useReviews';
@@ -33,18 +33,9 @@ interface UserProfileProps {
     isOwnProfile: boolean;
 }
 
-type AlertState = {
-    visible: boolean;
-    title: string;
-    message: string;
-    type: 'error' | 'success' | 'info' | 'warning';
-    actions?: { text: string; onPress: () => void; variant?: 'primary' | 'outline' | 'danger' }[];
-};
-
-const EMPTY_ALERT: AlertState = { visible: false, title: '', message: '', type: 'info' };
 
 export default function UserProfile({ userId, isOwnProfile }: UserProfileProps) {
-    const { user: currentUser, isGuest } = useAuth();
+    const { user: currentUser, isGuest, token } = useAuth();
     const router = useRouter();
     const { isPremium: amIPremium } = useSubscription();
 
@@ -55,7 +46,7 @@ export default function UserProfile({ userId, isOwnProfile }: UserProfileProps) 
 
     const isVerified = isOwnProfile ? amIPremium : profile?.is_premium;
 
-    const { vehicles, loading: vehiclesLoading, handleAddVehicle, handleEditVehicle, handleDeleteVehicle, maxVehicles, alert: vehicleAlert, closeAlert: closeVehicleAlert } = useVehicles(isOwnProfile ? userId : undefined);
+    const { vehicles, loading: vehiclesLoading, handleAddVehicle, handleEditVehicle, handleDeleteVehicle, maxVehicles } = useVehicles(isOwnProfile ? userId : undefined);
 
     const { data: pastTrips, isLoading: pastTripsLoading } = usePastTrips(userId, { publicOnly: !isOwnProfile });
 
@@ -74,10 +65,7 @@ export default function UserProfile({ userId, isOwnProfile }: UserProfileProps) 
     const createReview = useCreateReview();
     const { data: existingReview } = useUserTripReview(selectedTripForReview?.id?.toString() || '');
 
-    // Unified alert
-    const [alertState, setAlertState] = useState<AlertState>(EMPTY_ALERT);
-    const showAlert = (s: Omit<AlertState, 'visible'>) => setAlertState({ ...s, visible: true });
-    const closeAlert = () => setAlertState(EMPTY_ALERT);
+    const { showAlert, closeAlert } = useAlert();
 
     const handleProfilePicturePress = async () => {
         if (!isOwnProfile) return;
@@ -104,7 +92,10 @@ export default function UserProfile({ userId, isOwnProfile }: UserProfileProps) 
                 const response = await fetch(`${process.env.EXPO_PUBLIC_API_URL}/api/user/${userId}/upload-profile-image`, {
                     method: 'POST',
                     body: JSON.stringify({ image: base64Image }),
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: {
+                        'Content-Type': 'application/json',
+                        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+                    },
                 });
                 if (!response.ok) throw new Error(`Error ${response.status}`);
                 refetch();
@@ -367,24 +358,6 @@ export default function UserProfile({ userId, isOwnProfile }: UserProfileProps) 
                 </View>
             </Modal>
 
-            {/* Unified alert */}
-            <CustomAlert
-                visible={alertState.visible}
-                title={alertState.title}
-                message={alertState.message}
-                type={alertState.type}
-                actions={alertState.actions}
-                onClose={closeAlert}
-            />
-
-            {/* Vehicle alert */}
-            <CustomAlert
-                visible={vehicleAlert.visible}
-                title={vehicleAlert.title}
-                message={vehicleAlert.message}
-                type={vehicleAlert.type}
-                onClose={closeVehicleAlert}
-            />
         </>
     );
 }

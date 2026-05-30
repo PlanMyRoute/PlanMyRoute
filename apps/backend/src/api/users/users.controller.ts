@@ -37,10 +37,10 @@ export const getUserByUsername = async (req: Request, res: Response) => {
 
 export const searchUsersByUsername = async (req: Request, res: Response) => {
     const { username } = req.params;
+    const limit = Math.min(Math.max(Number(req.query.limit) || 20, 1), 50);
     try {
-        // Hacemos búsqueda parcial añadiendo %
         const searchPattern = `%${username}%`;
-        const users = await UserService.searchByUsername(searchPattern);
+        const users = await UserService.searchByUsername(searchPattern, limit);
         res.json(users);
     } catch (error) {
         const err = error as Error;
@@ -63,18 +63,28 @@ export const createUser = async (req: Request, res: Response) => {
 
     } catch (error) {
         const err = error as Error;
+        if (err.message === 'USERNAME_ALREADY_TAKEN') {
+            return res.status(409).json({ error: 'El nombre de usuario ya está en uso' });
+        }
         res.status(500).json({ error: err.message });
     }
 };
 
 export const updateUser = async (req: Request, res: Response) => {
     const { id } = req.params;
+    const ALLOWED_FIELDS = ['name', 'lastname', 'username', 'img', 'user_type', 'timezone', 'auto_trip_status_update'];
+    const filteredBody = Object.fromEntries(
+        Object.entries(req.body).filter(([key]) => ALLOWED_FIELDS.includes(key))
+    );
 
     try {
-        const updatedUser = await UserService.update(id, req.body);
+        const updatedUser = await UserService.update(id, filteredBody);
         res.json(updatedUser);
     } catch (error) {
         const err = error as Error;
+        if (err.message === 'USERNAME_ALREADY_TAKEN') {
+            return res.status(409).json({ error: 'El nombre de usuario ya está en uso' });
+        }
         if (err.message.includes('No se encontró')) {
             return res.status(404).json({ error: err.message });
         }

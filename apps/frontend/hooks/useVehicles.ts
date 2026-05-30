@@ -1,30 +1,18 @@
 import { ROUTES } from '@/constants/routes';
+import { useAlert } from '@/context/AlertContext';
 import { useAuth } from '@/context/AuthContext';
 import { Vehicle, VehicleService } from '@/services/VehicleService';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { Alert } from 'react-native';
 
 const MAX_VEHICLES = 3;
-
-export type VehicleAlert = {
-    visible: boolean;
-    title: string;
-    message: string;
-    type: 'error' | 'success' | 'info' | 'warning';
-};
 
 export function useVehicles(userId: string | undefined) {
     const router = useRouter();
     const { token } = useAuth();
+    const { showAlert } = useAlert();
     const [vehicles, setVehicles] = useState<Vehicle[]>([]);
     const [loading, setLoading] = useState(true);
-    const [alert, setAlert] = useState<VehicleAlert>({
-        visible: false,
-        title: '',
-        message: '',
-        type: 'info'
-    });
 
     const refetch = useCallback(async () => {
         if (!userId) {
@@ -50,21 +38,15 @@ export function useVehicles(userId: string | undefined) {
 
     const handleAddVehicle = useCallback(() => {
         if (vehicles.length >= MAX_VEHICLES) {
-            Alert.alert(
-                'Límite alcanzado',
-                `Solo puedes tener un máximo de ${MAX_VEHICLES} vehículos registrados.`,
-                [{ text: 'Entendido' }]
-            );
-            setAlert({
-                visible: true,
+            showAlert({
                 title: 'Límite alcanzado',
                 message: `Solo puedes tener un máximo de ${MAX_VEHICLES} vehículos registrados.`,
-                type: 'warning'
+                type: 'warning',
             });
             return;
         }
         router.push(ROUTES.addVehicle);
-    }, [vehicles.length, router]);
+    }, [vehicles.length, router, showAlert]);
 
     const handleEditVehicle = useCallback(
         (vehicle: Vehicle) => {
@@ -87,38 +69,19 @@ export function useVehicles(userId: string | undefined) {
     const handleDeleteVehicle = useCallback(
         async (vehicle: Vehicle) => {
             if (!userId) {
-                setAlert({
-                    visible: true,
-                    title: 'Error',
-                    message: 'No se puede eliminar el vehículo.',
-                    type: 'error'
-                });
+                showAlert({ title: 'Error', message: 'No se puede eliminar el vehículo.', type: 'error' });
                 return;
             }
             try {
                 await VehicleService.deleteVehicle(userId, vehicle.id.toString(), { token: token || undefined });
-                setAlert({
-                    visible: true,
-                    title: '¡Eliminado!',
-                    message: 'El vehículo ha sido eliminado correctamente.',
-                    type: 'success'
-                });
+                showAlert({ title: '¡Eliminado!', message: 'El vehículo ha sido eliminado correctamente.', type: 'success' });
                 refetch();
-            } catch (error) {
-                setAlert({
-                    visible: true,
-                    title: 'Error',
-                    message: 'No se pudo eliminar el vehículo.',
-                    type: 'error'
-                });
+            } catch {
+                showAlert({ title: 'Error', message: 'No se pudo eliminar el vehículo.', type: 'error' });
             }
         },
-        [userId, refetch, token]
+        [userId, refetch, token, showAlert]
     );
-
-    const closeAlert = useCallback(() => {
-        setAlert(prev => ({ ...prev, visible: false }));
-    }, []);
 
     return {
         vehicles,
@@ -128,7 +91,5 @@ export function useVehicles(userId: string | undefined) {
         handleEditVehicle,
         handleDeleteVehicle,
         maxVehicles: MAX_VEHICLES,
-        alert,
-        closeAlert,
     };
 }

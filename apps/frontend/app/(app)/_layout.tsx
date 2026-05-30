@@ -17,7 +17,7 @@ export default function AppLayout() {
   usePushNotifications();
 
   if (isAuthLoading) {
-    return null; // El portero raíz (app/_layout.tsx) ya muestra un spinner
+    return <View style={{ flex: 1, backgroundColor: '#FFD54D' }} />;
   }
 
   if (!user) {

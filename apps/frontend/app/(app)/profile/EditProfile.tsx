@@ -1,8 +1,8 @@
-import CustomAlert from '@/components/customElements/CustomAlert';
 import { CustomInput } from '@/components/customElements/CustomInput';
 import CustomButton from '@/components/customElements/CustomButton';
 import { MicrotextDark, SubtitleSemibold, TextRegular } from '@/components/customElements/CustomText';
 import { InterestSelector } from '@/components/interests/InterestSelector';
+import { useAlert } from '@/context/AlertContext';
 import { useAuth } from '@/context/AuthContext';
 import { useUserPreferences } from '@/hooks/users/useUserPreferences';
 import { useProfile } from '@/hooks/users/useUsers';
@@ -39,16 +39,6 @@ const COMMON_TIMEZONES = [
     { label: 'UTC', value: 'UTC' },
 ];
 
-type AlertState = {
-    visible: boolean;
-    title: string;
-    message: string;
-    type: 'error' | 'success' | 'info' | 'warning';
-    actions?: { text: string; onPress: () => void; variant?: 'primary' | 'outline' | 'danger' }[];
-    onClose?: () => void;
-};
-
-const EMPTY_ALERT: AlertState = { visible: false, title: '', message: '', type: 'info' };
 
 export default function EditProfileScreen() {
     const router = useRouter();
@@ -77,10 +67,7 @@ export default function EditProfileScreen() {
     const [autoUpdate, setAutoUpdate] = useState(false);
     const [showTimezoneList, setShowTimezoneList] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
-
-    const [alertState, setAlertState] = useState<AlertState>(EMPTY_ALERT);
-    const showAlert = (s: Omit<AlertState, 'visible'>) => setAlertState({ ...s, visible: true });
-    const closeAlert = () => setAlertState(EMPTY_ALERT);
+    const { showAlert, closeAlert } = useAlert();
 
     useEffect(() => {
         if (profile?.user) {
@@ -151,19 +138,30 @@ export default function EditProfileScreen() {
                 if (error) throw new Error('Error al actualizar la contraseña: ' + error.message);
             }
 
+            let emailChangePending = false;
             if (email !== user?.email) {
                 const { error } = await supabase.auth.updateUser({ email });
                 if (error) throw new Error('Error al actualizar el email: ' + error.message);
+                emailChangePending = true;
             }
 
             await updatePreferences({ timezone: selectedTimezone, autoTripStatusUpdate: autoUpdate });
 
-            showAlert({
-                title: '¡Perfil actualizado!',
-                message: 'Tus cambios han sido guardados correctamente',
-                type: 'success',
-                actions: [{ text: 'OK', onPress: () => { closeAlert(); router.back(); }, variant: 'primary' }],
-            });
+            if (emailChangePending) {
+                showAlert({
+                    title: 'Perfil actualizado',
+                    message: 'Tus cambios han sido guardados.\n\nAtención: hemos enviado un email de verificación a tu nueva dirección. El cambio de email se aplicará cuando confirmes el enlace.',
+                    type: 'info',
+                    actions: [{ text: 'Entendido', onPress: () => { closeAlert(); router.back(); }, variant: 'primary' }],
+                });
+            } else {
+                showAlert({
+                    title: '¡Perfil actualizado!',
+                    message: 'Tus cambios han sido guardados correctamente',
+                    type: 'success',
+                    actions: [{ text: 'OK', onPress: () => { closeAlert(); router.back(); }, variant: 'primary' }],
+                });
+            }
         } catch (error: any) {
             showAlert({ title: 'Error', message: error.message || 'No se pudo guardar el perfil. Inténtalo de nuevo.', type: 'error' });
         } finally {
@@ -390,14 +388,6 @@ export default function EditProfileScreen() {
                 </View>
             </View>
 
-            <CustomAlert
-                visible={alertState.visible}
-                title={alertState.title}
-                message={alertState.message}
-                type={alertState.type}
-                actions={alertState.actions}
-                onClose={alertState.onClose ?? closeAlert}
-            />
         </SafeAreaView>
     );
 }

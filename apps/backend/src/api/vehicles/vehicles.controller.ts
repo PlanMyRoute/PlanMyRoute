@@ -46,6 +46,9 @@ export const createVehicle = async (req: Request, res: Response) => {
         res.status(201).json(vehicle);
     } catch (error) {
         const err = error as Error;
+        if (err.message === 'VEHICLE_LIMIT_REACHED') {
+            return res.status(403).json({ error: 'Has alcanzado el límite máximo de 3 vehículos' });
+        }
         res.status(500).json({ error: err.message });
     }
 };

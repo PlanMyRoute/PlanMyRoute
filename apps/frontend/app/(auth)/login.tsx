@@ -57,8 +57,12 @@ export default function LoginScreen() {
 
   const handleLogin = async () => {
     if (!email || !password) {
-      // Aquí se llama a la función que cambia el estado a true
       showAlert('Campos incompletos', 'Por favor, introduce tu email y contraseña para continuar.');
+      return;
+    }
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email.trim())) {
+      showAlert('Email inválido', 'Por favor introduce una dirección de correo electrónico válida.');
       return;
     }
     setIsLoggingIn(true);

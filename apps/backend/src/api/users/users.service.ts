@@ -41,12 +41,12 @@ export const getByUsername = async (username: string) => {
     return data;
 };
 
-export const searchByUsername = async (searchPattern: string) => {
-    // Búsqueda parcial con ilike (case insensitive)
+export const searchByUsername = async (searchPattern: string, limit = 20) => {
     const { data, error } = await supabase
         .from(USER_TABLE_NAME)
         .select('id, username, name, lastname, img, bio, location')
-        .ilike('username', searchPattern);
+        .ilike('username', searchPattern)
+        .limit(limit);
 
     if (error) {
         throw new Error(`Error al buscar usuarios: ${error.message}`);
@@ -137,6 +137,9 @@ export const create = async (userData: User) => {
         .single();
 
     if (error) {
+        if (error.code === '23505' && error.message.includes('username')) {
+            throw new Error('USERNAME_ALREADY_TAKEN');
+        }
         throw new Error(`Error al crear el usuario: ${error.message}`);
     }
 
@@ -152,6 +155,9 @@ export const update = async (id: string, userData: Partial<User>) => {
         .maybeSingle();
 
     if (error) {
+        if (error.code === '23505' && error.message.includes('username')) {
+            throw new Error('USERNAME_ALREADY_TAKEN');
+        }
         throw new Error(`Error al actualizar el usuario: ${error.message}`);
     }
 
