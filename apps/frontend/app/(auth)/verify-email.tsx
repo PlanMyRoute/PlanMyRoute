@@ -1,6 +1,5 @@
-import { useRouter, useLocalSearchParams } from 'expo-router';
-import { ROUTES } from '../../constants/routes';
-import { useState, useRef } from 'react';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useRef, useState } from 'react';
 import {
   Image,
   KeyboardAvoidingView,
@@ -13,9 +12,10 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import CustomAlert from '../../components/customElements/CustomAlert';
+import { ROUTES } from '../../constants/routes';
 import { useAuth } from '../../context/AuthContext';
 
-const carLogoImage = require('../../assets/car-logo.png');
+const carLogoImage = require('../../assets/logo.png');
 
 interface AlertConfig {
   title: string;
@@ -127,76 +127,76 @@ export default function VerifyEmailScreen() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-        <View className="items-center mb-8">
-          <Text className="text-2xl text-[#1D1D1B]">Verifica tu email</Text>
-          <Text className="text-3xl font-bold text-[#1D1D1B] mb-3 text-center">PlanMyRoute</Text>
-          <Image source={carLogoImage} style={{ width: 160, height: 96 }} resizeMode="contain" />
-        </View>
-
-        <View className="w-full">
-          <Text className="text-base text-[#1D1D1B] mb-1 text-center">
-            Hemos enviado un código de 6 dígitos a:
-          </Text>
-          <Text className="text-lg font-bold text-[#1D1D1B] mb-8 text-center">
-            {email}
-          </Text>
-
-          {/* Inputs del código OTP */}
-          <View className="flex-row justify-center gap-2 mb-8">
-            {code.map((digit, index) => (
-              <TextInput
-                key={index}
-                ref={(ref) => { inputRefs.current[index] = ref; }}
-                className="bg-white rounded-xl w-12 h-14 text-center text-2xl font-bold text-black shadow-md"
-                value={digit}
-                onChangeText={(text) => handleCodeChange(text, index)}
-                onKeyPress={(e) => handleKeyPress(e, index)}
-                keyboardType="number-pad"
-                maxLength={1}
-                selectTextOnFocus
-                autoFocus={index === 0}
-              />
-            ))}
+          <View className="items-center mb-8">
+            <Text className="text-2xl text-[#1D1D1B]">Verifica tu email</Text>
+            <Text className="text-3xl font-bold text-[#1D1D1B] mb-3 text-center">PlanMyRoute</Text>
+            <Image source={carLogoImage} style={{ width: 160, height: 96 }} resizeMode="contain" />
           </View>
 
-          <TouchableOpacity
-            className="bg-[#232323] rounded-full h-14 justify-center items-center mb-3 shadow-md"
-            onPress={() => handleVerify()}
-            activeOpacity={0.8}
-          >
-            <Text className="text-white text-lg font-bold">Verificar código</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            className="bg-white border border-[#232323] rounded-full h-14 justify-center items-center mb-3 shadow-sm"
-            onPress={async () => {
-              if (isResending) return;
-              setIsResending(true);
-              try {
-                await resendOtp(email);
-                showAlert('Código reenviado', 'Revisa tu correo electrónico', 'success');
-              } catch (error: any) {
-                showAlert('Error', error.message || 'No se pudo reenviar el código', 'error');
-              } finally {
-                setIsResending(false);
-              }
-            }}
-            activeOpacity={0.8}
-            disabled={isResending}
-          >
-            <Text className="text-[#232323] text-lg font-bold">
-              {isResending ? 'Reenviando...' : 'Reenviar código'}
+          <View className="w-full">
+            <Text className="text-base text-[#1D1D1B] mb-1 text-center">
+              Hemos enviado un código de 6 dígitos a:
             </Text>
-          </TouchableOpacity>
+            <Text className="text-lg font-bold text-[#1D1D1B] mb-8 text-center">
+              {email}
+            </Text>
 
-          <TouchableOpacity
-            className="items-center mt-4"
-            onPress={() => router.back()}
-            activeOpacity={0.7}
-          >
-            <Text className="text-[#1D1D1B] text-sm underline">Volver al registro</Text>
-          </TouchableOpacity>
-        </View>
+            {/* Inputs del código OTP */}
+            <View className="flex-row justify-center gap-2 mb-8">
+              {code.map((digit, index) => (
+                <TextInput
+                  key={index}
+                  ref={(ref) => { inputRefs.current[index] = ref; }}
+                  className="bg-white rounded-xl w-12 h-14 text-center text-2xl font-bold text-black shadow-md"
+                  value={digit}
+                  onChangeText={(text) => handleCodeChange(text, index)}
+                  onKeyPress={(e) => handleKeyPress(e, index)}
+                  keyboardType="number-pad"
+                  maxLength={1}
+                  selectTextOnFocus
+                  autoFocus={index === 0}
+                />
+              ))}
+            </View>
+
+            <TouchableOpacity
+              className="bg-[#232323] rounded-full h-14 justify-center items-center mb-3 shadow-md"
+              onPress={() => handleVerify()}
+              activeOpacity={0.8}
+            >
+              <Text className="text-white text-lg font-bold">Verificar código</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              className="bg-white border border-[#232323] rounded-full h-14 justify-center items-center mb-3 shadow-sm"
+              onPress={async () => {
+                if (isResending) return;
+                setIsResending(true);
+                try {
+                  await resendOtp(email);
+                  showAlert('Código reenviado', 'Revisa tu correo electrónico', 'success');
+                } catch (error: any) {
+                  showAlert('Error', error.message || 'No se pudo reenviar el código', 'error');
+                } finally {
+                  setIsResending(false);
+                }
+              }}
+              activeOpacity={0.8}
+              disabled={isResending}
+            >
+              <Text className="text-[#232323] text-lg font-bold">
+                {isResending ? 'Reenviando...' : 'Reenviar código'}
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              className="items-center mt-4"
+              onPress={() => router.back()}
+              activeOpacity={0.7}
+            >
+              <Text className="text-[#1D1D1B] text-sm underline">Volver al registro</Text>
+            </TouchableOpacity>
+          </View>
         </ScrollView>
       </SafeAreaView>
     </KeyboardAvoidingView>

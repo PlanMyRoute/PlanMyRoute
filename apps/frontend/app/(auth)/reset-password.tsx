@@ -18,7 +18,7 @@ import CustomAlert from '../../components/customElements/CustomAlert';
 import { ROUTES } from '../../constants/routes';
 import { useAuth } from '../../context/AuthContext';
 
-const carLogoImage = require('../../assets/car-logo.png');
+const carLogoImage = require('../../assets/logo.png');
 
 interface AlertConfig {
   title: string;

@@ -1,6 +1,6 @@
+import { ROUTES } from '@/constants/routes';
 import { useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
-import { ROUTES } from '@/constants/routes';
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -17,7 +17,7 @@ import CustomAlert from '../../components/customElements/CustomAlert';
 import { useAuth } from '../../context/AuthContext';
 import { UserService } from '../../services/userService';
 
-const carLogoImage = require('../../assets/car-logo.png');
+const carLogoImage = require('../../assets/logo.png');
 
 export default function CompleteProfileScreen() {
   const { user, token } = useAuth();
@@ -51,7 +51,7 @@ export default function CompleteProfileScreen() {
       console.log('🔄 [CompleteProfile] Iniciando carga de perfil...');
       console.log('User ID:', user?.id);
       console.log('User metadata:', user?.user_metadata);
-      
+
       if (!user?.id) {
         console.log('⚠️ No hay usuario autenticado');
         setIsLoading(false);
@@ -63,8 +63,8 @@ export default function CompleteProfileScreen() {
         console.log('⏱️ Timeout de carga alcanzado, usando datos de auth');
         if (user?.user_metadata) {
           setName(user.user_metadata.name || user.user_metadata.full_name || '');
-          setSurname(user.user_metadata.surname || '');
-          setUserName(user.user_metadata.user_name || '');
+          setLastname(user.user_metadata.surname || '');
+          setUsername(user.user_metadata.user_name || '');
         }
         setUserExists(false);
         setIsLoading(false);
@@ -74,7 +74,7 @@ export default function CompleteProfileScreen() {
         console.log('🔍 Verificando si usuario existe en BD...');
         const profile = await UserService.getUserProfile(user.id, { token: token || undefined });
         clearTimeout(timeoutId);
-        
+
         if (profile?.user) {
           console.log('✅ Perfil encontrado, pre-llenando datos');
           setName(profile.user.name || '');
@@ -105,7 +105,7 @@ export default function CompleteProfileScreen() {
 
   const handleSaveProfile = async () => {
     console.log('=== handleSaveProfile ===');
-    
+
     // Validaciones
     if (!username.trim()) {
       showAlert('Campo requerido', 'El nombre de usuario es obligatorio.');
@@ -143,7 +143,7 @@ export default function CompleteProfileScreen() {
       console.log('Guardando perfil con:', profileData);
 
       let result;
-      
+
       // Verificar nuevamente si el usuario existe (pudo ser creado por el trigger)
       let finalUserExists = userExists;
       try {
@@ -179,7 +179,7 @@ export default function CompleteProfileScreen() {
       await queryClient.invalidateQueries({ queryKey: ['userById', user.id] });
 
       showAlert('¡Perfecto!', 'Tu perfil está completo. ¡Bienvenido a PlanMyRoute!', 'success');
-      
+
       // Redirigir después de mostrar el alert
       setTimeout(() => {
         router.replace(ROUTES.tabsHome);
@@ -220,7 +220,7 @@ export default function CompleteProfileScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View className="items-center mb-6">
-          <Image source={carLogoImage} style={{ width: 120, height: 70 }} resizeMode="contain"/>
+          <Image source={carLogoImage} style={{ width: 120, height: 70 }} resizeMode="contain" />
           <Text className="text-3xl font-bold text-[#1D1D1B] mt-4">¡Último paso!</Text>
           <Text className="text-base text-[#666] text-center mt-2 px-4">
             Completa tu perfil para empezar a planificar tus viajes

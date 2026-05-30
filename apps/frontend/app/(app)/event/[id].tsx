@@ -1,7 +1,9 @@
+import CustomAlert from '@/components/customElements/CustomAlert';
 import { useAuth } from '@/context/AuthContext';
 import { useEvent } from '@/hooks/useEvents';
 import { supabase } from '@/lib/supabase';
 import { ChatMessage, EventService } from '@/services/eventService';
+import { ROUTES } from '@/constants/routes';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
@@ -49,7 +51,7 @@ function timeAgo(dateStr: string) {
 
 function ChatBubble({ msg, isOwn }: { msg: ChatMessage; isOwn: boolean }) {
     const avatar = msg.user?.img;
-    const username = msg.user?.username || 'Usuario';
+    const username = msg.user?.username?.startsWith('invitado_') ? 'Viajero' : (msg.user?.username || 'Usuario');
 
     return (
         <View className={`flex-row mb-3 ${isOwn ? 'justify-end' : 'justify-start'}`}>
@@ -215,7 +217,7 @@ export default function EventDetailScreen() {
     const { id, dates: datesParam } = useLocalSearchParams<{ id: string; dates?: string }>();
     const router = useRouter();
     const insets = useSafeAreaInsets();
-    const { user, token } = useAuth();
+    const { user, token, isGuest } = useAuth();
     const allDates: string[] = datesParam ? (JSON.parse(datesParam) as string[]) : [];
 
     const { data: event, isLoading, isError } = useEvent(id ?? null);
@@ -225,6 +227,7 @@ export default function EventDetailScreen() {
     const [text, setText] = useState('');
     const [sending, setSending] = useState(false);
     const [chatModalVisible, setChatModalVisible] = useState(false);
+    const [guestTripAlertVisible, setGuestTripAlertVisible] = useState(false);
 
     // Cargar mensajes históricos
     useEffect(() => {
@@ -295,7 +298,7 @@ export default function EventDetailScreen() {
         }
     };
 
-    const handleCreateTrip = () => {
+    const doCreateTrip = () => {
         if (!event) return;
         router.push({
             pathname: '/event/createFromEvent',
@@ -311,6 +314,15 @@ export default function EventDetailScreen() {
                 date: event.date || '',
             },
         });
+    };
+
+    const handleCreateTrip = () => {
+        if (!event) return;
+        if (isGuest) {
+            setGuestTripAlertVisible(true);
+            return;
+        }
+        doCreateTrip();
     };
 
     if (isLoading) {
@@ -524,6 +536,27 @@ export default function EventDetailScreen() {
                     </TouchableOpacity>
                 </View>
             </ScrollView>
+
+            {/* Alerta modo invitado al crear viaje */}
+            <CustomAlert
+                visible={guestTripAlertVisible}
+                title="Estás en modo invitado"
+                message="Este viaje se guardará en tu dispositivo. Si cierras sesión lo perderás. Regístrate para conservar tus viajes en cualquier dispositivo."
+                type="info"
+                onClose={() => setGuestTripAlertVisible(false)}
+                actions={[
+                    {
+                        text: 'Registrarme',
+                        onPress: () => { setGuestTripAlertVisible(false); router.push(ROUTES.register); },
+                        variant: 'yellow',
+                    },
+                    {
+                        text: 'Continuar',
+                        onPress: () => { setGuestTripAlertVisible(false); doCreateTrip(); },
+                        variant: 'dark',
+                    },
+                ]}
+            />
 
             {/* Full chat modal */}
             <ChatModal

@@ -13,10 +13,10 @@ export const ROUTES = {
 
   // Tabs
   tabsHome: '/(app)/(tabs)/' as Href,
-  tabsCreateTrip: '/(app)/(tabs)/CreateTrip' as Href,
-  tabsEventsMap: '/(app)/(tabs)/EventsMap' as Href,
-  tabsFeed: '/(app)/(tabs)/Feed' as Href,
-  tabsProfile: '/(app)/(tabs)/Profile' as Href,
+  tabsCreateTrip: '/(app)/(tabs)/createTrip' as Href,
+  tabsEventsMap: '/(app)/(tabs)/events' as Href,
+  tabsFeed: '/(app)/(tabs)/feed' as Href,
+  tabsProfile: '/(app)/(tabs)/profile' as Href,
 
   // App screens
   completeProfile: '/complete-profile' as Href,

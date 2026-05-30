@@ -1,6 +1,5 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useRouter } from 'expo-router';
-import { ROUTES } from '../../constants/routes';
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -15,9 +14,10 @@ import {
   View
 } from 'react-native';
 import CustomAlert from '../../components/customElements/CustomAlert';
+import { ROUTES } from '../../constants/routes';
 import { useAuth } from '../../context/AuthContext';
 
-const carLogoImage = require('../../assets/car-logo.png');
+const carLogoImage = require('../../assets/logo.png');
 
 interface AlertConfig {
   title: string;

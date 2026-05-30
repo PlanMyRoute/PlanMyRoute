@@ -11,11 +11,9 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View,
-  ViewStyle,
+  ViewStyle
 } from 'react-native';
-import QRCode from 'react-native-qrcode-svg';
 import Animated, {
   Easing,
   FadeIn,
@@ -361,23 +359,6 @@ export default function WelcomeScreen() {
               </Link>
             </Animated.View>
 
-            {/* Promo Code Section */}
-            <Animated.View
-              entering={FadeIn.delay(1600).duration(800)}
-              style={styles.promoSection}
-            >
-              <Text style={styles.promoTitle}>Visita PlanMyRoute</Text>
-              <View style={styles.qrContainer}>
-                <QRCode
-                  value="https://www.planmyroute.es/"
-                  size={180}
-                  color="#202020"
-                  backgroundColor="white"
-                />
-              </View>
-              <Text style={styles.promoUrl}>www.planmyroute.es</Text>
-            </Animated.View>
-
             {/* Hero Image */}
             <Animated.View
               entering={FadeIn.delay(1800).duration(1200)}
@@ -552,76 +533,6 @@ export default function WelcomeScreen() {
             ))}
           </View>
         </View>
-
-        {/* Stats Counter */}
-        <LinearGradient
-          colors={['#202020', '#424242']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 0 }}
-          style={styles.statsSection}
-        >
-          <View style={styles.statsGrid}>
-            <View style={styles.statCard}>
-              <View style={styles.statIcon}>
-                <Ionicons name="people" size={48} color="white" />
-              </View>
-              <Text
-                className="stat-number"
-                data-target="1000"
-                style={styles.statBigNumber}
-              >
-                1,000+
-              </Text>
-              <Text style={styles.statBigLabel}>Usuarios Activos</Text>
-            </View>
-
-            <View style={styles.statCard}>
-              <View style={styles.statIcon}>
-                <Ionicons name="map" size={48} color="white" />
-              </View>
-              <Text
-                className="stat-number"
-                data-target="3000"
-                style={styles.statBigNumber}
-              >
-                3,000+
-              </Text>
-              <Text style={styles.statBigLabel}>Viajes Creados</Text>
-            </View>
-
-            <View style={styles.statCard}>
-              <View style={styles.statIcon}>
-                <Ionicons name="location" size={48} color="white" />
-              </View>
-              <Text
-                className="stat-number"
-                data-target="15000"
-                style={styles.statBigNumber}
-              >
-                15,000+
-              </Text>
-              <Text style={styles.statBigLabel}>Paradas Guardadas</Text>
-            </View>
-
-            <View style={styles.statCard}>
-              <View style={styles.statIcon}>
-                <Ionicons name="heart" size={48} color="white" />
-              </View>
-              <View style={styles.ratingContainer}>
-                <Text
-                  className="stat-number"
-                  data-target="4"
-                  style={styles.statBigNumber}
-                >
-                  4
-                </Text>
-                <Text style={styles.statBigNumber}>.8</Text>
-                <Ionicons name="star" size={32} color="#FFD54D" />
-              </View>
-              <Text style={styles.statBigLabel}>Valoración Media</Text>
-            </View>
-          </View>
-        </LinearGradient>
 
         {/* Premium Section */}
         <View style={styles.premiumSection}>

@@ -44,12 +44,14 @@ type AlertState = {
 const EMPTY_ALERT: AlertState = { visible: false, title: '', message: '', type: 'info' };
 
 export default function UserProfile({ userId, isOwnProfile }: UserProfileProps) {
-    const { user: currentUser } = useAuth();
+    const { user: currentUser, isGuest } = useAuth();
     const router = useRouter();
     const { isPremium: amIPremium } = useSubscription();
 
     const { data: profile, isLoading: userLoading, refetch } = useProfile(userId, undefined);
-    const DEFAULT_PROFILE_PIC = `https://ui-avatars.com/api/?name=${profile?.user.username || 'User'}&background=FFD54D&color=202020&size=200`;
+    const isGuestOwnProfile = isOwnProfile && isGuest;
+    const displayName = isGuestOwnProfile ? 'Viajero' : (profile?.user.name || '');
+    const DEFAULT_PROFILE_PIC = `https://ui-avatars.com/api/?name=${isGuestOwnProfile ? 'Viajero' : (profile?.user.username || 'User')}&background=FFD54D&color=202020&size=200`;
 
     const isVerified = isOwnProfile ? amIPremium : profile?.is_premium;
 
@@ -196,7 +198,7 @@ export default function UserProfile({ userId, isOwnProfile }: UserProfileProps) 
 
                         <View className="ml-4 flex-1">
                             <View className="flex-row items-center gap-2">
-                                <Title2Semibold className="shrink">{profile.user.name}</Title2Semibold>
+                                <Title2Semibold className="shrink">{displayName}</Title2Semibold>
                                 {isVerified && (
                                     <TouchableOpacity onPress={handleVerifiedPress}>
                                         <Ionicons name="checkmark-circle" size={22} color="#FFD54D" />

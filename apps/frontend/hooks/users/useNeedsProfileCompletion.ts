@@ -24,8 +24,11 @@ export function useNeedsProfileCompletion(): {
     return { needsCompletion: false, isLoading: true };
   }
   if (error) {
-    // Fallback: si por alguna razón no existe la fila, lo marcamos como incompleto.
-    return { needsCompletion: true, isLoading: false };
+    // Si el backend no está disponible (error de red, IP incorrecta, etc.) no podemos
+    // determinar el estado del perfil. No bloqueamos al usuario: devolvemos false para
+    // que pueda usar la app. El perfil incompleto genuino se gestiona en callback.tsx
+    // (OAuth) y en verifyOtp (email OTP), que crean la fila antes del primer acceso.
+    return { needsCompletion: false, isLoading: false };
   }
   const name = data?.user?.name;
   return { needsCompletion: !name || name.trim() === '', isLoading: false };

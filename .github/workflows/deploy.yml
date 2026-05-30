@@ -16,10 +16,12 @@ jobs:
           username: adrian
           password: ${{ secrets.SSH_PASSWORD }}
           command_timeout: 20m
+          envs: SUPABASE_SERVICE_ROLE_KEY
           script: |
             export DOCKER_HOST=unix:///var/run/docker.sock
             cd /opt/proyecto/planmyroute
             git pull origin main
+            sed -i "s|^SUPABASE_SERVICE_ROLE_KEY=.*|SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}|" apps/backend/.env
             docker compose down || true
             docker compose build --no-cache
             docker compose up -d

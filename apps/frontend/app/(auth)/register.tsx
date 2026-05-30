@@ -1,6 +1,5 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useRouter } from 'expo-router';
-import { ROUTES } from '../../constants/routes';
 import { useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -15,9 +14,10 @@ import {
   View
 } from 'react-native';
 import CustomAlert from '../../components/customElements/CustomAlert';
+import { ROUTES } from '../../constants/routes';
 import { useAuth } from '../../context/AuthContext';
 
-const carLogoImage = require('../../assets/car-logo.png');
+const carLogoImage = require('../../assets/logo.png');
 
 interface AlertConfig {
   title: string;
@@ -107,13 +107,13 @@ export default function RegisterScreen() {
       const result = await signUp(email, password, username);
       console.log('🔵 Registro exitoso, redirigiendo a verify-email...');
       console.log('🔵 Email:', email);
-      
+
       // Usar setTimeout para asegurar que la redirección ocurra después del render
       setTimeout(() => {
         console.log('🔵 Ejecutando redirección...');
         router.replace(ROUTES.verifyEmail(email));
       }, 100);
-      
+
       console.log('🔵 Redirección programada');
     } catch (e) {
       console.error('🔴 Error en registro:', e);
@@ -157,7 +157,7 @@ export default function RegisterScreen() {
         <View className="items-center mb-6">
           <Text className="text-3xl text-[#1D1D1B]">Bienvenid@ a</Text>
           <Text className="text-4xl font-bold text-[#1D1D1B] mb-4 text-center">PlanMyRoute</Text>
-          <Image source={carLogoImage} className="mb-4" style={{ width: 192, height: 112 }} resizeMode="contain"/>
+          <Image source={carLogoImage} className="mb-4" style={{ width: 192, height: 112 }} resizeMode="contain" />
         </View>
 
         <View className="w-full">

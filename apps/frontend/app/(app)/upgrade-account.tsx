@@ -19,7 +19,7 @@ import { ROUTES } from '../../constants/routes';
 import { useAuth } from '../../context/AuthContext';
 import { supabase } from '../../lib/supabase';
 
-const carLogoImage = require('../../assets/car-logo.png');
+const carLogoImage = require('../../assets/logo.png');
 
 interface AlertConfig {
   title: string;

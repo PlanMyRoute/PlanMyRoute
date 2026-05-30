@@ -1,18 +1,18 @@
 {
   "expo": {
-    "name": "PlanMyRoute_Frontend",
+    "name": "PlanMyRoute",
     "slug": "planmyroute-frontend",
     "version": "1.0.0",
-    "owner": "lorenbit",
+    "owner": "Rololab",
     "orientation": "portrait",
-    "icon": "./assets/images/logo.png",
+    "icon": "./assets/logo.png",
     "scheme": "planmyroute",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "splash": {
-      "image": "./assets/images/logo.png",
+      "image": "./assets/logo.png",
       "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
+      "backgroundColor": "#FFD54D"
     },
     "ios": {
       "supportsTablet": true,
@@ -22,8 +22,8 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/logo.png",
-        "backgroundColor": "#ffffff"
+        "foregroundImage": "./assets/logo.png",
+        "backgroundColor": "#FFD54D"
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
@@ -42,7 +42,9 @@
     "web": {
       "bundler": "metro",
       "output": "static",
-      "favicon": "./assets/images/logo.png"
+      "favicon": "./public/favicon.ico",
+      "backgroundColor": "#FFD54D",
+      "themeColor": "#FFD54D"
     },
     "plugins": [
       "expo-router",
