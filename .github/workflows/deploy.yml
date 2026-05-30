@@ -24,6 +24,9 @@ jobs:
             cd /opt/proyecto/planmyroute
             git pull origin main
             sed -i "s|^SUPABASE_SERVICE_ROLE_KEY=.*|SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}|" apps/backend/.env
+            grep -q "^ALLOWED_ORIGINS=" apps/backend/.env \
+              && sed -i "s|^ALLOWED_ORIGINS=.*|ALLOWED_ORIGINS=https://planmyroute.es,https://www.planmyroute.es|" apps/backend/.env \
+              || echo "ALLOWED_ORIGINS=https://planmyroute.es,https://www.planmyroute.es" >> apps/backend/.env
             docker compose down || true
             docker compose build --no-cache
             docker compose up -d
