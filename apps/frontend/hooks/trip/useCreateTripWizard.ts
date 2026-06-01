@@ -161,7 +161,9 @@ export function useCreateTripWizard({
             case 1:
                 return (
                     basics.origin.trim().length > 0 &&
+                    basics.originData !== null &&
                     basics.destination.trim().length > 0 &&
+                    basics.destinationData !== null &&
                     basics.startDate !== null &&
                     basics.endDate !== null &&
                     intermediateStops.list.every(s => s.coordinates !== null)
@@ -182,9 +184,9 @@ export function useCreateTripWizard({
     const isStepValid = useMemo(
         () => isStepValidForStep(step),
         // eslint-disable-next-line react-hooks/exhaustive-deps
-        [step, tripName, basics.origin, basics.destination, basics.startDate, basics.endDate,
-            travelers.travelerCounts.adults, preferences.selectedInterests, isAiTrip,
-            intermediateStops.list]
+        [step, tripName, basics.origin, basics.originData, basics.destination, basics.destinationData,
+            basics.startDate, basics.endDate, travelers.travelerCounts.adults,
+            preferences.selectedInterests, isAiTrip, intermediateStops.list]
     );
 
     const canNavigateToStep = (targetStep: number): boolean => {

@@ -106,4 +106,35 @@ router.get('/details', async (req: Request, res: Response) => {
     }
 });
 
+/**
+ * GET /api/places/reverse?lat=&lng=
+ * Reverse geocoding via Nominatim — devuelve dirección legible desde coordenadas GPS.
+ */
+router.get('/reverse', async (req: Request, res: Response) => {
+    try {
+        const { lat, lng } = req.query;
+        if (!lat || !lng) {
+            return res.status(400).json({ error: 'Parámetros lat y lng requeridos' });
+        }
+        const params = new URLSearchParams({
+            lat: String(lat),
+            lon: String(lng),
+            format: 'json',
+            'accept-language': 'es',
+        });
+        const response = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?${params}`,
+            { headers: { 'User-Agent': NOMINATIM_USER_AGENT } }
+        );
+        if (!response.ok) {
+            return res.status(response.status).json({ address: null });
+        }
+        const data = await response.json() as any;
+        res.json({ address: data.display_name ?? null });
+    } catch (error) {
+        console.error('Error en /api/places/reverse:', error);
+        res.status(500).json({ address: null });
+    }
+});
+
 export default router;

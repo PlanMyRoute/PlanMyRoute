@@ -106,10 +106,9 @@ export default function CreateWizardScreen() {
 
     const stepInfo = STEP_TITLES[step];
 
-    // On step 1, go back to createTrip tab instead of rendering empty step 0
     const handleGoBack = () => {
         if (step === 1) {
-            router.back();
+            router.navigate(ROUTES.tabsCreateTrip);
         } else {
             goBack();
         }
@@ -699,7 +698,7 @@ export default function CreateWizardScreen() {
                             title={
                                 <View className="flex-row items-center justify-center gap-2">
                                     <Ionicons name="arrow-back" size={16} color="#FFFFFF" />
-                                    <TextRegular className="text-white">Anterior</TextRegular>
+                                    <TextRegular style={{ color: '#FFFFFF' }}>Anterior</TextRegular>
                                 </View>
                             }
                             onPress={handleGoBack}

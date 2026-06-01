@@ -1,4 +1,5 @@
 import { formatMapAddress, MapLocationPicker, MapPickerCoords } from '@/components/maps/MapLocationPicker';
+import { MapLocationPickerWeb } from '@/components/maps/MapLocationPickerWeb';
 import type { LocationCoordinates } from '@/components/modals/GetLocationModal';
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
@@ -33,6 +34,13 @@ type LocationSearchInputProps = {
     currentCoordinates?: LocationCoordinates | null;
 };
 
+function getApiBaseUrl(): string {
+    return process.env.EXPO_PUBLIC_API_URL
+        || (Platform.OS === 'web' && typeof window !== 'undefined'
+            ? window.location.origin
+            : 'http://localhost:3000');
+}
+
 // ── Internal search modal ─────────────────────────────────────────────────────
 
 type LocationSearchModalProps = {
@@ -54,6 +62,7 @@ const LocationSearchModal = ({
     const [predictions, setPredictions] = useState<LocationPrediction[]>([]);
     const [loading, setLoading] = useState(false);
     const [gpsLoading, setGpsLoading] = useState(false);
+    const [gpsError, setGpsError] = useState<string | null>(null);
     const inputRef = useRef<TextInput>(null);
     const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -61,6 +70,7 @@ const LocationSearchModal = ({
         if (visible) {
             setQuery('');
             setPredictions([]);
+            setGpsError(null);
             const t = setTimeout(() => inputRef.current?.focus(), 100);
             return () => clearTimeout(t);
         }
@@ -73,7 +83,7 @@ const LocationSearchModal = ({
         debounceRef.current = setTimeout(async () => {
             setLoading(true);
             try {
-                const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
+                const apiUrl = getApiBaseUrl();
                 const res = await fetch(
                     `${apiUrl}/api/places/autocomplete?input=${encodeURIComponent(text)}&language=es`
                 );
@@ -97,7 +107,7 @@ const LocationSearchModal = ({
     const handleSelectPrediction = useCallback(async (prediction: LocationPrediction) => {
         setLoading(true);
         try {
-            const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
+            const apiUrl = getApiBaseUrl();
             const res = await fetch(
                 `${apiUrl}/api/places/details?place_id=${prediction.place_id}&fields=geometry,formatted_address`
             );
@@ -116,19 +126,36 @@ const LocationSearchModal = ({
 
     const handleGPS = async () => {
         setGpsLoading(true);
+        setGpsError(null);
         try {
             const { status } = await Location.requestForegroundPermissionsAsync();
-            if (status !== 'granted') return;
+            if (status !== 'granted') {
+                setGpsError('Permiso de ubicación denegado.');
+                return;
+            }
             const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
             const coords: LocationCoordinates = {
                 latitude: loc.coords.latitude,
                 longitude: loc.coords.longitude,
             };
-            const results = await Location.reverseGeocodeAsync(coords);
-            const address = formatMapAddress(results[0]) ?? 'Ubicación actual';
+            let address: string | null = null;
+            if (Platform.OS === 'web') {
+                try {
+                    const res = await fetch(`${getApiBaseUrl()}/api/places/reverse?lat=${coords.latitude}&lng=${coords.longitude}`);
+                    const data = await res.json();
+                    address = data.address ?? null;
+                } catch { /* ignore */ }
+            } else {
+                const results = await Location.reverseGeocodeAsync(coords);
+                address = formatMapAddress(results[0]) ?? null;
+            }
+            if (!address) {
+                setGpsError('No se pudo resolver la ubicación. Busca manualmente.');
+                return;
+            }
             onLocationSelect(address, coords);
         } catch {
-            // ignore
+            setGpsError('Error al obtener la ubicación. Verifica los permisos.');
         } finally {
             setGpsLoading(false);
         }
@@ -197,7 +224,7 @@ const LocationSearchModal = ({
                         }
                         <TextRegular style={{ color: '#202020', fontSize: 13 }}>Usar mi ubicación</TextRegular>
                     </TouchableOpacity>
-                    {showLocationButton && Platform.OS !== 'web' && (
+                    {showLocationButton && (
                         <TouchableOpacity
                             onPress={onOpenMap}
                             style={{
@@ -212,6 +239,13 @@ const LocationSearchModal = ({
                         </TouchableOpacity>
                     )}
                 </View>
+
+                {/* GPS error */}
+                {gpsError && (
+                    <MicrotextDark style={{ color: '#EF4444', paddingHorizontal: 16, paddingVertical: 8 }}>
+                        {gpsError}
+                    </MicrotextDark>
+                )}
 
                 {/* Results */}
                 <FlatList
@@ -283,8 +317,14 @@ export const LocationSearchInput = ({
             let resolvedAddress = address;
             if (!resolvedAddress) {
                 try {
-                    const results = await Location.reverseGeocodeAsync(coords);
-                    resolvedAddress = formatMapAddress(results[0]) ?? 'Ubicación seleccionada';
+                    if (Platform.OS === 'web') {
+                        const res = await fetch(`${getApiBaseUrl()}/api/places/reverse?lat=${coords.latitude}&lng=${coords.longitude}`);
+                        const data = await res.json();
+                        resolvedAddress = data.address ?? 'Ubicación seleccionada';
+                    } else {
+                        const results = await Location.reverseGeocodeAsync(coords);
+                        resolvedAddress = formatMapAddress(results[0]) ?? 'Ubicación seleccionada';
+                    }
                 } catch {
                     resolvedAddress = 'Ubicación seleccionada';
                 }
@@ -325,7 +365,14 @@ export const LocationSearchInput = ({
             />
 
             {/* Map picker (independent modal, avoids nesting) */}
-            {Platform.OS !== 'web' && (
+            {Platform.OS === 'web' ? (
+                <MapLocationPickerWeb
+                    visible={mapOpen}
+                    initialLocation={currentCoordinates}
+                    onLocationSelect={handleMapLocationSelected}
+                    onClose={() => setMapOpen(false)}
+                />
+            ) : (
                 <MapLocationPicker
                     visible={mapOpen}
                     initialLocation={

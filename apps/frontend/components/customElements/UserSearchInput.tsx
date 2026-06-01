@@ -1,3 +1,4 @@
+import { useAuth } from '@/context/AuthContext';
 import { useSearchUsers } from '@/hooks/users/useSearchUsers';
 import { Ionicons } from '@expo/vector-icons';
 import { User } from '@planmyroute/types';
@@ -23,10 +24,11 @@ export const UserSearchInput = ({
     excludeUsers = [],
     containerClassName = ''
 }: UserSearchInputProps) => {
+    const { token } = useAuth();
     const [searchQuery, setSearchQuery] = useState('');
 
     // Buscar usuarios cuando cambia la query
-    const { users: searchedUsers, isLoading: searchLoading } = useSearchUsers(searchQuery);
+    const { users: searchedUsers, isLoading: searchLoading } = useSearchUsers(searchQuery, { token: token ?? undefined });
 
     // Mostrar resultados si hay query y resultados
     const shouldShowResults = useMemo(() => {

@@ -1,5 +1,11 @@
+import CustomAlert from '@/components/customElements/CustomAlert';
+import CustomButton from '@/components/customElements/CustomButton';
+import CustomInput from '@/components/customElements/CustomInput';
+import DateTimePickerWeb from '@/components/customElements/DateTimePickerWeb';
+import { MicrotextDark, SubtitleSemibold, TextRegular, Title1 } from '@/components/customElements/CustomText';
+import { InterestSelector } from '@/components/interests/InterestSelector';
 import { useTripContext } from '@/context/TripContext';
-import { useDeleteTrip, useTrips, useUpdateTrip } from '@/hooks/useTrips'; // Importamos los hooks
+import { useDeleteTrip, useTrips, useUpdateTrip } from '@/hooks/useTrips';
 import '@/index.css';
 import { Ionicons } from '@expo/vector-icons';
 import { Interest, Trip } from '@planmyroute/types';
@@ -9,14 +15,9 @@ import { ROUTES } from '@/constants/routes';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
-  PanResponder,
   Platform,
   ScrollView,
   Switch,
-  Text,
-  TextInput,
-  TouchableOpacity,
   View,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -28,117 +29,73 @@ type TravelerCounts = {
   pets: number;
 };
 
-// Mismos valores que en createTrip.tsx
-const INTEREST_CATEGORIES: Interest[] = [
-  'nature', 'cultural', 'gastronomic', 'adventure', 'family', 'beach', 'leisure', 'nightlife',
-];
-const INTEREST_LABELS: Record<Interest, string> = {
-  nature: 'Naturaleza', cultural: 'Cultura', gastronomic: 'Gastronomía',
-  adventure: 'Aventura', family: 'Familia', beach: 'Playa',
-  leisure: 'Ocio', nightlife: 'Vida nocturna',
-};
-
 export default function TripSettingsScreen() {
   const router = useRouter();
   const { currentTrip, setCurrentTrip, tripId } = useTripContext();
 
-  // --- Cargar datos del viaje ---
-  // Solo cargar desde el servidor si no tenemos el trip en el Context
   const { data: tripData, loading: isTripLoading } = useTrips(tripId as string, { enabled: !currentTrip && !!tripId });
   const trip = (currentTrip ?? tripData) as Trip | null;
 
-  // Sincronizar el trip con el Context si se cargó desde el servidor (fallback)
   useEffect(() => {
     if (tripData && !currentTrip) {
       setCurrentTrip(tripData as Trip);
     }
   }, [tripData, currentTrip, setCurrentTrip]);
 
-  // Configurar el header con el botón de volver
-  const goToIndex = useCallback(() => {
-    router.replace(ROUTES.tabsHome);
-  }, [router]);
-
-  // --- Hook de Mutación ---
   const updateTripMutation = useUpdateTrip();
+  const deleteTripMutation = useDeleteTrip();
 
-  // --- Estados del formulario ---
-  const [tripName, setTripName] = useState('');
-  // Los campos de Origen y Destino se eliminan, ya que son paradas
-  // y se gestionan en la pantalla de detalle.
-  const [startDate, setStartDate] = useState<Date | null>(null);
-  const [endDate, setEndDate] = useState<Date | null>(null);
+  // Form state — lazy initializers so fields populate immediately if trip is in context
+  const [tripName, setTripName] = useState(() => (currentTrip as Trip | null)?.name ?? '');
+  const [startDate, setStartDate] = useState<Date | null>(() =>
+    (currentTrip as Trip | null)?.start_date ? new Date((currentTrip as Trip).start_date!) : null
+  );
+  const [endDate, setEndDate] = useState<Date | null>(() =>
+    (currentTrip as Trip | null)?.end_date ? new Date((currentTrip as Trip).end_date!) : null
+  );
+  const [roundTrip, setRoundTrip] = useState(() => (currentTrip as Trip | null)?.circular ?? false);
+  const [travelerCounts, setTravelerCounts] = useState<TravelerCounts>(() => ({
+    adults: (currentTrip as Trip | null)?.n_adults ?? 1,
+    children: (currentTrip as Trip | null)?.n_children ?? 0,
+    infants: (currentTrip as Trip | null)?.n_babies ?? 0,
+    pets: (currentTrip as Trip | null)?.n_pets ?? 0,
+  }));
+  const [selectedInterests, setSelectedInterests] = useState<Interest[]>(
+    () => ((currentTrip as Trip | null)?.type as Interest[]) ?? []
+  );
+  const [minBudget, setMinBudget] = useState(() => (currentTrip as Trip | null)?.estimated_price_min ?? 50);
+  const [maxBudget, setMaxBudget] = useState(() => (currentTrip as Trip | null)?.estimated_price_max ?? 1300);
+
   const [showStartPicker, setShowStartPicker] = useState(false);
   const [showEndPicker, setShowEndPicker] = useState(false);
-  const [roundTrip, setRoundTrip] = useState(false);
-  const [travelerCounts, setTravelerCounts] = useState<TravelerCounts>({
-    adults: 1, children: 0, infants: 0, pets: 0,
-  });
-  const [selectedInterests, setSelectedInterests] = useState<Interest[]>([]);
-  const [minBudget, setMinBudget] = useState(50);
-  const [maxBudget, setMaxBudget] = useState(1300);
-  const [sliderWidth, setSliderWidth] = useState(0);
-  const [collaboration, setCollaboration] = useState(false);
 
-  // --- Poblar el formulario con los datos del viaje ---
+  // Alert state
+  const [showDeleteAlert, setShowDeleteAlert] = useState(false);
+  const [showErrorAlert, setShowErrorAlert] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
+  const [showSuccessAlert, setShowSuccessAlert] = useState(false);
+
+  // Populate form when trip loads from server (fallback path)
   useEffect(() => {
-    if (trip) {
-      setTripName(trip.name || '');
+    if (trip && !currentTrip) {
+      setTripName(trip.name ?? '');
       setStartDate(trip.start_date ? new Date(trip.start_date) : null);
       setEndDate(trip.end_date ? new Date(trip.end_date) : null);
-      setRoundTrip(trip.circular || false);
+      setRoundTrip(trip.circular ?? false);
       setTravelerCounts({
-        adults: trip.n_adults || 1,
-        children: trip.n_children || 0,
-        infants: trip.n_babies || 0,
-        pets: trip.n_pets || 0,
+        adults: trip.n_adults ?? 1,
+        children: trip.n_children ?? 0,
+        infants: trip.n_babies ?? 0,
+        pets: trip.n_pets ?? 0,
       });
-      setSelectedInterests(trip.type || []);
-      setMinBudget(trip.estimated_price_min || 50);
-      setMaxBudget(trip.estimated_price_max || 1300);
-      setCollaboration(trip.additional_comments === 'Viaje colaborativo');
+      setSelectedInterests((trip.type as Interest[]) ?? []);
+      setMinBudget(trip.estimated_price_min ?? 50);
+      setMaxBudget(trip.estimated_price_max ?? 1300);
     }
-  }, [trip]);
+  }, [trip, currentTrip]);
 
-  const isValid = useMemo(() => {
-    return tripName.trim().length > 0 && startDate !== null;
-  }, [tripName, startDate]);
+  const isValid = useMemo(() => tripName.trim().length > 0 && startDate !== null, [tripName, startDate]);
 
-  // --- Lógica del Slider (sin cambios) ---
-  const MIN_VALUE = 0;
-  const MAX_VALUE = 2000;
-  const getPositionFromValue = (value: number) => {
-    if (sliderWidth === 0) return 0;
-    return ((value - MIN_VALUE) / (MAX_VALUE - MIN_VALUE)) * sliderWidth;
-  };
-  const getValueFromPosition = (position: number) => {
-    if (sliderWidth === 0) return MIN_VALUE;
-    const value = (position / sliderWidth) * (MAX_VALUE - MIN_VALUE) + MIN_VALUE;
-    return Math.max(MIN_VALUE, Math.min(MAX_VALUE, Math.round(value / 10) * 10));
-  };
-  const minPanResponder = PanResponder.create({
-    onStartShouldSetPanResponder: () => true,
-    onPanResponderMove: (_, gestureState) => {
-      const newPosition = getPositionFromValue(minBudget) + gestureState.dx;
-      const newValue = getValueFromPosition(newPosition);
-      if (newValue < maxBudget - 50) setMinBudget(newValue);
-    },
-  });
-  const maxPanResponder = PanResponder.create({
-    onStartShouldSetPanResponder: () => true,
-    onPanResponderMove: (_, gestureState) => {
-      const newPosition = getPositionFromValue(maxBudget) + gestureState.dx;
-      const newValue = getValueFromPosition(newPosition);
-      if (newValue > minBudget + 50) setMaxBudget(newValue);
-    },
-  });
-
-  // --- Lógica de Intereses y Viajeros (sin cambios) ---
-  const toggleInterest = (interest: Interest) => {
-    setSelectedInterests(prev =>
-      prev.includes(interest) ? prev.filter(i => i !== interest) : [...prev, interest]
-    );
-  };
   const updateTravelerCount = (type: keyof TravelerCounts, delta: number) => {
     setTravelerCounts(prev => {
       const newValue = prev[type] + delta;
@@ -148,30 +105,34 @@ export default function TripSettingsScreen() {
     });
   };
 
-  // --- FUNCIÓN DE ENVÍO ---
+  const formatDate = (date: Date | null) => {
+    if (!date) return '';
+    return date.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  };
+
   const handleSubmit = async () => {
     if (!isValid || !tripId || !trip) return;
-
-    // (Validaciones de fecha idénticas a createTrip)
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     if (startDate && new Date(startDate) < today) {
-      Alert.alert('Error', 'La fecha de inicio no puede ser una fecha pasada.');
+      setErrorMessage('La fecha de inicio no puede ser una fecha pasada.');
+      setShowErrorAlert(true);
       return;
     }
     if (endDate && new Date(endDate) < today) {
-      Alert.alert('Error', 'La fecha de fin no puede ser una fecha pasada.');
+      setErrorMessage('La fecha de fin no puede ser una fecha pasada.');
+      setShowErrorAlert(true);
       return;
     }
     if (startDate && endDate && new Date(endDate) < new Date(startDate)) {
-      Alert.alert('Error', 'La fecha de fin no puede ser anterior a la fecha de inicio.');
+      setErrorMessage('La fecha de fin no puede ser anterior a la de inicio.');
+      setShowErrorAlert(true);
       return;
     }
 
-    // Preparar payload de ACTUALIZACIÓN
     const tripPayload: Partial<Trip> = {
       name: tripName.trim(),
-      description: trip.description, // Mantenemos la descripción original (o la añadimos al form)
+      description: trip.description,
       start_date: startDate ? startDate.toISOString() : null,
       end_date: endDate ? endDate.toISOString() : null,
       circular: roundTrip,
@@ -182,375 +143,315 @@ export default function TripSettingsScreen() {
       type: selectedInterests,
       estimated_price_min: minBudget,
       estimated_price_max: maxBudget,
-      additional_comments: collaboration ? 'Viaje colaborativo' : null,
     };
 
     updateTripMutation.mutate(
       { tripId: tripId as string, tripData: tripPayload },
       {
         onSuccess: (updatedTrip) => {
-          // Actualizar el Context con el trip actualizado
           setCurrentTrip(updatedTrip);
-          Alert.alert('¡Éxito!', 'El viaje se ha actualizado correctamente', [
-            { text: 'OK', onPress: () => router.back() }, // Volver a la pantalla anterior
-          ]);
+          setShowSuccessAlert(true);
         },
-        onError: (error) => {
-          console.error('Error updating trip:', error);
-          Alert.alert('Error', 'Hubo un problema al actualizar el viaje.');
+        onError: () => {
+          setErrorMessage('Hubo un problema al actualizar el viaje. Inténtalo de nuevo.');
+          setShowErrorAlert(true);
         },
       }
     );
   };
 
-  const formatDate = (date: Date | null) => {
-    if (!date) return '';
-    return date.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' });
-  };
-
-  const getInterestIcon = (category: Interest): any => {
-    const icons: Record<Interest, string> = {
-      nature: 'leaf', cultural: 'library', gastronomic: 'restaurant',
-      adventure: 'trending-up', family: 'people', beach: 'sunny',
-      leisure: 'sparkles', nightlife: 'moon',
-    };
-    return icons[category] || 'star';
-  };
-
-  // --- Lógica de Eliminación de Viaje ---
-  const deleteTripMutation = useDeleteTrip();
-
   const executeDeleteTrip = useCallback(() => {
     deleteTripMutation.mutate(tripId as string, {
       onSuccess: () => {
-        Alert.alert('Éxito', 'Viaje eliminado correctamente');
-        router.replace(ROUTES.tabsHome); // Volver a la pantalla principal después de eliminar
+        router.replace(ROUTES.tabsHome);
       },
       onError: (error) => {
-        Alert.alert('Error', `No se pudo eliminar el viaje: ${error.message}`);
+        setErrorMessage(`No se pudo eliminar el viaje: ${error.message}`);
+        setShowErrorAlert(true);
       },
     });
   }, [deleteTripMutation, tripId, router]);
 
-  const handleDeleteTripConfirmation = useCallback(() => {
-    Alert.alert(
-      'Eliminar Viaje',
-      '¿Estás seguro de que quieres eliminar este viaje? Esta acción es permanente y no se puede deshacer.',
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Eliminar',
-          style: 'destructive',
-          onPress: () => executeDeleteTrip(),
-        },
-      ]
-    );
-  }, [executeDeleteTrip]);
-
   const insets = useSafeAreaInsets();
 
-  // --- Estado de Carga ---
   if (isTripLoading && !trip) {
     return (
-      <View className="flex-1 justify-center items-center bg-slate-50">
-        <ActivityIndicator size="large" color="#4F46E5" />
+      <View className="flex-1 justify-center items-center bg-white">
+        <ActivityIndicator size="large" color="#FFD54D" />
       </View>
     );
   }
 
   if (!trip) {
     return (
-      <View className="flex-1 justify-center items-center bg-slate-50 p-5">
-        <Text className="text-lg text-slate-500 mb-4">No se pudo cargar el viaje</Text>
-        <TouchableOpacity onPress={() => router.back()} className="bg-indigo-600 px-6 py-3 rounded-xl">
-          <Text className="text-white text-base font-semibold">Volver</Text>
-        </TouchableOpacity>
+      <View className="flex-1 justify-center items-center bg-white p-5 gap-4">
+        <TextRegular className="text-neutral-gray">No se pudo cargar el viaje</TextRegular>
+        <CustomButton variant="dark" title="Volver" onPress={() => router.back()} />
       </View>
     );
   }
 
-  // --- RENDERIZADO DEL FORMULARIO ---
+  const travelerRows: { key: keyof TravelerCounts; label: string; icon: string; description: string }[] = [
+    { key: 'adults', label: 'Adultos', icon: 'person', description: '13+ años' },
+    { key: 'children', label: 'Niños', icon: 'person-outline', description: '2-12 años' },
+    { key: 'infants', label: 'Bebés', icon: 'heart', description: 'Menos de 2 años' },
+    { key: 'pets', label: 'Mascotas', icon: 'paw', description: 'Animales de compañía' },
+  ];
+
   return (
-    <SafeAreaView edges={['top']} className="flex-1 bg-slate-50">
+    <SafeAreaView edges={['top']} className="flex-1 bg-white">
       <Stack.Screen
         options={{
           headerShown: true,
-          headerTitle: 'Editar viaje',
+          headerTitle: '',
           headerLeft: () => (
-            <TouchableOpacity onPress={goToIndex} className="px-3">
-              <Ionicons name="arrow-back" size={24} color="#374151" />
-            </TouchableOpacity>
+            <Ionicons
+              name="arrow-back"
+              size={24}
+              color="#202020"
+              style={{ marginLeft: 16, padding: 4 }}
+              onPress={() => router.back()}
+            />
           ),
+          headerShadowVisible: false,
+          headerStyle: { backgroundColor: '#FFFFFF' },
         }}
       />
+
       <ScrollView
-        className="flex-1 bg-slate-50"
+        className="flex-1 bg-white"
         showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ padding: 20, paddingBottom: insets.bottom + 32, gap: 20 }}
       >
-        <View className="p-5">
-          {/* Header */}
-          <View className="items-center mb-6">
-            <View className="flex-row items-center gap-3 mb-2">
-              <Ionicons name="pencil" size={28} color="#4F46E5" />
-              <Text className="text-3xl font-bold text-gray-800">Editar viaje</Text>
-            </View>
-            <Text className="text-base text-gray-500 text-center">
-              Actualiza los detalles de tu aventura
-            </Text>
+        {/* Header */}
+        <View className="items-center gap-1 mb-2">
+          <Title1>Editar viaje</Title1>
+          <TextRegular className="text-neutral-gray text-center">
+            Actualiza los detalles de tu aventura
+          </TextRegular>
+        </View>
+
+        {/* Detalles básicos */}
+        <View className="bg-white border border-neutral-gray/15 rounded-3xl p-5 gap-4 shadow-sm">
+          <View className="flex-row items-center gap-2">
+            <Ionicons name="information-circle-outline" size={20} color="#202020" />
+            <SubtitleSemibold>Detalles básicos</SubtitleSemibold>
           </View>
 
-          {/* Sección Detalles básicos (SIN Origen/Destino) */}
-          <View className="bg-white rounded-2xl p-5 mb-6 shadow-sm">
-            <View className="flex-row items-center gap-2 mb-4">
-              <Ionicons name="information-circle" size={20} color="#4F46E5" />
-              <Text className="text-lg font-semibold text-gray-800">Detalles básicos</Text>
-            </View>
+          <CustomInput
+            label="Nombre del viaje *"
+            placeholder="Mi aventura"
+            value={tripName}
+            onChangeText={setTripName}
+          />
 
-            <View className="flex-row items-center bg-gray-50 border border-gray-200 rounded-xl px-4 py-3.5 mb-3">
-              <Ionicons name="map" size={18} color="#6B7280" className="mr-3" />
-              <TextInput
-                placeholder="Nombre del viaje"
-                className="flex-1 text-base text-gray-800"
-                placeholderTextColor="#9CA3AF"
-                value={tripName}
-                onChangeText={setTripName}
-              />
-            </View>
-
-            {/* Campos de Origen y Destino ELIMINADOS */}
-
-            {/* Selección de fechas */}
-            <TouchableOpacity
-              className="flex-row items-center bg-gray-50 border border-gray-200 rounded-xl px-4 py-3.5 mb-3"
-              onPress={() => setShowStartPicker(true)}
-              activeOpacity={0.7}
-            >
-              <Ionicons name="calendar" size={18} color="#6B7280" className="mr-3" />
-              <Text className={`flex-1 text-base ${!startDate ? 'text-gray-400' : 'text-gray-800'}`}>
-                {startDate ? formatDate(startDate) : 'Fecha inicio'}
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              className="flex-row items-center bg-gray-50 border border-gray-200 rounded-xl px-4 py-3.5 mb-3"
-              onPress={() => setShowEndPicker(true)}
-              activeOpacity={0.7}
-            >
-              <Ionicons name="calendar-outline" size={18} color="#6B7280" className="mr-3" />
-              <Text className={`flex-1 text-base ${!endDate ? 'text-gray-400' : 'text-gray-800'}`}>
-                {endDate ? formatDate(endDate) : 'Fecha fin (opcional)'}
-              </Text>
-            </TouchableOpacity>
-
-            {showStartPicker && (
-              <DateTimePicker
-                value={startDate || new Date()}
-                mode="date"
-                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                minimumDate={new Date()}
-                onChange={(_, selectedDate) => {
-                  setShowStartPicker(false);
-                  setStartDate(selectedDate || startDate);
-                }}
-              />
-            )}
-            {showEndPicker && (
-              <DateTimePicker
-                value={endDate || startDate || new Date()}
-                mode="date"
-                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                minimumDate={startDate || new Date()}
-                onChange={(_, selectedDate) => {
-                  setShowEndPicker(false);
-                  setEndDate(selectedDate || endDate);
-                }}
-              />
-            )}
-
-            <View className="flex-row items-center justify-between py-1">
-              <View className="flex-row items-center gap-2">
-                <Ionicons name="refresh" size={18} color="#6B7280" />
-                <Text className="text-base text-gray-700 font-medium">Ida y vuelta</Text>
-              </View>
-              <Switch
-                value={roundTrip}
-                onValueChange={setRoundTrip}
-                trackColor={{ false: '#E5E7EB', true: '#4F46E5' }}
-                thumbColor="#FFFFFF"
-              />
-            </View>
-          </View>
-
-          {/* Sección Viajeros (idéntica a createTrip) */}
-          <View className="bg-white rounded-2xl p-5 mb-6 shadow-sm">
-            <View className="flex-row items-center gap-2 mb-4">
-              <Ionicons name="people" size={20} color="#4F46E5" />
-              <Text className="text-lg font-semibold text-gray-800">Viajeros</Text>
-            </View>
-
-            <View className="gap-4">
-              {[
-                { key: 'adults' as keyof TravelerCounts, label: 'Adultos', icon: 'person', description: '13+ años' },
-                { key: 'children' as keyof TravelerCounts, label: 'Niños', icon: 'person-outline', description: '2-12 años' },
-                { key: 'infants' as keyof TravelerCounts, label: 'Bebés', icon: 'heart', description: 'Menos de 2 años' },
-                { key: 'pets' as keyof TravelerCounts, label: 'Mascotas', icon: 'paw', description: 'Animales de compañía' },
-              ].map(({ key, label, icon, description }) => (
-                <View key={key} className="flex-row items-center justify-between">
-                  <View className="flex-col gap-1">
-                    <View className="flex-row items-center gap-1.5">
-                      <Ionicons name={icon as any} size={18} color="#4F46E5" />
-                      <Text className="text-base font-semibold text-gray-800">{label}</Text>
-                    </View>
-                    <Text className="text-sm text-gray-500">{description}</Text>
-                  </View>
-                  <View className="flex-row items-center gap-3">
-                    <TouchableOpacity
-                      className={`w-8 h-8 rounded-lg items-center justify-center ${travelerCounts[key] === 0 ? 'bg-gray-100' : 'bg-indigo-50'
-                        }`}
-                      onPress={() => updateTravelerCount(key, -1)}
-                      disabled={travelerCounts[key] === 0 || (key === 'adults' && travelerCounts[key] === 1)}
-                      activeOpacity={0.7}
-                    >
-                      <Ionicons name="remove" size={16} color={travelerCounts[key] === 0 ? '#9CA3AF' : '#4F46E5'} />
-                    </TouchableOpacity>
-                    <Text className="text-base font-semibold text-gray-800 w-6 text-center">
-                      {travelerCounts[key]}
-                    </Text>
-                    <TouchableOpacity
-                      className="w-8 h-8 rounded-lg bg-indigo-50 items-center justify-center"
-                      onPress={() => updateTravelerCount(key, 1)}
-                      activeOpacity={0.7}
-                    >
-                      <Ionicons name="add" size={16} color="#4F46E5" />
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              ))}
-            </View>
-          </View>
-
-          {/* Sección Intereses (idéntica a createTrip) */}
-          <View className="bg-white rounded-2xl p-5 mb-6 shadow-sm">
-            <View className="flex-row items-center gap-2 mb-4">
-              <Ionicons name="heart" size={20} color="#4F46E5" />
-              <Text className="text-lg font-semibold text-gray-800">Intereses</Text>
-            </View>
-            <View className="flex-row flex-wrap gap-3">
-              {INTEREST_CATEGORIES.map(cat => {
-                const selected = selectedInterests.includes(cat);
-
-                return (
-                  <TouchableOpacity
-                    key={cat}
-                    onPress={() => toggleInterest(cat)}
-                    className={`flex-row items-center border-2 px-4 py-2.5 rounded-full ${selected ? 'bg-indigo-600 border-indigo-600' : 'bg-white border-indigo-600'
-                      }`}
-                    activeOpacity={0.7}
-                  >
-                    <Ionicons
-                      name={getInterestIcon(cat) as any}
-                      size={16}
-                      color={selected ? '#FFFFFF' : '#4F46E5'}
-                      style={{ marginRight: 6 }}
-                    />
-                    <Text className={`font-semibold text-sm ${selected ? 'text-white' : 'text-indigo-600'}`}>
-                      {INTEREST_LABELS[cat]}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-          </View>
-
-          {/* Sección Presupuesto (idéntica a createTrip) */}
-          <View className="bg-white rounded-2xl p-5 mb-6 shadow-sm">
-            <View className="flex-row items-center gap-2 mb-1">
-              <Ionicons name="wallet" size={20} color="#4F46E5" />
-              <Text className="text-lg font-semibold text-gray-800">Rango de precios</Text>
-            </View>
-            <Text className="text-sm text-gray-500 mb-6">
-              Precio del viaje, incluye todas las comisiones
-            </Text>
-
-            <View
-              className="h-10 mb-8 relative justify-center"
-              onLayout={(e) => setSliderWidth(e.nativeEvent.layout.width)}
-            >
-              <View className="absolute h-1 bg-gray-200 w-full rounded" />
-              <View
-                className="absolute h-1 bg-indigo-600 rounded"
-                style={{
-                  left: getPositionFromValue(minBudget),
-                  width: getPositionFromValue(maxBudget) - getPositionFromValue(minBudget),
-                }}
-              />
-              <View
-                {...minPanResponder.panHandlers}
-                className="absolute w-8 h-8 rounded-full bg-white border-3 border-indigo-600 shadow-md"
-                style={{ left: getPositionFromValue(minBudget) - 16 }}
-              />
-              <View
-                {...maxPanResponder.panHandlers}
-                className="absolute w-8 h-8 rounded-full bg-white border-3 border-indigo-600 shadow-md"
-                style={{ left: getPositionFromValue(maxBudget) - 16 }}
-              />
-            </View>
-
-            <View className="flex-row gap-4 mb-6">
+          {/* Fechas */}
+          {Platform.OS === 'web' ? (
+            <View className="flex-row gap-3">
               <View className="flex-1">
-                <Text className="text-sm text-gray-500 mb-2">Mínimo</Text>
-                <View className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-4 items-center">
-                  <Text className="text-lg font-semibold text-gray-800">{minBudget}€</Text>
-                </View>
+                <DateTimePickerWeb
+                  label="Fecha de salida *"
+                  mode="date"
+                  value={startDate}
+                  onChange={setStartDate}
+                  minimumDate={new Date()}
+                />
               </View>
               <View className="flex-1">
-                <Text className="text-sm text-gray-500 mb-2">Máximo</Text>
-                <View className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-4 items-center">
-                  <Text className="text-lg font-semibold text-gray-800">{maxBudget}€</Text>
-                </View>
+                <DateTimePickerWeb
+                  label="Fecha de vuelta"
+                  mode="date"
+                  value={endDate}
+                  onChange={setEndDate}
+                  minimumDate={startDate ?? new Date()}
+                />
               </View>
             </View>
-          </View>
+          ) : (
+            <View className="flex-row gap-3">
+              <View className="flex-1">
+                <CustomInput
+                  label="Fecha de salida *"
+                  placeholder="DD/MM/AA"
+                  value={formatDate(startDate)}
+                  onPress={() => setShowStartPicker(true)}
+                />
+              </View>
+              <View className="flex-1">
+                <CustomInput
+                  label="Fecha de vuelta"
+                  placeholder="DD/MM/AA"
+                  value={formatDate(endDate)}
+                  onPress={() => setShowEndPicker(true)}
+                />
+              </View>
+            </View>
+          )}
 
-          {/* Botón final */}
-          <TouchableOpacity
-            className={`flex-row items-center justify-center px-6 py-4 rounded-2xl mt-4 shadow-md ${!isValid || updateTripMutation.isPending ? 'bg-indigo-300' : 'bg-indigo-600'
-              }`}
-            disabled={!isValid || updateTripMutation.isPending}
-            onPress={handleSubmit}
-            activeOpacity={0.8}
-          >
-            <Ionicons
-              name={updateTripMutation.isPending ? 'hourglass' : 'checkmark-circle'}
-              size={20}
-              color="#FFFFFF"
-              style={{ marginRight: 8 }}
+          {showStartPicker && Platform.OS !== 'web' && (
+            <DateTimePicker
+              value={startDate || new Date()}
+              mode="date"
+              display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+              minimumDate={new Date()}
+              onChange={(_, selectedDate) => {
+                setShowStartPicker(false);
+                if (selectedDate) setStartDate(selectedDate);
+              }}
             />
-            <Text className="text-white text-lg font-semibold">
-              {updateTripMutation.isPending ? 'Guardando…' : 'Guardar Cambios'}
-            </Text>
-          </TouchableOpacity>
+          )}
+          {showEndPicker && Platform.OS !== 'web' && (
+            <DateTimePicker
+              value={endDate || startDate || new Date()}
+              mode="date"
+              display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+              minimumDate={startDate || new Date()}
+              onChange={(_, selectedDate) => {
+                setShowEndPicker(false);
+                if (selectedDate) setEndDate(selectedDate);
+              }}
+            />
+          )}
 
-          <View className="mt-8 border border-red-500 flex rounded-lg p-5">
-            <Text className="text-xl text-red-500 mb-2 m-auto font-bold">Zona peligrosa</Text>
-            <TouchableOpacity
-              className={`flex-row items-center justify-center px-6 py-4 rounded-2xl mt-2 shadow-md bg-red-600`}
-              onPress={handleDeleteTripConfirmation}
-              activeOpacity={0.8}
-            >
-              <Ionicons
-                name={deleteTripMutation.isPending ? 'hourglass' : 'trash-outline'}
-                size={20}
-                color="#FFFFFF"
-                style={{ marginRight: 8 }}
-              />
-              <Text className="text-white text-lg font-semibold">
-                {deleteTripMutation.isPending ? 'Borrando...' : 'Borrar viaje'}
-              </Text>
-            </TouchableOpacity>
+          <View className="flex-row items-center justify-between py-1">
+            <View className="flex-row items-center gap-2">
+              <Ionicons name="refresh-outline" size={18} color="#202020" />
+              <TextRegular>Ida y vuelta</TextRegular>
+            </View>
+            <Switch
+              value={roundTrip}
+              onValueChange={setRoundTrip}
+              trackColor={{ false: '#E0E0E0', true: '#FFD54D' }}
+              thumbColor="#FFFFFF"
+            />
           </View>
         </View>
+
+        {/* Viajeros */}
+        <View className="bg-white border border-neutral-gray/15 rounded-3xl p-5 gap-4 shadow-sm">
+          <View className="flex-row items-center gap-2">
+            <Ionicons name="people-outline" size={20} color="#202020" />
+            <SubtitleSemibold>Viajeros</SubtitleSemibold>
+          </View>
+          {travelerRows.map(({ key, label, icon, description }) => (
+            <View key={key} className="flex-row items-center justify-between">
+              <View className="gap-0.5">
+                <View className="flex-row items-center gap-1.5">
+                  <Ionicons name={icon as any} size={16} color="#202020" />
+                  <TextRegular style={{ fontFamily: 'Urbanist-SemiBold' }}>{label}</TextRegular>
+                </View>
+                <MicrotextDark className="text-neutral-gray">{description}</MicrotextDark>
+              </View>
+              <View className="flex-row items-center gap-3">
+                <CustomButton
+                  variant="round-outline"
+                  size="small"
+                  icon={<Ionicons name="remove" size={14} color="#202020" />}
+                  onPress={() => updateTravelerCount(key, -1)}
+                  disabled={travelerCounts[key] === 0 || (key === 'adults' && travelerCounts[key] === 1)}
+                />
+                <TextRegular style={{ fontFamily: 'Urbanist-SemiBold', minWidth: 20, textAlign: 'center' }}>
+                  {travelerCounts[key]}
+                </TextRegular>
+                <CustomButton
+                  variant="round"
+                  size="small"
+                  icon={<Ionicons name="add" size={14} color="#202020" />}
+                  onPress={() => updateTravelerCount(key, 1)}
+                />
+              </View>
+            </View>
+          ))}
+        </View>
+
+        {/* Intereses */}
+        <View className="bg-white border border-neutral-gray/15 rounded-3xl p-5 gap-4 shadow-sm">
+          <View className="flex-row items-center gap-2">
+            <Ionicons name="heart-outline" size={20} color="#202020" />
+            <SubtitleSemibold>Intereses</SubtitleSemibold>
+          </View>
+          <InterestSelector
+            selectedInterests={selectedInterests}
+            onInterestsChange={setSelectedInterests}
+            multiple={true}
+          />
+        </View>
+
+        {/* Presupuesto */}
+        <View className="bg-white border border-neutral-gray/15 rounded-3xl p-5 gap-4 shadow-sm">
+          <View className="flex-row items-center gap-2">
+            <Ionicons name="wallet-outline" size={20} color="#202020" />
+            <SubtitleSemibold>Presupuesto (€)</SubtitleSemibold>
+          </View>
+          <View className="flex-row gap-3">
+            <CustomInput
+              label="Mínimo"
+              value={String(minBudget)}
+              onChangeText={(v) => setMinBudget(Math.max(0, Number(v.replace(/[^0-9]/g, '')) || 0))}
+              keyboardType="numeric"
+              containerClassName="flex-1"
+            />
+            <CustomInput
+              label="Máximo"
+              value={String(maxBudget)}
+              onChangeText={(v) => setMaxBudget(Math.max(0, Number(v.replace(/[^0-9]/g, '')) || 0))}
+              keyboardType="numeric"
+              containerClassName="flex-1"
+            />
+          </View>
+        </View>
+
+        {/* Guardar */}
+        <CustomButton
+          variant="dark"
+          size="large"
+          title={updateTripMutation.isPending ? 'Guardando...' : 'Guardar cambios'}
+          onPress={handleSubmit}
+          disabled={!isValid || updateTripMutation.isPending}
+          loading={updateTripMutation.isPending}
+        />
+
+        {/* Zona peligrosa */}
+        <View className="border border-red-300 rounded-3xl p-5 gap-3 mt-2">
+          <TextRegular style={{ fontFamily: 'Urbanist-SemiBold', color: '#EF4444', textAlign: 'center' }}>
+            Zona peligrosa
+          </TextRegular>
+          <CustomButton
+            variant="danger"
+            title={deleteTripMutation.isPending ? 'Eliminando...' : 'Eliminar viaje'}
+            onPress={() => setShowDeleteAlert(true)}
+            loading={deleteTripMutation.isPending}
+          />
+        </View>
       </ScrollView>
+
+      {/* Alertas */}
+      <CustomAlert
+        visible={showDeleteAlert}
+        title="Eliminar viaje"
+        message="¿Estás seguro? Esta acción es permanente y no se puede deshacer."
+        type="warning"
+        actions={[
+          { text: 'Cancelar', onPress: () => setShowDeleteAlert(false), variant: 'outline' },
+          { text: 'Eliminar', onPress: () => { setShowDeleteAlert(false); executeDeleteTrip(); }, variant: 'danger' },
+        ]}
+        onClose={() => setShowDeleteAlert(false)}
+      />
+      <CustomAlert
+        visible={showErrorAlert}
+        title="Error"
+        message={errorMessage}
+        type="error"
+        onClose={() => setShowErrorAlert(false)}
+      />
+      <CustomAlert
+        visible={showSuccessAlert}
+        title="¡Guardado!"
+        message="El viaje se ha actualizado correctamente."
+        type="success"
+        actions={[{ text: 'OK', onPress: () => { setShowSuccessAlert(false); router.back(); }, variant: 'dark' }]}
+        onClose={() => { setShowSuccessAlert(false); router.back(); }}
+      />
     </SafeAreaView>
   );
 }

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Pressable, TextInput, TextInputProps, View } from 'react-native';
+import { Platform, Pressable, TextInput, TextInputProps, View } from 'react-native';
 import { MicrotextDark } from './CustomText';
 
 interface CustomInputProps extends TextInputProps {
@@ -53,7 +53,7 @@ export const CustomInput: React.FC<CustomInputProps> = ({
         <View className={`flex-row items-center bg-white border rounded-2xl ${borderClass}`}>
             <TextInput
                 className={`flex-1 ${hasRightElement ? 'pl-4 pr-2 py-3' : sizeStyles[size]} text-dark-black ${inputClassName}`}
-                style={fontSizeStyles[size]}
+                style={[fontSizeStyles[size], Platform.OS === 'web' ? { outlineStyle: 'none' as any, outlineWidth: 0 } : {}]}
                 placeholderTextColor="#999999"
                 editable={!isButton}
                 {...props}
