@@ -71,14 +71,12 @@ export async function generateAutomaticTrip(req: Request, res: Response) {
             if (vehicle) vehicles.push(vehicle);
         }
 
-        // Mapear campos para el prompt de la IA
         const tripInputForLLM = {
             ...tripInput,
             n_infants: tripInput.n_babies ?? 0,
             n_elderly: tripInput.n_elders ?? 0,
         };
 
-        // Calcular duración real del viaje para limitar los días que aceptamos de la IA
         const startDate = new Date(tripInput.start_date);
         const endDate = new Date(tripInput.end_date);
         const totalDays = Math.max(
@@ -86,12 +84,7 @@ export async function generateAutomaticTrip(req: Request, res: Response) {
             Math.round((endDate.getTime() - startDate.getTime()) / 86400000) + 1
         );
 
-        // 1. Llamar a la IA y esperar respuesta completa (~30-65s)
-        console.log('📝 Solicitando itinerario a la IA...');
-        const itineraryAI = await requestItineraryToLLM(tripInputForLLM, userPreferences, vehicles);
-
-        // 2. Crear trip + origen + destino
-        console.log('💾 Creando viaje y paradas de origen/destino...');
+        // 1. Crear el viaje inmediatamente, antes de llamar a la IA
         const baseTripPayload = {
             name: tripInput.name,
             description: `Viaje de ${tripInput.origin} a ${tripInput.destination}`,
@@ -117,39 +110,15 @@ export async function generateAutomaticTrip(req: Request, res: Response) {
         );
         const tripId = tripWithItinerary.trip.id!;
 
-        // 3. Crear las paradas del día 1 síncronamente
-        console.log('📅 Creando paradas del día 1...');
-        await createStopsForDay(itineraryAI, tripId, 1, totalDays);
-        await ItineraryService.rebuildRoutesForTrip(tripId);
-
-        // Actualizar descripción generada por la IA
-        if (itineraryAI.description) {
-            await TripService.update(String(tripId), { description: itineraryAI.description } as any);
-        }
-
-        // 4. Responder inmediatamente — frontend navega al viaje con día 1 visible
+        // 2. Responder inmediatamente — el frontend navega al viaje sin esperar a la IA
         res.status(202).json({ ...tripWithItinerary, generation_status: 'generating' });
 
-        // 5. Crear días 2+ en background de forma secuencial
-        // Filtramos los días devueltos por la IA: solo aceptamos [1, totalDays]
-        const allDays = getUniqueDaysFromAI(itineraryAI).filter(d => d >= 1 && d <= totalDays);
-        const remainingDays = allDays.filter(d => d > 1);
-        const droppedDays = getUniqueDaysFromAI(itineraryAI).filter(d => d > totalDays);
-        if (droppedDays.length > 0) {
-            console.warn(`⚠️ La IA generó días fuera de rango (totalDays=${totalDays}): ${droppedDays.join(', ')} — ignorados.`);
-        }
-
-        if (remainingDays.length > 0) {
-            createRemainingDaysInBackground(itineraryAI, tripId, remainingDays, userId, totalDays)
-                .catch(async (err) => {
-                    console.error(`❌ [Background] Error días 2+ para trip ${tripId}:`, err);
-                    await TripService.update(String(tripId), { generation_status: 'failed' } as any).catch(() => {});
-                });
-        } else {
-            // No hay días adicionales — marcar como completo
-            await TripService.update(String(tripId), { generation_status: 'ready' } as any);
-            await UserUsageService.incrementAITripsCount(userId);
-        }
+        // 3. Llamar a la IA y crear todas las paradas en background
+        generateItineraryInBackground(tripId, userId, tripInputForLLM, userPreferences, vehicles, totalDays)
+            .catch(async (err) => {
+                console.error(`❌ [Background] Error generando itinerario para trip ${tripId}:`, err);
+                await TripService.update(String(tripId), { generation_status: 'failed' } as any).catch(() => {});
+            });
 
     } catch (error) {
         console.error("❌ Error creando viaje automático:", error);
@@ -161,21 +130,33 @@ export async function generateAutomaticTrip(req: Request, res: Response) {
     }
 }
 
-async function createRemainingDaysInBackground(
-    itineraryAI: any,
+async function generateItineraryInBackground(
     tripId: number,
-    days: number[],
     userId: string,
+    tripInputForLLM: any,
+    userPreferences: UserPreferences,
+    vehicles: any[],
     totalDays: number
 ) {
-    for (const day of days) {
-        console.log(`📅 [Background] Creando paradas del día ${day}...`);
+    console.log(`📝 [Background] Solicitando itinerario a la IA para trip ${tripId}...`);
+    const itineraryAI = await requestItineraryToLLM(tripInputForLLM, userPreferences, vehicles);
+
+    if (itineraryAI.description) {
+        await TripService.update(String(tripId), { description: itineraryAI.description } as any);
+    }
+
+    const allDays = getUniqueDaysFromAI(itineraryAI).filter(d => d >= 1 && d <= totalDays);
+    const droppedDays = getUniqueDaysFromAI(itineraryAI).filter(d => d > totalDays);
+    if (droppedDays.length > 0) {
+        console.warn(`⚠️ La IA generó días fuera de rango (totalDays=${totalDays}): ${droppedDays.join(', ')} — ignorados.`);
+    }
+
+    for (const day of allDays) {
+        console.log(`📅 [Background] Creando paradas del día ${day} para trip ${tripId}...`);
         await createStopsForDay(itineraryAI, tripId, day, totalDays);
-        // Reconstruir rutas después de cada día para que el frontend las vea
         await ItineraryService.rebuildRoutesForTrip(tripId);
     }
 
-    // Todos los días creados — marcar como listo
     await TripService.update(String(tripId), { generation_status: 'ready' } as any);
     await UserUsageService.incrementAITripsCount(userId);
     console.log(`✅ [Background] Generación completa para trip ${tripId}`);
