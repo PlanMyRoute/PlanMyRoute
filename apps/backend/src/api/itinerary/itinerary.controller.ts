@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import * as ItineraryService from './itinerary.service.js';
 import type { Route } from '@planmyroute/types';
 import { supabase } from '../../supabase.js';
+import { autoInsertRefuelStops } from '../refuelAdvisor/refuelAdvisor.service.js';
 
 // =============== ROUTE CONTROLLERS ===============
 export const getRouteById = async (req: Request, res: Response): Promise<void> => {
@@ -158,6 +159,11 @@ export const createStop = async (req: Request, res: Response): Promise<void> => 
     try {
         const newStop = await ItineraryService.createStop(req.body, tripIdNum);
         res.status(201).json(newStop);
+
+        // Cuando se añade el destino el itinerario está completo: analizar repostaje
+        if (req.body?.type === 'destino') {
+            autoInsertRefuelStops(tripIdNum).catch(() => {});
+        }
     } catch (error) {
         const err = error as Error;
         res.status(500).json({ error: err.message });

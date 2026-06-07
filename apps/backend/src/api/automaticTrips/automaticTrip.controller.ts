@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import { autoInsertRefuelStops } from '../refuelAdvisor/refuelAdvisor.service.js';
 import * as svc from './automaticTrip.service.js';
 import {
     requestItineraryToLLM,
@@ -183,4 +184,7 @@ async function generateItineraryInBackground(
 
     await TripService.update(String(tripId), { generation_status: 'ready' } as any);
     console.log(`✅ [Background] Generación completa para trip ${tripId}`);
+
+    // Insertar paradas de repostaje automáticamente (fire-and-forget, no bloquea)
+    autoInsertRefuelStops(tripId).catch(() => {});
 }
