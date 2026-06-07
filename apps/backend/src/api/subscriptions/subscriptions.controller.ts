@@ -3,48 +3,56 @@ import { SubscriptionService } from './subscriptions.service.js';
 
 const subscriptionService = new SubscriptionService();
 
-export const getMySubscription = async (req: Request, res: Response) => {
+export const getMySubscription = async (req: Request, res: Response): Promise<void> => {
     try {
-        // CORRECCIÓN: Usamos req.userId directamente.
-        // Tu middleware asegura que si llegamos aquí, userId existe.
         const userId = req.userId;
 
         if (!userId) {
-            return res.status(401).json({ error: 'Usuario no identificado' });
+            res.status(401).json({ error: 'Usuario no identificado' });
+            return;
         }
 
         const sub = await subscriptionService.getSubscription(userId);
         res.json(sub);
-    } catch (error: any) {
-        // Si da error porque no existe suscripción, devolvemos un objeto "vacío" o default
-        // para que el frontend sepa que es usuario Free.
-        if (error.message.includes('No se pudo obtener')) {
-            return res.json({ tier: 'free', status: 'active' });
+    } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : String(error);
+        if (message.includes('No se pudo obtener')) {
+            res.json({ tier: 'free', status: 'active' });
+            return;
         }
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: message });
     }
 };
 
-export const startTrial = async (req: Request, res: Response) => {
+export const startTrial = async (req: Request, res: Response): Promise<void> => {
     try {
-        const userId = req.userId; // Usamos req.userId
-        if (!userId) return res.status(401).json({ error: 'Usuario no identificado' });
+        const userId = req.userId;
+        if (!userId) {
+            res.status(401).json({ error: 'Usuario no identificado' });
+            return;
+        }
 
         const result = await subscriptionService.activateTrial(userId);
         res.json(result);
-    } catch (error: any) {
-        res.status(400).json({ error: error.message });
+    } catch (error: unknown) {
+        res.status(400).json({ error: error instanceof Error ? error.message : 'Error al activar trial' });
     }
 };
 
-export const redeemCode = async (req: Request, res: Response) => {
+export const redeemCode = async (req: Request, res: Response): Promise<void> => {
     try {
-        const userId = req.userId; // Usamos req.userId
-        if (!userId) return res.status(401).json({ error: 'Usuario no identificado' });
+        const userId = req.userId;
+        if (!userId) {
+            res.status(401).json({ error: 'Usuario no identificado' });
+            return;
+        }
 
         const { code, type } = req.body;
 
-        if (!code) return res.status(400).json({ error: 'Falta el código' });
+        if (!code) {
+            res.status(400).json({ error: 'Falta el código' });
+            return;
+        }
 
         let result;
         if (type === 'referral') {
@@ -54,7 +62,7 @@ export const redeemCode = async (req: Request, res: Response) => {
         }
 
         res.json(result);
-    } catch (error: any) {
-        res.status(400).json({ error: error.message });
+    } catch (error: unknown) {
+        res.status(400).json({ error: error instanceof Error ? error.message : 'Error al canjear código' });
     }
 };

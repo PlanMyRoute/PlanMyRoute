@@ -41,10 +41,10 @@ export const SubscriptionProvider = ({ children }: { children: React.ReactNode }
             // USAMOS EL SERVICIO
             const data = await SubscriptionService.getMySubscription(token);
             setSubscription(data);
-        } catch (error: any) {
+        } catch (error: unknown) {
             // Manejo silencioso: Si falla, asumimos que es Free
             // Esto evita pantallazos rojos si no hay internet o falla el server
-            console.log('⚠️ [SubscriptionContext] Fallback to Free:', error.message);
+            console.log('⚠️ [SubscriptionContext] Fallback to Free:', error instanceof Error ? error.message : String(error));
 
             setSubscription({
                 id: 'fallback-free',

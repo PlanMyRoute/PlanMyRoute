@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import * as EventsService from './events.service.js';
 
-export const getEvents = async (req: Request, res: Response) => {
+export const getEvents = async (req: Request, res: Response): Promise<void> => {
     try {
         const page = req.query.page ? parseInt(req.query.page as string, 10) : 0;
         const countryCode = req.query.countryCode as string | undefined;
@@ -18,11 +18,11 @@ export const getEvents = async (req: Request, res: Response) => {
     }
 };
 
-export const getEventById = async (req: Request, res: Response) => {
+export const getEventById = async (req: Request, res: Response): Promise<void> => {
     try {
         const { id } = req.params;
         const event = await EventsService.getEventById(id);
-        if (!event) return res.status(404).json({ error: 'Evento no encontrado' });
+        if (!event) res.status(404).json({ error: 'Evento no encontrado' }); return;
         res.json(event);
     } catch (error) {
         const err = error as Error;
@@ -31,15 +31,15 @@ export const getEventById = async (req: Request, res: Response) => {
     }
 };
 
-export const getNearStops = async (req: Request, res: Response) => {
+export const getNearStops = async (req: Request, res: Response): Promise<void> => {
     try {
         const stopsParam = req.query.stops as string | undefined;
         const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : 10;
 
-        if (!stopsParam) return res.json([]);
+        if (!stopsParam) { res.json([]); return; }
 
         const stops = JSON.parse(stopsParam) as EventsService.NearStopInput[];
-        if (!Array.isArray(stops)) return res.status(400).json({ error: 'stops debe ser un array JSON' });
+        if (!Array.isArray(stops)) { res.status(400).json({ error: 'stops debe ser un array JSON' }); return; }
 
         const events = await EventsService.getEventsNearStops(stops, limit);
         res.json(events);

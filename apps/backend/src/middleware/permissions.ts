@@ -1,35 +1,7 @@
 // src/middleware/permissions.ts
 import { Request, Response, NextFunction } from 'express';
 import { supabase } from '../supabase.js';
-import { CollaboratorRole } from '@planmyroute/types';
-
-/**
- * Definición de acciones que requieren permisos
- */
-export type TripAction =
-    | 'view_trip'
-    | 'edit_trip'
-    | 'delete_trip'
-    | 'leave_trip'
-    | 'invite_travelers'
-    | 'change_roles'
-    | 'remove_travelers'
-    | 'add_stop'
-    | 'edit_stop'
-    | 'delete_stop'
-    | 'manage_routes'
-    | 'manage_accommodations'
-    | 'manage_activities';
-
-/**
- * Roles extendidos incluyendo 'guest' para usuarios no invitados
- */
-export type ExtendedRole = CollaboratorRole | 'guest';
-
-/**
- * Estados de un viaje
- */
-export type TripStatus = 'planning' | 'going' | 'completed';
+import { CollaboratorRole, TripAction, ExtendedRole, TripStatus } from '@planmyroute/types';
 
 /**
  * Matriz de permisos del lado del servidor (debe coincidir con el frontend)
@@ -217,8 +189,8 @@ export function requirePermission(action: TripAction) {
             }
 
             // Adjuntar el rol y estado al request para usarlo en el controlador si es necesario
-            (req as any).userRole = role;
-            (req as any).tripStatus = tripStatus;
+            req.userRole = role;
+            req.tripStatus = tripStatus ?? undefined;
 
             next();
         } catch (error) {

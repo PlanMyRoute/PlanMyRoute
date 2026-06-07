@@ -4,7 +4,7 @@ import type { Route } from '@planmyroute/types';
 import { supabase } from '../../supabase.js';
 
 // =============== ROUTE CONTROLLERS ===============
-export const getRouteById = async (req: Request, res: Response) => {
+export const getRouteById = async (req: Request, res: Response): Promise<void> => {
     const { id } = req.params;
 
     try {
@@ -13,13 +13,13 @@ export const getRouteById = async (req: Request, res: Response) => {
     } catch (error) {
         const err = error as Error;
         if (err.message.includes('No se encontró')) {
-            return res.status(404).json({ error: err.message });
+            res.status(404).json({ error: err.message }); return;
         }
         res.status(500).json({ error: err.message });
     }
 };
 
-export const getRoutesByTripId = async (req: Request, res: Response) => {
+export const getRoutesByTripId = async (req: Request, res: Response): Promise<void> => {
     const { tripId } = req.params;
     const tripIdNum = Number(tripId);
     try {
@@ -31,7 +31,7 @@ export const getRoutesByTripId = async (req: Request, res: Response) => {
     }
 };
 
-export const getRouteStops = async (req: Request, res: Response) => {
+export const getRouteStops = async (req: Request, res: Response): Promise<void> => {
     const { routeId } = req.params;
     try {
         const stops = await ItineraryService.getRouteStops(routeId);
@@ -42,7 +42,7 @@ export const getRouteStops = async (req: Request, res: Response) => {
     }
 };
 
-export const getIncompleteRoutes = async (req: Request, res: Response) => {
+export const getIncompleteRoutes = async (req: Request, res: Response): Promise<void> => {
     const { tripId } = req.params;
     const tripIdNum = Number(tripId);
     try {
@@ -54,7 +54,7 @@ export const getIncompleteRoutes = async (req: Request, res: Response) => {
     }
 };
 
-export const createRoute = async (req: Request, res: Response) => {
+export const createRoute = async (req: Request, res: Response): Promise<void> => {
     try {
         const newRoute = await ItineraryService.createRoute(req.body);
         res.status(201).json(newRoute);
@@ -64,7 +64,7 @@ export const createRoute = async (req: Request, res: Response) => {
     }
 };
 
-export const updateRoute = async (req: Request, res: Response) => {
+export const updateRoute = async (req: Request, res: Response): Promise<void> => {
     const { id } = req.params;
 
     try {
@@ -73,13 +73,13 @@ export const updateRoute = async (req: Request, res: Response) => {
     } catch (error) {
         const err = error as Error;
         if (err.message.includes('No se encontró')) {
-            return res.status(404).json({ error: err.message });
+            res.status(404).json({ error: err.message }); return;
         }
         res.status(500).json({ error: err.message });
     }
 };
 
-export const deleteRoute = async (req: Request, res: Response) => {
+export const deleteRoute = async (req: Request, res: Response): Promise<void> => {
     const { tripId, routeId } = req.params;
 
     try {
@@ -92,7 +92,7 @@ export const deleteRoute = async (req: Request, res: Response) => {
     } catch (error) {
         const err = error as Error;
         if (err.message.includes('No se encontró')) {
-            return res.status(404).json({ error: err.message });
+            res.status(404).json({ error: err.message }); return;
         }
         res.status(500).json({ error: err.message });
     }
@@ -100,7 +100,7 @@ export const deleteRoute = async (req: Request, res: Response) => {
 
 // =============== STOP CONTROLLERS ===============
 
-export const getStopById = async (req: Request, res: Response) => {
+export const getStopById = async (req: Request, res: Response): Promise<void> => {
     const { stopId } = req.params;
 
     try {
@@ -109,7 +109,7 @@ export const getStopById = async (req: Request, res: Response) => {
     } catch (error) {
         const err = error as Error;
         if (err.message.includes('No se encontró')) {
-            return res.status(404).json({ error: err.message });
+            res.status(404).json({ error: err.message }); return;
         }
         res.status(500).json({ error: err.message });
     }
@@ -119,17 +119,17 @@ export const getStopById = async (req: Request, res: Response) => {
  * Obtiene el precio de una parada específica
  * GET /api/stop/:stopId/price
  */
-export const getStopPrice = async (req: Request, res: Response) => {
+export const getStopPrice = async (req: Request, res: Response): Promise<void> => {
     const { stopId } = req.params;
 
     try {
         const stop = await ItineraryService.getStopById(stopId);
 
         if (!stop.coordinates || typeof stop.coordinates !== 'object') {
-            return res.status(400).json({
+            res.status(400).json({
                 error: 'La parada no tiene coordenadas válidas',
                 priceInfo: null
-            });
+            }); return;
         }
 
         // Importar la función de precio
@@ -144,14 +144,14 @@ export const getStopPrice = async (req: Request, res: Response) => {
     } catch (error) {
         const err = error as Error;
         if (err.message.includes('No se encontró')) {
-            return res.status(404).json({ error: err.message });
+            res.status(404).json({ error: err.message }); return;
         }
         res.status(500).json({ error: err.message });
     }
 };
 
 //Methods to create stops
-export const createStop = async (req: Request, res: Response) => {
+export const createStop = async (req: Request, res: Response): Promise<void> => {
     const { tripId } = req.params;
     const tripIdNum = Number(tripId);
 
@@ -164,7 +164,7 @@ export const createStop = async (req: Request, res: Response) => {
     }
 };
 
-export const createActivityStop = async (req: Request, res: Response) => {
+export const createActivityStop = async (req: Request, res: Response): Promise<void> => {
     const { tripId } = req.params;
     const tripIdNum = Number(tripId);
     const { stopData, activityData } = req.body;
@@ -178,7 +178,7 @@ export const createActivityStop = async (req: Request, res: Response) => {
     }
 };
 
-export const createAccommodationStop = async (req: Request, res: Response) => {
+export const createAccommodationStop = async (req: Request, res: Response): Promise<void> => {
     const { tripId } = req.params;
     const tripIdNum = Number(tripId);
     const { stopData, accommodationData } = req.body;
@@ -192,7 +192,7 @@ export const createAccommodationStop = async (req: Request, res: Response) => {
     }
 };
 
-export const createRefuelStop = async (req: Request, res: Response) => {
+export const createRefuelStop = async (req: Request, res: Response): Promise<void> => {
     const { tripId } = req.params;
     const tripIdNum = Number(tripId);
     const { stopData, refuelData } = req.body;
@@ -206,7 +206,7 @@ export const createRefuelStop = async (req: Request, res: Response) => {
     }
 };
 
-export const getRefuelStop = async (req: Request, res: Response) => {
+export const getRefuelStop = async (req: Request, res: Response): Promise<void> => {
     const { stopId } = req.params;
 
     try {
@@ -215,14 +215,14 @@ export const getRefuelStop = async (req: Request, res: Response) => {
     } catch (error) {
         const err = error as Error;
         if (err.message.includes('No se encontró')) {
-            return res.status(404).json({ error: err.message });
+            res.status(404).json({ error: err.message }); return;
         }
         res.status(500).json({ error: err.message });
     }
 };
 
 //Methods to create stops
-export const updateStop = async (req: Request, res: Response) => {
+export const updateStop = async (req: Request, res: Response): Promise<void> => {
     const { stopId } = req.params;
     const tripIdNum = Number(req.params.tripId);
 
@@ -252,17 +252,17 @@ export const updateStop = async (req: Request, res: Response) => {
         const err = error as Error;
         // Errores de validación de origen/destino/intermedia - devolver sin loguear
         if (err.message.includes('Origen') || err.message.includes('Destino') || err.message.includes('intermedia')) {
-            return res.status(400).json({ error: err.message });
+            res.status(400).json({ error: err.message }); return;
         }
         if (err.message.includes('No se encontró')) {
-            return res.status(404).json({ error: err.message });
+            res.status(404).json({ error: err.message }); return;
         }
         console.error('Error en updateStop:', err);
         res.status(500).json({ error: err.message });
     }
 };
 
-export const updateActivityStop = async (req: Request, res: Response) => {
+export const updateActivityStop = async (req: Request, res: Response): Promise<void> => {
     const { stopId } = req.params;
     const { stopData, activityData } = req.body;
 
@@ -272,13 +272,13 @@ export const updateActivityStop = async (req: Request, res: Response) => {
     } catch (error) {
         const err = error as Error;
         if (err.message.includes('No se encontró')) {
-            return res.status(404).json({ error: err.message });
+            res.status(404).json({ error: err.message }); return;
         }
         res.status(500).json({ error: err.message });
     }
 };
 
-export const updateAccommodationStop = async (req: Request, res: Response) => {
+export const updateAccommodationStop = async (req: Request, res: Response): Promise<void> => {
     const { stopId } = req.params;
     const { stopData, accommodationData } = req.body;
 
@@ -288,13 +288,13 @@ export const updateAccommodationStop = async (req: Request, res: Response) => {
     } catch (error) {
         const err = error as Error;
         if (err.message.includes('No se encontró')) {
-            return res.status(404).json({ error: err.message });
+            res.status(404).json({ error: err.message }); return;
         }
         res.status(500).json({ error: err.message });
     }
 };
 
-export const updateRefuelStop = async (req: Request, res: Response) => {
+export const updateRefuelStop = async (req: Request, res: Response): Promise<void> => {
     const { stopId } = req.params;
     const { stopData, refuelData } = req.body;
 
@@ -304,25 +304,25 @@ export const updateRefuelStop = async (req: Request, res: Response) => {
     } catch (error) {
         const err = error as Error;
         if (err.message.includes('No se encontró')) {
-            return res.status(404).json({ error: err.message });
+            res.status(404).json({ error: err.message }); return;
         }
         res.status(500).json({ error: err.message });
     }
 };
 
-export const deleteStop = async (req: Request, res: Response) => {
+export const deleteStop = async (req: Request, res: Response): Promise<void> => {
     const { stopId } = req.params;
     try {
         const result = await ItineraryService.deleteStop(stopId);
         if (result && typeof result === 'object' && (result as any).id) {
-            return res.status(200).json({ message: `Parada borrada y rutas fusionadas.`, mergedRoute: result });
+            res.status(200).json({ message: `Parada borrada y rutas fusionadas.`, mergedRoute: result }); return;
         }
 
         res.status(200).json({ message: `Parada con id ${stopId} borrada correctamente` });
     } catch (error) {
         const err = error as Error;
         if (err.message.includes('No se encontró')) {
-            return res.status(404).json({ error: err.message });
+            res.status(404).json({ error: err.message }); return;
         }
         res.status(500).json({ error: err.message });
     }
@@ -330,7 +330,7 @@ export const deleteStop = async (req: Request, res: Response) => {
 
 // =============== COMBINED CONTROLLERS ===============
 
-export const getRouteWithStops = async (req: Request, res: Response) => {
+export const getRouteWithStops = async (req: Request, res: Response): Promise<void> => {
     const { routeId } = req.params;
 
     try {
@@ -339,28 +339,28 @@ export const getRouteWithStops = async (req: Request, res: Response) => {
     } catch (error) {
         const err = error as Error;
         if (err.message.includes('No se encontró')) {
-            return res.status(404).json({ error: err.message });
+            res.status(404).json({ error: err.message }); return;
         }
         res.status(500).json({ error: err.message });
     }
 };
 
-export const getAllStopsInATrip = async (req: Request, res: Response) => {
+export const getAllStopsInATrip = async (req: Request, res: Response): Promise<void> => {
     const { tripId } = req.params;
     const tripIdNum = Number(tripId);
     try {
         const uniqueStops = await ItineraryService.getAllStopsInATrip(tripIdNum);
-        return res.json(uniqueStops);
+        res.json(uniqueStops); return;
     } catch (error) {
         const err = error as Error;
         if (err.message.includes('No se encontró')) {
-            return res.status(404).json({ error: err.message });
+            res.status(404).json({ error: err.message }); return;
         }
         res.status(500).json({ error: err.message });
     }
 };
 
-export const getTripItinerary = async (req: Request, res: Response) => {
+export const getTripItinerary = async (req: Request, res: Response): Promise<void> => {
     const { tripId } = req.params;
     const tripIdNum = Number(tripId);
     try {
@@ -372,7 +372,7 @@ export const getTripItinerary = async (req: Request, res: Response) => {
     }
 };
 
-export const getTotalRefuelCostByUser = async (req: Request, res: Response) => {
+export const getTotalRefuelCostByUser = async (req: Request, res: Response): Promise<void> => {
     const { userId } = req.params;
     try {
         const result = await ItineraryService.getTotalRefuelCostByUser(userId);
@@ -383,7 +383,7 @@ export const getTotalRefuelCostByUser = async (req: Request, res: Response) => {
     }
 };
 
-export const getTotalRefuelCostByTrip = async (req: Request, res: Response) => {
+export const getTotalRefuelCostByTrip = async (req: Request, res: Response): Promise<void> => {
     const { tripId } = req.params;
     const tripIdNum = Number(tripId);
     try {
@@ -395,7 +395,7 @@ export const getTotalRefuelCostByTrip = async (req: Request, res: Response) => {
     }
 };
 
-export const getTotalAccommodationCostByTrip = async (req: Request, res: Response) => {
+export const getTotalAccommodationCostByTrip = async (req: Request, res: Response): Promise<void> => {
     const { tripId } = req.params;
     const tripIdNum = Number(tripId);
     try {
@@ -407,7 +407,7 @@ export const getTotalAccommodationCostByTrip = async (req: Request, res: Respons
     }
 };
 
-export const getTotalActivityCostByTrip = async (req: Request, res: Response) => {
+export const getTotalActivityCostByTrip = async (req: Request, res: Response): Promise<void> => {
     const { tripId } = req.params;
     const tripIdNum = Number(tripId);
     try {
@@ -424,7 +424,7 @@ export const getTotalActivityCostByTrip = async (req: Request, res: Response) =>
 /**
  * POST /api/stops/:stopId/attachments
  */
-export const uploadAttachment = async (req: Request, res: Response) => {
+export const uploadAttachment = async (req: Request, res: Response): Promise<void> => {
     try {
         const formidable = (await import('formidable')).default;
         const { stopId } = req.params;
@@ -439,7 +439,7 @@ export const uploadAttachment = async (req: Request, res: Response) => {
         const authHeader = req.headers.authorization;
         if (!authHeader || !authHeader.startsWith('Bearer ')) {
             console.error('❌ No hay header de autorización');
-            return res.status(401).json({ error: 'No autenticado' });
+            res.status(401).json({ error: 'No autenticado' }); return;
         }
 
         const token = authHeader.substring(7);
@@ -447,7 +447,7 @@ export const uploadAttachment = async (req: Request, res: Response) => {
 
         if (error || !user) {
             console.error('❌ Error verificando token:', error);
-            return res.status(401).json({ error: 'Token inválido' });
+            res.status(401).json({ error: 'Token inválido' }); return;
         }
 
         const userId = user.id;
@@ -472,7 +472,7 @@ export const uploadAttachment = async (req: Request, res: Response) => {
 
         if (!file) {
             console.error('❌ No se proporcionó ningún archivo');
-            return res.status(400).json({ error: 'No se proporcionó ningún archivo' });
+            res.status(400).json({ error: 'No se proporcionó ningún archivo' }); return;
         }
 
         console.log('🚀 Llamando a uploadReservationAttachment...');
@@ -493,11 +493,11 @@ export const uploadAttachment = async (req: Request, res: Response) => {
             success: true,
             data: result,
         });
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('Error uploading attachment:', error);
         res.status(400).json({
             success: false,
-            error: error.message || 'Error al subir archivo',
+            error: error instanceof Error ? error.message : 'Error al subir archivo',
         });
     }
 };
@@ -505,7 +505,7 @@ export const uploadAttachment = async (req: Request, res: Response) => {
 /**
  * GET /api/stops/:stopId/attachments
  */
-export const getAttachments = async (req: Request, res: Response) => {
+export const getAttachments = async (req: Request, res: Response): Promise<void> => {
     try {
         const { stopId } = req.params;
 
@@ -518,7 +518,7 @@ export const getAttachments = async (req: Request, res: Response) => {
         const authHeader = req.headers.authorization;
         if (!authHeader || !authHeader.startsWith('Bearer ')) {
             console.error('❌ No hay header de autorización');
-            return res.status(401).json({ error: 'No autenticado' });
+            res.status(401).json({ error: 'No autenticado' }); return;
         }
 
         const token = authHeader.substring(7);
@@ -526,7 +526,7 @@ export const getAttachments = async (req: Request, res: Response) => {
 
         if (error || !user) {
             console.error('❌ Error verificando token:', error);
-            return res.status(401).json({ error: 'Token inválido' });
+            res.status(401).json({ error: 'Token inválido' }); return;
         }
 
         const userId = user.id;
@@ -541,11 +541,11 @@ export const getAttachments = async (req: Request, res: Response) => {
             success: true,
             data: attachments,
         });
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('❌ Error getting attachments:', error);
         res.status(400).json({
             success: false,
-            error: error.message || 'Error al obtener adjuntos',
+            error: error instanceof Error ? error.message : 'Error al obtener adjuntos',
         });
     }
 };
@@ -553,14 +553,14 @@ export const getAttachments = async (req: Request, res: Response) => {
 /**
  * DELETE /api/attachments/:attachmentId
  */
-export const deleteAttachmentHandler = async (req: Request, res: Response) => {
+export const deleteAttachmentHandler = async (req: Request, res: Response): Promise<void> => {
     try {
         const { attachmentId } = req.params;
 
         // Extraer y verificar el token JWT de Supabase
         const authHeader = req.headers.authorization;
         if (!authHeader || !authHeader.startsWith('Bearer ')) {
-            return res.status(401).json({ error: 'No autenticado' });
+            res.status(401).json({ error: 'No autenticado' }); return;
         }
 
         const token = authHeader.substring(7);
@@ -568,7 +568,7 @@ export const deleteAttachmentHandler = async (req: Request, res: Response) => {
 
         if (error || !user) {
             console.error('❌ Error verificando token:', error);
-            return res.status(401).json({ error: 'Token inválido' });
+            res.status(401).json({ error: 'Token inválido' }); return;
         }
 
         const userId = user.id;
@@ -579,17 +579,17 @@ export const deleteAttachmentHandler = async (req: Request, res: Response) => {
             success: true,
             message: 'Adjunto eliminado correctamente',
         });
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('Error deleting attachment:', error);
         res.status(400).json({
             success: false,
-            error: error.message || 'Error al eliminar adjunto',
+            error: error instanceof Error ? error.message : 'Error al eliminar adjunto',
         });
     }
 };
 
 // Endpoint para actualizar la foto de una parada específica
-export const refreshStopPhoto = async (req: Request, res: Response) => {
+export const refreshStopPhoto = async (req: Request, res: Response): Promise<void> => {
     const { stopId } = req.params;
 
     try {
@@ -599,17 +599,17 @@ export const refreshStopPhoto = async (req: Request, res: Response) => {
             message: 'Foto de la parada actualizada',
             stop: updatedStop,
         });
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('Error refreshing stop photo:', error);
         res.status(400).json({
             success: false,
-            error: error.message || 'Error al actualizar foto de la parada',
+            error: error instanceof Error ? error.message : 'Error al actualizar foto de la parada',
         });
     }
 };
 
 // Endpoint para actualizar fotos de todas las paradas de un viaje
-export const refreshTripStopsPhotos = async (req: Request, res: Response) => {
+export const refreshTripStopsPhotos = async (req: Request, res: Response): Promise<void> => {
     const { tripId } = req.params;
     const tripIdNum = Number(tripId);
 
@@ -620,11 +620,11 @@ export const refreshTripStopsPhotos = async (req: Request, res: Response) => {
             message: `Fotos actualizadas para ${result.updated} de ${result.total} paradas`,
             ...result,
         });
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('Error refreshing trip stops photos:', error);
         res.status(400).json({
             success: false,
-            error: error.message || 'Error al actualizar fotos de las paradas',
+            error: error instanceof Error ? error.message : 'Error al actualizar fotos de las paradas',
         });
     }
 };

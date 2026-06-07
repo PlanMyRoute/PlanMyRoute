@@ -203,7 +203,29 @@ export type Database = {
           used_at?: string | null
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "promo_code_usages_code_fkey"
+            columns: ["code"]
+            isOneToOne: false
+            referencedRelation: "promo_codes"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "promo_code_usages_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "promo_code_usages_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_follow_stats"
+            referencedColumns: ["user_id"]
+          },
+        ]
       }
       promo_codes: {
         Row: {
@@ -494,7 +516,7 @@ export type Database = {
           position: number | null
           price_level: number | null
           price_symbol: string | null
-          trip_id: number | null
+          trip_id: number
           type: Database["public"]["Enums"]["StopType"]
           updated_at: string | null
         }
@@ -516,7 +538,7 @@ export type Database = {
           position?: number | null
           price_level?: number | null
           price_symbol?: string | null
-          trip_id?: number | null
+          trip_id: number
           type?: Database["public"]["Enums"]["StopType"]
           updated_at?: string | null
         }
@@ -538,7 +560,7 @@ export type Database = {
           position?: number | null
           price_level?: number | null
           price_symbol?: string | null
-          trip_id?: number | null
+          trip_id?: number
           type?: Database["public"]["Enums"]["StopType"]
           updated_at?: string | null
         }
@@ -603,6 +625,54 @@ export type Database = {
         }
         Relationships: []
       }
+      token_transaction: {
+        Row: {
+          amount: number
+          balance_after: number
+          created_at: string
+          id: string
+          reference: Json | null
+          type: Database["public"]["Enums"]["token_transaction_type"]
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          balance_after: number
+          created_at?: string
+          id?: string
+          reference?: Json | null
+          type: Database["public"]["Enums"]["token_transaction_type"]
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          balance_after?: number
+          created_at?: string
+          id?: string
+          reference?: Json | null
+          type?: Database["public"]["Enums"]["token_transaction_type"]
+          user_id?: string
+        }
+        Relationships: []
+      }
+      token_wallet: {
+        Row: {
+          balance: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          balance?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          balance?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       travelers: {
         Row: {
           trip_id: number
@@ -661,10 +731,10 @@ export type Database = {
           n_children: number | null
           n_elders: number | null
           n_pets: number | null
-          name: string | null
+          name: string
           start_date: string | null
           start_time: string | null
-          status: Database["public"]["Enums"]["trip_status"] | null
+          status: Database["public"]["Enums"]["trip_status"]
           total_distance_meters: number | null
           total_price: number | null
           type: Database["public"]["Enums"]["interest"][]
@@ -687,10 +757,10 @@ export type Database = {
           n_children?: number | null
           n_elders?: number | null
           n_pets?: number | null
-          name?: string | null
+          name?: string
           start_date?: string | null
           start_time?: string | null
-          status?: Database["public"]["Enums"]["trip_status"] | null
+          status?: Database["public"]["Enums"]["trip_status"]
           total_distance_meters?: number | null
           total_price?: number | null
           type: Database["public"]["Enums"]["interest"][]
@@ -713,10 +783,10 @@ export type Database = {
           n_children?: number | null
           n_elders?: number | null
           n_pets?: number | null
-          name?: string | null
+          name?: string
           start_date?: string | null
           start_time?: string | null
-          status?: Database["public"]["Enums"]["trip_status"] | null
+          status?: Database["public"]["Enums"]["trip_status"]
           total_distance_meters?: number | null
           total_price?: number | null
           type?: Database["public"]["Enums"]["interest"][]
@@ -730,7 +800,7 @@ export type Database = {
           filename: string | null
           id: string
           path: string
-          trip_id: string
+          trip_id: number
           url: string | null
           user_id: string | null
         }
@@ -739,7 +809,7 @@ export type Database = {
           filename?: string | null
           id?: string
           path: string
-          trip_id: string
+          trip_id: number
           url?: string | null
           user_id?: string | null
         }
@@ -748,41 +818,19 @@ export type Database = {
           filename?: string | null
           id?: string
           path?: string
-          trip_id?: string
+          trip_id?: number
           url?: string | null
           user_id?: string | null
         }
-        Relationships: []
-      }
-      trip_photos_backup: {
-        Row: {
-          created_at: string | null
-          filename: string | null
-          id: string | null
-          path: string | null
-          trip_id: string | null
-          url: string | null
-          user_id: string | null
-        }
-        Insert: {
-          created_at?: string | null
-          filename?: string | null
-          id?: string | null
-          path?: string | null
-          trip_id?: string | null
-          url?: string | null
-          user_id?: string | null
-        }
-        Update: {
-          created_at?: string | null
-          filename?: string | null
-          id?: string | null
-          path?: string | null
-          trip_id?: string | null
-          url?: string | null
-          user_id?: string | null
-        }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "trip_photos_trip_id_fkey"
+            columns: ["trip_id"]
+            isOneToOne: false
+            referencedRelation: "trip"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       trip_reviews: {
         Row: {
@@ -1025,7 +1073,7 @@ export type Database = {
           model: string | null
           type: Database["public"]["Enums"]["vehicle_type"]
           type_fuel: Database["public"]["Enums"]["type_fuel"] | null
-          user_id: string | null
+          user_id: string
         }
         Insert: {
           avg_consumption?: number | null
@@ -1035,7 +1083,7 @@ export type Database = {
           model?: string | null
           type: Database["public"]["Enums"]["vehicle_type"]
           type_fuel?: Database["public"]["Enums"]["type_fuel"] | null
-          user_id?: string | null
+          user_id: string
         }
         Update: {
           avg_consumption?: number | null
@@ -1045,7 +1093,7 @@ export type Database = {
           model?: string | null
           type?: Database["public"]["Enums"]["vehicle_type"]
           type_fuel?: Database["public"]["Enums"]["type_fuel"] | null
-          user_id?: string | null
+          user_id?: string
         }
         Relationships: [
           {
@@ -1083,11 +1131,29 @@ export type Database = {
           id: number
         }[]
       }
+      grant_tokens: {
+        Args: {
+          p_amount: number
+          p_reference?: Json
+          p_type: Database["public"]["Enums"]["token_transaction_type"]
+          p_user_id: string
+        }
+        Returns: number
+      }
       query_stops_by_day: {
         Args: { p_day: number; p_trip_id: number }
         Returns: {
           id: number
         }[]
+      }
+      spend_tokens: {
+        Args: {
+          p_amount: number
+          p_reference?: Json
+          p_type: Database["public"]["Enums"]["token_transaction_type"]
+          p_user_id: string
+        }
+        Returns: number
       }
     }
     Enums: {
@@ -1116,6 +1182,20 @@ export type Database = {
         | "canceled"
         | "expired"
       subscription_tier: "free" | "premium"
+      token_transaction_type:
+        | "WELCOME_BONUS"
+        | "PURCHASE_BASIC"
+        | "PURCHASE_STANDARD"
+        | "PURCHASE_TRAVELER"
+        | "REMOVE_ADS_BONUS"
+        | "PREMIUM_ANNUAL_GRANT"
+        | "ADMIN_GRANT"
+        | "REFUND"
+        | "GENERATE_TRIP"
+        | "ADDON_ROUNDTRIP"
+        | "ADDON_REFUEL"
+        | "MODIFY_TRIP"
+        | "POI_RECOMMENDATION"
       trip_status: "planning" | "going" | "completed"
       type_fuel: "diesel" | "gasoline" | "electric" | "LPG"
       vehicle_type: "car" | "motorcycle" | "campervan" | "van"
@@ -1273,6 +1353,21 @@ export const Constants = {
         "expired",
       ],
       subscription_tier: ["free", "premium"],
+      token_transaction_type: [
+        "WELCOME_BONUS",
+        "PURCHASE_BASIC",
+        "PURCHASE_STANDARD",
+        "PURCHASE_TRAVELER",
+        "REMOVE_ADS_BONUS",
+        "PREMIUM_ANNUAL_GRANT",
+        "ADMIN_GRANT",
+        "REFUND",
+        "GENERATE_TRIP",
+        "ADDON_ROUNDTRIP",
+        "ADDON_REFUEL",
+        "MODIFY_TRIP",
+        "POI_RECOMMENDATION",
+      ],
       trip_status: ["planning", "going", "completed"],
       type_fuel: ["diesel", "gasoline", "electric", "LPG"],
       vehicle_type: ["car", "motorcycle", "campervan", "van"],

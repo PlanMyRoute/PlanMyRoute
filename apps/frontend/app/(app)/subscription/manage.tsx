@@ -2,9 +2,12 @@ import CustomButton from '@/components/customElements/CustomButton';
 import CustomInput from '@/components/customElements/CustomInput';
 import { MicrotextDark, TextRegular, Title1, Title2Semibold } from '@/components/customElements/CustomText';
 import { PlansModal } from '@/components/modals/PlansModal';
+import { TokenBalanceBadge } from '@/components/TokenBalanceBadge';
 import { useAuth } from '@/context/AuthContext';
 import { useSubscription } from '@/context/SubscriptionContext';
+import { useTokenHistory } from '@/hooks/users/useTokenBalance';
 import { SubscriptionService } from '@/services/subscriptionService';
+import { TokenTransaction, TokenTransactionType } from '@planmyroute/types';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
@@ -19,10 +22,28 @@ function showUserAlert(title: string, message?: string) {
 }
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+// Etiquetas legibles para los tipos de movimiento de tokens.
+const TOKEN_TYPE_LABELS: Record<TokenTransactionType, string> = {
+    WELCOME_BONUS: 'Bono de bienvenida',
+    PURCHASE_BASIC: 'Compra · paquete básico',
+    PURCHASE_STANDARD: 'Compra · paquete estándar',
+    PURCHASE_TRAVELER: 'Compra · paquete viajero',
+    REMOVE_ADS_BONUS: 'Bono sin anuncios',
+    PREMIUM_ANNUAL_GRANT: 'Suscripción anual',
+    ADMIN_GRANT: 'Concesión',
+    REFUND: 'Reembolso',
+    GENERATE_TRIP: 'Generación de viaje',
+    ADDON_ROUNDTRIP: 'Ida y vuelta',
+    ADDON_REFUEL: 'Paradas de repostaje',
+    MODIFY_TRIP: 'Modificación de viaje',
+    POI_RECOMMENDATION: 'Recomendación de lugar',
+};
+
 export default function ManageSubscriptionScreen() {
     const router = useRouter();
     const { session } = useAuth();
     const { subscription, isPremium, refreshSubscription } = useSubscription();
+    const { data: tokenHistory } = useTokenHistory(20);
     const [loading, setLoading] = useState(false);
     const [cancelLoading, setCancelLoading] = useState(false);
     const [showPlansModal, setShowPlansModal] = useState(false);
@@ -63,8 +84,8 @@ export default function ManageSubscriptionScreen() {
             } else {
                 showUserAlert('Código no válido', result.message || 'El código no es válido o ya fue usado.');
             }
-        } catch (error: any) {
-            let msg = error?.message || '';
+        } catch (error: unknown) {
+            let msg = error instanceof Error ? error.message : '';
             if (msg.toLowerCase().includes('ya has canjeado este código')) {
                 showUserAlert('Código ya usado', 'Ya has canjeado este código anteriormente.');
             } else if (msg.toLowerCase().includes('no válido')) {
@@ -121,8 +142,8 @@ export default function ManageSubscriptionScreen() {
                     await Linking.openURL(url);
                 }
             }
-        } catch (error: any) {
-            Alert.alert('Error', error.message || 'No se pudo abrir el portal de gestión');
+        } catch (error: unknown) {
+            Alert.alert('Error', error instanceof Error ? error.message : 'No se pudo abrir el portal de gestión');
         } finally {
             setLoading(false);
         }
@@ -149,8 +170,8 @@ export default function ManageSubscriptionScreen() {
                                 '✅ Suscripción cancelada',
                                 result.message || 'Tu suscripción se cancelará al final del período actual.'
                             );
-                        } catch (error: any) {
-                            Alert.alert('Error', error.message || 'No se pudo cancelar la suscripción');
+                        } catch (error: unknown) {
+                            Alert.alert('Error', error instanceof Error ? error.message : 'No se pudo cancelar la suscripción');
                         } finally {
                             setCancelLoading(false);
                         }
@@ -169,8 +190,8 @@ export default function ManageSubscriptionScreen() {
             const result = await SubscriptionService.reactivateSubscription(session.access_token);
             await refreshSubscription();
             Alert.alert('✅ ¡Éxito!', result.message || 'Tu suscripción ha sido reactivada.');
-        } catch (error: any) {
-            Alert.alert('Error', error.message || 'No se pudo reactivar la suscripción');
+        } catch (error: unknown) {
+            Alert.alert('Error', error instanceof Error ? error.message : 'No se pudo reactivar la suscripción');
         } finally {
             setLoading(false);
         }
@@ -236,6 +257,49 @@ export default function ManageSubscriptionScreen() {
                             </View>
                         )}
                     </View>
+                </View>
+
+                {/* Saldo de tokens */}
+                <View className="mb-8 border border-neutral-200 rounded-2xl p-5">
+                    <View className="flex-row items-center justify-between mb-4">
+                        <View>
+                            <Title2Semibold>Tus tokens</Title2Semibold>
+                            <MicrotextDark className="text-neutral-gray">
+                                Se usan en las acciones con IA
+                            </MicrotextDark>
+                        </View>
+                        <TokenBalanceBadge />
+                    </View>
+
+                    <CustomButton
+                        title="Comprar tokens"
+                        onPress={() => setShowPlansModal(true)}
+                        variant="primary"
+                        size="large"
+                        icon={<Ionicons name="diamond-outline" size={20} color="#202020" />}
+                    />
+
+                    {tokenHistory && tokenHistory.length > 0 && (
+                        <View className="mt-5 border-t border-neutral-100 pt-4">
+                            <MicrotextDark className="text-neutral-gray mb-3 font-semibold">
+                                Movimientos recientes
+                            </MicrotextDark>
+                            <View className="gap-2">
+                                {tokenHistory.slice(0, 8).map((tx: TokenTransaction) => (
+                                    <View key={tx.id} className="flex-row items-center justify-between">
+                                        <TextRegular className="text-neutral-gray flex-1 mr-3" numberOfLines={1}>
+                                            {TOKEN_TYPE_LABELS[tx.type] ?? tx.type}
+                                        </TextRegular>
+                                        <TextRegular
+                                            className={`font-semibold ${tx.amount >= 0 ? 'text-green-600' : 'text-red-500'}`}
+                                        >
+                                            {tx.amount >= 0 ? `+${tx.amount}` : tx.amount}
+                                        </TextRegular>
+                                    </View>
+                                ))}
+                            </View>
+                        </View>
+                    )}
                 </View>
 
                 {/* Opciones según el estado */}
@@ -312,7 +376,7 @@ export default function ManageSubscriptionScreen() {
                         <View className="bg-neutral-100 rounded-2xl p-6 mb-4">
                             <Title2Semibold className="mb-2">¿Quieres más funciones?</Title2Semibold>
                             <TextRegular className="text-neutral-gray mb-4">
-                                Hazte Premium y disfruta de viajes con IA ilimitados, más vehículos, sin anuncios y mucho más.
+                                Hazte Premium: 1000 tokens al año, planificador de repostaje, viajes offline, sin anuncios y verificado.
                             </TextRegular>
                             <CustomButton
                                 title="Ver planes Premium"
@@ -352,10 +416,10 @@ export default function ManageSubscriptionScreen() {
                             <Title2Semibold className="mb-3">Tu plan Free incluye:</Title2Semibold>
                             <View className="gap-2">
                                 {[
-                                    '2 viajes con IA al mes',
+                                    '20 tokens de bienvenida',
+                                    'Acciones con IA pagando con tokens',
                                     '1 vehículo',
                                     '3 viajeros por viaje',
-                                    'Funciones básicas',
                                 ].map((item, index) => (
                                     <View key={index} className="flex-row items-center gap-2">
                                         <Ionicons name="checkmark-circle" size={18} color="#9ca3af" />

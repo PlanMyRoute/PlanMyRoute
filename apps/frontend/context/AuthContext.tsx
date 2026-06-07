@@ -16,8 +16,8 @@ interface AuthContextType {
   token: string | null;
   isLoading: boolean;
   login: (email: string, pass: string) => Promise<void>;
-  signUp: (email: string, pass: string, username: string) => Promise<any>;
-  verifyOtp: (email: string, token: string) => Promise<any>;
+  signUp: (email: string, pass: string, username: string) => Promise<{ user: User | null; session: Session | null }>;
+  verifyOtp: (email: string, token: string) => Promise<{ user: User | null; session: Session | null }>;
   resendOtp: (email: string) => Promise<void>;
   signOut: () => Promise<void>;
   signInWithGoogle: () => Promise<void>;
@@ -101,7 +101,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   // mediante el hook useNeedsProfileCompletion, así no dependemos de flags persistidos.
   const syncAvatarIfGoogle = async (authUser: User) => {
     if (authUser.is_anonymous) return;
-    const provider = (authUser.app_metadata as any)?.provider;
+    const provider = authUser.app_metadata?.provider as string | undefined;
     if (provider !== 'google') return;
     const avatarUrl = authUser.user_metadata?.avatar_url;
     if (!avatarUrl) return;
@@ -222,7 +222,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
               img: null,
               timezone: 'UTC',
               auto_trip_status_update: false,
-            } as any,
+            },
             accessToken
           );
         }
@@ -306,7 +306,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         img: null,
         timezone: 'UTC',
         auto_trip_status_update: false,
-      } as any,
+      },
       guestToken
     );
   };

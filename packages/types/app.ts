@@ -1,11 +1,10 @@
 // types/app.ts
 import { Database } from './supabase';
+import { TokenTransactionType } from './tokenomics';
 
-// --- Helper para extraer tipos ---
-// Extrae el tipo de una fila de una tabla específica
+// --- Helpers para extraer tipos ---
 export type DbTableRow<T extends keyof Database['public']['Tables']> = Database['public']['Tables'][T]['Row'];
-
-// Extrae un tipo Enum
+export type DbViewRow<T extends keyof Database['public']['Views']> = Database['public']['Views'][T]['Row'];
 export type DbEnum<T extends keyof Database['public']['Enums']> = Database['public']['Enums'][T];
 
 // --- Tipos de Coordenadas ---
@@ -47,16 +46,45 @@ export type User = DbTableRow<'user'>;
 export type Trip = DbTableRow<'trip'>;
 export type Route = DbTableRow<'route'>;
 
-// Stop con coordinates tipado correctamente
+// Stop con coordinates tipado correctamente (el campo coordinates en BD es Json genérico)
 export type Stop = Omit<DbTableRow<'stop'>, 'coordinates'> & {
     coordinates: Coordinates;
 };
 
-export type notifications = DbTableRow<'notifications'>;
+export type Notification = DbTableRow<'notifications'>;
 export type Vehicle = DbTableRow<'vehicle'>;
 export type Reservation = DbTableRow<'reservation'>;
 export type UserFollow = DbTableRow<'user_follows'>;
 export type TripStatusHistory = DbTableRow<'trip_status_history'>;
+export type Subscription = DbTableRow<'subscriptions'>;
+export type Traveler = DbTableRow<'travelers'>;
+export type RoadTrip = DbTableRow<'road_trip'>;
+export type EventChatMessage = DbTableRow<'event_chat_message'>;
+export type UserUsage = DbTableRow<'user_usage'>;
+export type TripPhoto = DbTableRow<'trip_photos'>;
+export type TripReview = DbTableRow<'trip_reviews'>;
+export type PromoCode = DbTableRow<'promo_codes'>;
+export type PromoCodeUsage = DbTableRow<'promo_code_usages'>;
+export type Referral = DbTableRow<'referrals'>;
+export type ReservationAttachment = DbTableRow<'reservation_attachments'>;
+
+// --- Sistema de Tokens (definidos a mano hasta regenerar supabase.ts) ---
+export type TokenWallet = {
+    user_id: string;
+    balance: number;
+    updated_at: string;
+};
+
+export type TokenTransaction = {
+    id: string;
+    user_id: string;
+    type: TokenTransactionType;
+    amount: number; // positivo = ingreso, negativo = gasto
+    balance_after: number;
+    reference: Record<string, unknown> | null;
+    created_at: string;
+};
+export type UserFollowStats = DbViewRow<'user_follow_stats'>;
 // Tipos explícitos para los subtipos de paradas
 export type Accommodation = {
     id: number;
@@ -92,12 +120,36 @@ export type Interest = DbEnum<'interest'>;
 export type VehicleType = DbEnum<'vehicle_type'>;
 export type TripStatus = DbEnum<'trip_status'>;
 export type StopType = DbEnum<'StopType'>;
-export type PlanType = DbEnum<'plan_type'>;
+// PlanType no existe como enum en Supabase; se define como tipo literal aquí
+export type PlanType = 'monthly' | 'yearly';
 export type CollaboratorRole = DbEnum<'collaborator_role'>;
 export type ReservationStatus = DbEnum<'reservation_status'>;
 export type NotificationActionStatus = DbEnum<'notification_action_status'>;
 export type NotificationType = DbEnum<'notification_type'>;
 export type NotificationStatus = DbEnum<'notification_status'>;
+export type AccommodationType = DbEnum<'accommodation_type_enum'>;
+export type SubscriptionStatus = DbEnum<'subscription_status'>;
+export type SubscriptionTier = DbEnum<'subscription_tier'>;
+export type FuelType = DbEnum<'type_fuel'>;
+export type ServiceType = DbEnum<'service_type'>;
+
+// --- Permisos y Roles ---
+export type TripAction =
+    | 'view_trip'
+    | 'edit_trip'
+    | 'delete_trip'
+    | 'leave_trip'
+    | 'invite_travelers'
+    | 'change_roles'
+    | 'remove_travelers'
+    | 'add_stop'
+    | 'edit_stop'
+    | 'delete_stop'
+    | 'manage_routes'
+    | 'manage_accommodations'
+    | 'manage_activities';
+
+export type ExtendedRole = CollaboratorRole | 'guest';
 
 // --- Tipos para Trip Status Management ---
 export type TripStatusChangeSource = 'user' | 'auto' | 'system';

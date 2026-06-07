@@ -1,13 +1,18 @@
 // src/api/trips/trips.service.ts
 import { supabase } from '../../supabase.js';
-import { Trip, CollaboratorRole } from '@planmyroute/types';
+import { Trip, CollaboratorRole, Traveler } from '@planmyroute/types';
 import * as ItineraryService from '../itinerary/itinerary.service.js';
+
+type TravelerWithUser = {
+    user: { id: string | null; name?: string | null; username?: string | null; img?: string | null; lastname?: string | null; email?: string | null; bio?: string | null; location?: string | null; timezone?: string | null };
+    role: string | null;
+};
 
 const TABLE_NAME = 'trip';
 const TRAVELERS_TABLE_NAME = 'travelers';
 const ROAD_TRIP_TABLE_NAME = 'road_trip';
 
-export const getById = async (id: number) => {
+export const getById = async (id: number): Promise<Trip> => {
     console.log('🔍 [TripService.getById] Querying trip with id:', id);
     const { data, error } = await supabase
         .from(TABLE_NAME)
@@ -29,7 +34,7 @@ export const getById = async (id: number) => {
     return data;
 };
 
-export const getTravelersInTrip = async (tripId: number) => {
+export const getTravelersInTrip = async (tripId: number): Promise<TravelerWithUser[]> => {
     const { data, error } = await supabase
         .from(TRAVELERS_TABLE_NAME)
         .select('user_role, user:user_id(id, name, username, img, lastname, email, bio, location, timezone)')
@@ -43,13 +48,13 @@ export const getTravelersInTrip = async (tripId: number) => {
         return [];
     }
 
-    return data.map((traveler: any) => ({
-        user: traveler.user || { id: null },
+    return data.map((traveler: { user_role: string | null; user: unknown }) => ({
+        user: (traveler.user as TravelerWithUser['user']) || { id: null },
         role: traveler.user_role,
     }));
 };
 
-export const createTrip = async (tripData: Trip) => {
+export const createTrip = async (tripData: Trip): Promise<Trip> => {
     const { data, error } = await supabase
         .from(TABLE_NAME)
         .insert(tripData)
@@ -140,7 +145,7 @@ export const createTripWithRelations = async (
     }
 };
 
-export const update = async (id: string, tripData: Partial<Trip>) => {
+export const update = async (id: string, tripData: Partial<Trip>): Promise<Trip> => {
     const { data, error } = await supabase
         .from(TABLE_NAME)
         .update(tripData)
@@ -201,7 +206,7 @@ export const createUserTripRelation = async (userId: string, tripId: number, rol
 /**
  * Obtiene todos los viajes en los que participa un usuario específico
  */
-export const getUserTrips = async (userId: string) => {
+export const getUserTrips = async (userId: string): Promise<Trip[]> => {
     // Primero obtenemos los trip_ids en los que participa el usuario
     const { data: travelerData, error: travelerError } = await supabase
         .from(TRAVELERS_TABLE_NAME)
@@ -236,7 +241,7 @@ export const getUserTrips = async (userId: string) => {
 /**
  * Obtiene el historial de viajes completados de un usuario
  */
-export const getUserTripHistory = async (userId: string) => {
+export const getUserTripHistory = async (userId: string): Promise<Trip[]> => {
     // Primero obtenemos los trip_ids en los que participa el usuario
     const { data: travelerData, error: travelerError } = await supabase
         .from(TRAVELERS_TABLE_NAME)

@@ -3,7 +3,10 @@ import { supabase } from '../supabase.js';
 
 export const isPremium = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const userId = (req as any).user.id;
+        const userId = req.user?.id;
+        if (!userId) {
+            return res.status(401).json({ error: 'No autenticado' });
+        }
 
         const { data: sub } = await supabase
             .from('subscriptions')

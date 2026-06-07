@@ -162,8 +162,8 @@ export default function EditProfileScreen() {
                     actions: [{ text: 'OK', onPress: () => { closeAlert(); router.back(); }, variant: 'primary' }],
                 });
             }
-        } catch (error: any) {
-            showAlert({ title: 'Error', message: error.message || 'No se pudo guardar el perfil. Inténtalo de nuevo.', type: 'error' });
+        } catch (error: unknown) {
+            showAlert({ title: 'Error', message: error instanceof Error ? error.message : 'No se pudo guardar el perfil. Inténtalo de nuevo.', type: 'error' });
         } finally {
             setIsSaving(false);
         }

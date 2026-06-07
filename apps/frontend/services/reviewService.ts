@@ -128,9 +128,9 @@ export class ReviewService {
     /**
      * Obtiene el feed público de reseñas
      */
-    static async getPublicFeed(limit: number = 20, offset: number = 0): Promise<any[]> {
+    static async getPublicFeed(limit: number = 20, offset: number = 0): Promise<TripReview[]> {
         try {
-            const result = await apiFetch<{ data: any[] }>(`/api/reviews/feed?limit=${limit}&offset=${offset}`);
+            const result = await apiFetch<{ data: TripReview[] }>(`/api/reviews/feed?limit=${limit}&offset=${offset}`);
             return result.data;
         } catch (error) {
             console.error('Error getting public feed:', error);
@@ -141,9 +141,9 @@ export class ReviewService {
     /**
      * Obtiene el feed social de reseñas (filtrado por follows/followers)
      */
-    static async getSocialFeed(limit: number = 20, offset: number = 0, token: string): Promise<any[]> {
+    static async getSocialFeed(limit: number = 20, offset: number = 0, token: string): Promise<TripReview[]> {
         try {
-            const result = await apiFetch<{ data: any[] }>(`/api/reviews/feed/social?limit=${limit}&offset=${offset}`, {
+            const result = await apiFetch<{ data: TripReview[] }>(`/api/reviews/feed/social?limit=${limit}&offset=${offset}`, {
                 token,
             });
             return result.data;
@@ -156,9 +156,9 @@ export class ReviewService {
     /**
      * Obtiene las reseñas de un viaje específico
      */
-    static async getTripReviews(tripId: string): Promise<any[]> {
+    static async getTripReviews(tripId: string): Promise<TripReview[]> {
         try {
-            const result = await apiFetch<{ data: any[] }>(`/api/reviews/trip/${tripId}`);
+            const result = await apiFetch<{ data: TripReview[] }>(`/api/reviews/trip/${tripId}`);
             return result.data;
         } catch (error) {
             console.error('Error getting trip reviews:', error);

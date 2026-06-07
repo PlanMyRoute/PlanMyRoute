@@ -1,5 +1,5 @@
 import { supabase } from '../../supabase.js';
-import { notifications as NotificationType } from '@planmyroute/types';
+import { Notification } from '@planmyroute/types';
 import * as PushNotificationService from '../../services/pushNotificationService.js';
 
 const TABLE_NAME = 'notifications';
@@ -19,7 +19,7 @@ export const getById = async (id: string | number) => {
         throw new Error(`No se encontró ninguna notificación con el id: ${id}`);
     }
 
-    return data as NotificationType;
+    return data as Notification;
 };
 
 export const getByReceiverId = async (userReceiverId: string) => {
@@ -33,10 +33,10 @@ export const getByReceiverId = async (userReceiverId: string) => {
         throw new Error(`Error al obtener las notificaciones: ${error.message}`);
     }
 
-    return data as NotificationType[];
+    return data as Notification[];
 };
 
-export const create = async (notificationData: Partial<NotificationType>) => {
+export const create = async (notificationData: Partial<Notification>) => {
     const { data, error } = await supabase
         .from(TABLE_NAME)
         .insert(notificationData)
@@ -47,7 +47,7 @@ export const create = async (notificationData: Partial<NotificationType>) => {
         throw new Error(`Error al crear la notificación: ${error.message}`);
     }
 
-    const notification = data as NotificationType;
+    const notification = data as Notification;
 
     // Enviar notificación push si el usuario tiene un token registrado
     if (notificationData.user_receiver_id) {
@@ -97,7 +97,7 @@ export const create = async (notificationData: Partial<NotificationType>) => {
     return notification;
 };
 
-export const update = async (id: string | number, notificationData: Partial<NotificationType>) => {
+export const update = async (id: string | number, notificationData: Partial<Notification>) => {
     const { data, error } = await supabase
         .from(TABLE_NAME)
         .update(notificationData)
@@ -113,7 +113,7 @@ export const update = async (id: string | number, notificationData: Partial<Noti
         throw new Error(`No se encontró ninguna notificación con el id: ${id}`);
     }
 
-    return data as NotificationType;
+    return data as Notification;
 };
 
 export const deleteNotification = async (id: string | number) => {
@@ -163,7 +163,7 @@ export const getByTripId = async (tripId: string | number) => {
         throw new Error(`Error al obtener las notificaciones del viaje: ${error.message}`);
     }
 
-    return data as NotificationType[];
+    return data as Notification[];
 };
 
 /**

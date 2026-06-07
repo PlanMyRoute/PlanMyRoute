@@ -409,8 +409,8 @@ export default function AddNewStopScreen() {
                 }
             }
             await submitStopData(coordinates);
-        } catch (error: any) {
-            showAlert({ title: 'Error', message: `No se pudo ${isEditing ? 'actualizar' : 'crear'} la parada: ${error?.message || 'Error desconocido'}`, type: 'error' });
+        } catch (error: unknown) {
+            showAlert({ title: 'Error', message: `No se pudo ${isEditing ? 'actualizar' : 'crear'} la parada: ${error instanceof Error ? error.message : 'Error desconocido'}`, type: 'error' });
         }
     };
 
@@ -443,7 +443,7 @@ export default function AddNewStopScreen() {
                 else if (formData.subtype === 'accommodation') { const { reservationFile, ...d } = formData.accommodationData; createdStop = await createAccommodationMutation.mutateAsync({ stopData: stopData as Partial<Stop>, accommodationData: d as any }); }
                 else if (formData.subtype === 'refuel') { createdStop = await createRefuelMutation.mutateAsync({ stopData: stopData as Partial<Stop>, refuelData: formData.refuelData as any }); }
                 if (createdStop) {
-                    const sid = createdStop.stop?.id || createdStop.id;
+                    const sid = createdStop.id;
                     if (sid) createdOrUpdatedStopId = String(sid);
                 }
             }
@@ -454,15 +454,15 @@ export default function AddNewStopScreen() {
                         const { data: { session } } = await supabase.auth.getSession();
                         if (!session) throw new Error('No hay sesión activa');
                         await ItineraryService.uploadReservationFile(createdOrUpdatedStopId, reservationFile, session.access_token);
-                    } catch (uploadError: any) {
-                        showAlert({ title: 'Error al subir archivo', message: `La parada se guardó pero hubo un error al subir el archivo: ${uploadError?.message || 'Error desconocido'}`, type: 'error' });
+                    } catch (uploadError: unknown) {
+                        showAlert({ title: 'Error al subir archivo', message: `La parada se guardó pero hubo un error al subir el archivo: ${uploadError instanceof Error ? uploadError.message : 'Error desconocido'}`, type: 'error' });
                     }
                 }
             }
             showAlert({ title: '¡Listo!', message: isEditing ? 'Parada actualizada correctamente' : 'Parada creada correctamente', type: 'success' });
             setTimeout(() => router.back(), 2000);
-        } catch (error: any) {
-            const errorMessage = error?.message || error?.toString() || 'Error desconocido';
+        } catch (error: unknown) {
+            const errorMessage = error instanceof Error ? error.message : String(error);
             let userMessage = errorMessage;
             if (errorMessage.includes('invalid input syntax for type timestamp')) userMessage = 'Error al procesar la hora. Asegúrate de seleccionar una hora válida.';
             showAlert({ title: 'Error', message: `No se pudo ${isEditing ? 'actualizar' : 'crear'} la parada: ${userMessage}`, type: 'error' });

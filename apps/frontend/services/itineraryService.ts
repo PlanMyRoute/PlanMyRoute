@@ -136,9 +136,9 @@ export class ItineraryService {
         tripId: string,
         data: { stopData: Partial<Stop>; activityData: Partial<Activity> },
         token?: string
-    ): Promise<any> {
+    ): Promise<Stop> {
         try {
-            const result = await apiFetch<any>(`/api/trip/${tripId}/stop/activity`, {
+            const result = await apiFetch<Stop>(`/api/trip/${tripId}/stop/activity`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -161,9 +161,9 @@ export class ItineraryService {
         tripId: string,
         data: { stopData: Partial<Stop>; accommodationData: Partial<Accommodation> },
         token?: string
-    ): Promise<any> {
+    ): Promise<Stop> {
         try {
-            const result = await apiFetch<any>(`/api/trip/${tripId}/stop/accommodation`, {
+            const result = await apiFetch<Stop>(`/api/trip/${tripId}/stop/accommodation`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -186,9 +186,9 @@ export class ItineraryService {
         tripId: string,
         data: { stopData: Partial<Stop>; refuelData: Partial<Refuel> },
         token?: string
-    ): Promise<any> {
+    ): Promise<Stop> {
         try {
-            const result = await apiFetch<any>(`/api/trip/${tripId}/stop/refuel`, {
+            const result = await apiFetch<Stop>(`/api/trip/${tripId}/stop/refuel`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -236,9 +236,9 @@ export class ItineraryService {
         stopId: string,
         activityData: Partial<Activity>,
         token?: string
-    ): Promise<any> {
+    ): Promise<Stop> {
         try {
-            const result = await apiFetch<any>(`/api/trip/${tripId}/stop/activity/${stopId}`, {
+            const result = await apiFetch<Stop>(`/api/trip/${tripId}/stop/activity/${stopId}`, {
                 method: 'PATCH',
                 headers: {
                     'Content-Type': 'application/json',
@@ -262,9 +262,9 @@ export class ItineraryService {
         stopId: string,
         accommodationData: Partial<Accommodation>,
         token?: string
-    ): Promise<any> {
+    ): Promise<Stop> {
         try {
-            const result = await apiFetch<any>(`/api/trip/${tripId}/stop/accommodation/${stopId}`, {
+            const result = await apiFetch<Stop>(`/api/trip/${tripId}/stop/accommodation/${stopId}`, {
                 method: 'PATCH',
                 headers: {
                     'Content-Type': 'application/json',
@@ -288,9 +288,9 @@ export class ItineraryService {
         stopId: string,
         refuelData: Partial<Refuel>,
         token?: string
-    ): Promise<any> {
+    ): Promise<Stop> {
         try {
-            const result = await apiFetch<any>(`/api/trip/${tripId}/stop/refuel/${stopId}`, {
+            const result = await apiFetch<Stop>(`/api/trip/${tripId}/stop/refuel/${stopId}`, {
                 method: 'PATCH',
                 headers: {
                     'Content-Type': 'application/json',

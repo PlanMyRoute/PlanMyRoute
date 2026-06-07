@@ -1,14 +1,14 @@
 import CustomButton from '@/components/customElements/CustomButton';
 import { MicrotextDark, TextRegular } from '@/components/customElements/CustomText';
 import { useAcceptInvitation, useDeclineInvitation } from '@/hooks/useNotifications';
-import { notifications } from '@planmyroute/types';
+import { Notification } from '@planmyroute/types';
 import { Link, useRouter } from 'expo-router';
 import { ROUTES } from '@/constants/routes';
 import { TouchableOpacity, View } from 'react-native';
 import Toast from 'react-native-toast-message';
 
 interface InvitationProps {
-    notification: notifications;
+    notification: Notification;
     userId: string | number;
 }
 

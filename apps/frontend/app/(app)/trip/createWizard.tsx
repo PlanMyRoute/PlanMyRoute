@@ -15,6 +15,7 @@ import { useAuth } from '@/context/AuthContext';
 import { useSubscription } from '@/context/SubscriptionContext';
 import { useCreateTripWizard } from '@/hooks/trip/useCreateTripWizard';
 import { loadDraftAsync } from '@/hooks/trip/useWizardDraft';
+import { getActionCost } from '@planmyroute/types';
 import '@/index.css';
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -57,8 +58,6 @@ export default function CreateWizardScreen() {
 
     // Local state for intermediate stop date picker
     const [stopDatePickerId, setStopDatePickerId] = useState<string | null>(null);
-    // Round-trip premium upsell alert
-    const [showRoundTripAlert, setShowRoundTripAlert] = useState(false);
     const { isPremium } = useSubscription();
     const { user } = useAuth();
 
@@ -73,12 +72,13 @@ export default function CreateWizardScreen() {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
+    // Coste en tokens del addon ida/vuelta para viajes con IA (0 para premium en acciones gratuitas).
+    const roundTripTokenCost = getActionCost('ADDON_ROUNDTRIP', isPremium);
+
+    // La opción circular ya no es Premium: en viajes con IA cuesta tokens (ADDON_ROUNDTRIP),
+    // en viajes manuales es gratis. El cobro lo realiza el backend al generar.
     const handleRoundTripToggle = (val: boolean) => {
-        if (val && !isPremium) {
-            setShowRoundTripAlert(true);
-        } else {
-            basics.setRoundTrip(val);
-        }
+        basics.setRoundTrip(val);
     };
 
     const wizard = useCreateTripWizard({
@@ -324,14 +324,14 @@ export default function CreateWizardScreen() {
                                 </View>
                             )}
 
-                            {/* Ida y vuelta (Premium) */}
+                            {/* Ida y vuelta */}
                             <View className="flex-row items-center justify-between px-4 py-3 bg-white border border-neutral-gray/20 rounded-2xl">
                                 <View className="flex-1 mr-4">
                                     <View className="flex-row items-center gap-2 mb-0.5">
                                         <SubtitleSemibold>Ida y vuelta</SubtitleSemibold>
-                                        {!isPremium && (
-                                            <View className="bg-primary-yellow px-2 py-0.5 rounded-full">
-                                                <MicrotextDark className="text-xs font-bold">Premium</MicrotextDark>
+                                        {isAiTrip && roundTripTokenCost > 0 && (
+                                            <View className="bg-primary-yellow/20 px-2 py-0.5 rounded-full">
+                                                <MicrotextDark className="text-xs font-bold">💎 +{roundTripTokenCost}</MicrotextDark>
                                             </View>
                                         )}
                                     </View>
@@ -803,22 +803,6 @@ export default function CreateWizardScreen() {
                     onClose={hideAlert}
                 />
             )}
-
-            <CustomAlert
-                visible={showRoundTripAlert}
-                title="🔒 Función Premium"
-                message="La opción de ida y vuelta es exclusiva para usuarios Premium. Actualiza tu plan para activarla."
-                type="warning"
-                actions={[
-                    {
-                        text: 'Ver Premium',
-                        onPress: () => { setShowRoundTripAlert(false); router.push(ROUTES.premium); },
-                        variant: 'yellow',
-                    },
-                    { text: 'Cerrar', onPress: () => setShowRoundTripAlert(false), variant: 'dark' },
-                ]}
-                onClose={() => setShowRoundTripAlert(false)}
-            />
         </SafeAreaView>
     );
 }

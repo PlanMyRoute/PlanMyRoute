@@ -2,7 +2,7 @@ import { Request, Response } from 'express';
 import * as NotificationService from './notifications.service.js';
 import * as TripService from '../trips/trips.service.js';
 
-export const getNotificationsByReceiver = async (req: Request, res: Response) => {
+export const getNotificationsByReceiver = async (req: Request, res: Response): Promise<void> => {
     const { userId } = req.params; // receiver user id
     try {
         const notifications = await NotificationService.getByReceiverId(userId);
@@ -13,7 +13,7 @@ export const getNotificationsByReceiver = async (req: Request, res: Response) =>
     }
 };
 
-export const getNotificationById = async (req: Request, res: Response) => {
+export const getNotificationById = async (req: Request, res: Response): Promise<void> => {
     const { id } = req.params;
     try {
         const notification = await NotificationService.getById(id);
@@ -21,18 +21,18 @@ export const getNotificationById = async (req: Request, res: Response) => {
     } catch (error) {
         const err = error as Error;
         if (err.message.includes('No se encontró')) {
-            return res.status(404).json({ error: err.message });
+            res.status(404).json({ error: err.message }); return;
         }
         res.status(500).json({ error: err.message });
     }
 };
 
-export const createNotification = async (req: Request, res: Response) => {
+export const createNotification = async (req: Request, res: Response): Promise<void> => {
     try {
         const payload = req.body;
 
         if (!payload || !payload.user_receiver_id || !payload.content) {
-            return res.status(400).json({ error: 'Faltan campos obligatorios: user_receiver_id y content' });
+            res.status(400).json({ error: 'Faltan campos obligatorios: user_receiver_id y content' }); return;
         }
 
         const newNotification = await NotificationService.create(payload);
@@ -43,7 +43,7 @@ export const createNotification = async (req: Request, res: Response) => {
     }
 };
 
-export const updateNotification = async (req: Request, res: Response) => {
+export const updateNotification = async (req: Request, res: Response): Promise<void> => {
     const { id } = req.params;
     try {
         const updated = await NotificationService.update(id, req.body);
@@ -51,13 +51,13 @@ export const updateNotification = async (req: Request, res: Response) => {
     } catch (error) {
         const err = error as Error;
         if (err.message.includes('No se encontró')) {
-            return res.status(404).json({ error: err.message });
+            res.status(404).json({ error: err.message }); return;
         }
         res.status(500).json({ error: err.message });
     }
 };
 
-export const deleteNotification = async (req: Request, res: Response) => {
+export const deleteNotification = async (req: Request, res: Response): Promise<void> => {
     const { id } = req.params;
     try {
         await NotificationService.deleteNotification(id);
@@ -65,13 +65,13 @@ export const deleteNotification = async (req: Request, res: Response) => {
     } catch (error) {
         const err = error as Error;
         if (err.message.includes('No se encontró')) {
-            return res.status(404).json({ error: err.message });
+            res.status(404).json({ error: err.message }); return;
         }
         res.status(500).json({ error: err.message });
     }
 };
 
-export const markNotificationAsRead = async (req: Request, res: Response) => {
+export const markNotificationAsRead = async (req: Request, res: Response): Promise<void> => {
     const { id } = req.params;
     try {
         const updated = await NotificationService.markAsRead(id);
@@ -79,13 +79,13 @@ export const markNotificationAsRead = async (req: Request, res: Response) => {
     } catch (error) {
         const err = error as Error;
         if (err.message.includes('No se encontró')) {
-            return res.status(404).json({ error: err.message });
+            res.status(404).json({ error: err.message }); return;
         }
         res.status(500).json({ error: err.message });
     }
 };
 
-export const acceptInvitation = async (req: Request, res: Response) => {
+export const acceptInvitation = async (req: Request, res: Response): Promise<void> => {
     const { id } = req.params;
     const { role } = req.body;
 
@@ -95,29 +95,29 @@ export const acceptInvitation = async (req: Request, res: Response) => {
 
         // 2. Validar que es una invitación pendiente
         if (notification.action_status !== 'pending') {
-            return res.status(400).json({
+            res.status(400).json({
                 error: `La invitación ya ha sido ${notification.action_status === 'accepted' ? 'aceptada' : 'rechazada'} previamente`
-            });
+            }); return;
         }
 
         // 3. Validar que tiene los campos necesarios
         if (!notification.related_trip_id) {
-            return res.status(400).json({ error: 'La notificación no tiene un viaje asociado' });
+            res.status(400).json({ error: 'La notificación no tiene un viaje asociado' }); return;
         }
 
         if (!notification.user_receiver_id) {
-            return res.status(400).json({ error: 'La notificación no tiene un usuario receptor' });
+            res.status(400).json({ error: 'La notificación no tiene un usuario receptor' }); return;
         }
 
         if (!role) {
-            return res.status(400).json({ error: 'Falta el campo "role" en el body' });
+            res.status(400).json({ error: 'Falta el campo "role" en el body' }); return;
         }
 
         // 4. Verificar que el viaje existe
         try {
             await TripService.getById(notification.related_trip_id);
         } catch (err) {
-            return res.status(404).json({ error: 'El viaje asociado no existe' });
+            res.status(404).json({ error: 'El viaje asociado no existe' }); return;
         }
 
         // 5. Añadir usuario al viaje
@@ -131,7 +131,7 @@ export const acceptInvitation = async (req: Request, res: Response) => {
             const error = err as Error;
             // Si es un error de duplicate key (usuario ya en el viaje)
             if (error.message.includes('duplicate') || error.message.includes('unique')) {
-                return res.status(409).json({ error: 'El usuario ya pertenece a este viaje' });
+                res.status(409).json({ error: 'El usuario ya pertenece a este viaje' }); return;
             }
             throw err; // Re-throw si es otro tipo de error
         }
@@ -143,13 +143,13 @@ export const acceptInvitation = async (req: Request, res: Response) => {
     } catch (error) {
         const err = error as Error;
         if (err.message.includes('No se encontró')) {
-            return res.status(404).json({ error: err.message });
+            res.status(404).json({ error: err.message }); return;
         }
         res.status(500).json({ error: err.message });
     }
 };
 
-export const declineInvitation = async (req: Request, res: Response) => {
+export const declineInvitation = async (req: Request, res: Response): Promise<void> => {
     const { id } = req.params;
     try {
         // 1. Obtener la notificación actual
@@ -157,9 +157,9 @@ export const declineInvitation = async (req: Request, res: Response) => {
 
         // 2. Validar que es una invitación pendiente
         if (notification.action_status !== 'pending') {
-            return res.status(400).json({
+            res.status(400).json({
                 error: `La invitación ya ha sido ${notification.action_status === 'accepted' ? 'aceptada' : 'rechazada'} previamente`
-            });
+            }); return;
         }
 
         // 3. Actualizar la notificación
@@ -169,13 +169,13 @@ export const declineInvitation = async (req: Request, res: Response) => {
     } catch (error) {
         const err = error as Error;
         if (err.message.includes('No se encontró')) {
-            return res.status(404).json({ error: err.message });
+            res.status(404).json({ error: err.message }); return;
         }
         res.status(500).json({ error: err.message });
     }
 };
 
-export const getNotificationsByTrip = async (req: Request, res: Response) => {
+export const getNotificationsByTrip = async (req: Request, res: Response): Promise<void> => {
     const { tripId } = req.params;
     try {
         const notifications = await NotificationService.getByTripId(tripId);

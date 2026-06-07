@@ -5,7 +5,9 @@ import { WizardDraft, saveDraftAsync, clearDraftAsync } from './useWizardDraft';
 import { type AlertAction } from '@/components/customElements/CustomAlert';
 import { useAuth } from '@/context/AuthContext';
 import { useProfile, useUser } from '@/hooks/users/useUsers';
-import { useUserUsage } from '@/hooks/users/useUserUsage';
+import { useTokenBalance, useInvalidateTokenBalance } from '@/hooks/users/useTokenBalance';
+import { useSubscription } from '@/context/SubscriptionContext';
+import { getActionCost } from '@planmyroute/types';
 import { TravelerWithRole } from '@/hooks/useTrips';
 import { useVehicles } from '@/hooks/useVehicles';
 import { ROUTES } from '@/constants/routes';
@@ -21,7 +23,7 @@ import { useTripBudgetForm } from './useTripBudgetForm';
 import { useTripPreferencesForm } from './useTripPreferencesForm';
 import { useTripIntermediateStops } from './useTripIntermediateStops';
 import { useCreateTripMutation } from './useCreateTripMutation';
-import { TripService } from '@/services/tripService';
+import { TripService, PremiumLimitError, InsufficientTokensError } from '@/services/tripService';
 
 export type ValidationAlertConfig = {
     title: string;
@@ -45,9 +47,15 @@ export function useCreateTripWizard({
     const { user: authUser, token } = useAuth();
     const { data: profileUser } = useUser(authUser?.id);
     const { data: profile } = useProfile(authUser?.id, undefined);
-    const { data: userUsage } = useUserUsage();
+    const { data: tokenBalance } = useTokenBalance();
+    const invalidateTokenBalance = useInvalidateTokenBalance();
+    const { isPremium } = useSubscription();
 
     const vehicleHook = useVehicles(authUser?.id);
+
+    // Coste base para iniciar un viaje con IA (GENERATE_TRIP). El addon circular se suma al enviar.
+    const aiBaseCost = getActionCost('GENERATE_TRIP', isPremium);
+    const hasEnoughForAiBase = typeof tokenBalance !== 'number' || tokenBalance >= aiBaseCost;
 
     // ---- Step 0 state ----
     const [tripName, setTripName] = useState(initialTripName);
@@ -280,27 +288,33 @@ export function useCreateTripWizard({
         setModeSelected(true);
     };
 
-    // ---- AI mode selection with limit check ----
+    // ---- Alerta reutilizable de saldo de tokens insuficiente ----
+    const showInsufficientTokensAlert = (required: number, currentBalance?: number) => {
+        const balanceText = typeof currentBalance === 'number' ? ` Tienes ${currentBalance}.` : '';
+        showValidationAlert({
+            title: '💎 Tokens insuficientes',
+            message: `Necesitas ${required} tokens para generar este viaje con IA.${balanceText} Compra más tokens o usa el modo manual.`,
+            type: 'warning',
+            actions: [
+                {
+                    text: 'Comprar tokens',
+                    onPress: () => { hideAlert(); router.push(ROUTES.premium); },
+                    variant: 'yellow',
+                },
+                {
+                    text: 'Usar modo manual',
+                    onPress: () => { hideAlert(); setIsAiTrip(false); },
+                    variant: 'outline',
+                },
+                { text: 'Cerrar', onPress: hideAlert, variant: 'dark' },
+            ],
+        });
+    };
+
+    // ---- AI mode selection with token balance check ----
     const handleSelectAiMode = () => {
-        if (userUsage?.ai_trip_creation && !userUsage.ai_trip_creation.can_create) {
-            showValidationAlert({
-                title: '🔒 Límite alcanzado',
-                message: `Has usado ${userUsage.ai_trip_creation.used_count}/${userUsage.ai_trip_creation.max_count} viajes con IA este mes. Actualiza a Premium para crear viajes ilimitados o selecciona el modo manual.`,
-                type: 'warning',
-                actions: [
-                    {
-                        text: 'Ver Premium',
-                        onPress: () => { hideAlert(); router.push(ROUTES.premium); },
-                        variant: 'yellow',
-                    },
-                    {
-                        text: 'Usar modo manual',
-                        onPress: () => { hideAlert(); setIsAiTrip(false); },
-                        variant: 'outline',
-                    },
-                    { text: 'Cerrar', onPress: hideAlert, variant: 'dark' },
-                ],
-            });
+        if (!hasEnoughForAiBase) {
+            showInsufficientTokensAlert(aiBaseCost, tokenBalance);
         } else {
             setIsAiTrip(true);
         }
@@ -311,25 +325,8 @@ export function useCreateTripWizard({
         if (!isStepValid || isValidating) return;
 
         if (step === 0) {
-            if (isAiTrip && userUsage?.ai_trip_creation && !userUsage.ai_trip_creation.can_create) {
-                showValidationAlert({
-                    title: '🔒 Límite alcanzado',
-                    message: `Has usado ${userUsage.ai_trip_creation.used_count}/${userUsage.ai_trip_creation.max_count} viajes con IA este mes. Cambia a modo manual para continuar o actualiza a Premium.`,
-                    type: 'warning',
-                    actions: [
-                        {
-                            text: 'Ver Premium',
-                            onPress: () => { hideAlert(); router.push(ROUTES.premium); },
-                            variant: 'yellow',
-                        },
-                        {
-                            text: 'Usar modo manual',
-                            onPress: () => { hideAlert(); setIsAiTrip(false); },
-                            variant: 'outline',
-                        },
-                        { text: 'Cerrar', onPress: hideAlert, variant: 'dark' },
-                    ],
-                });
+            if (isAiTrip && !hasEnoughForAiBase) {
+                showInsufficientTokensAlert(aiBaseCost, tokenBalance);
                 return;
             }
             setModeSelected(true);
@@ -532,16 +529,20 @@ export function useCreateTripWizard({
             // Navegar inmediatamente — el viaje base ya está creado,
             // las paradas IA se generan en background con skeleton loading
             setShowAiLoader(false);
+            // La generación cobró tokens en el backend: refrescamos el saldo.
+            invalidateTokenBalance();
             if (tripId) {
                 router.replace(ROUTES.trip(tripId));
                 reset();
             }
-        } catch (error: any) {
+        } catch (error: unknown) {
             setShowAiLoader(false);
-            if (error?.requiresPremium || error?.status === 403) {
+            if (error instanceof InsufficientTokensError) {
+                showInsufficientTokensAlert(error.required ?? aiBaseCost, error.balance ?? tokenBalance);
+            } else if (error instanceof PremiumLimitError) {
                 showValidationAlert({
                     title: '🔒 Límite alcanzado',
-                    message: error?.error || 'Has alcanzado el límite de viajes con IA para este mes.',
+                    message: String(error.error ?? 'Has alcanzado el límite de viajes con IA para este mes.'),
                     type: 'warning',
                     actions: [
                         {
@@ -637,8 +638,11 @@ export function useCreateTripWizard({
         // Draft management
         applyDraft,
 
-        // Misc
-        userUsage,
+        // Tokens
+        tokenBalance,
+        aiBaseCost,
+        isPremium,
+
         reset,
     };
 }

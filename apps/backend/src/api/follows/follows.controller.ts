@@ -6,7 +6,7 @@ import * as FollowService from './follows.service.js';
  * Follow a user
  * POST /api/follows/:userId/follow/:followingId
  */
-export const followUser = async (req: Request, res: Response) => {
+export const followUser = async (req: Request, res: Response): Promise<void> => {
     const { userId, followingId } = req.params;
 
     try {
@@ -15,10 +15,10 @@ export const followUser = async (req: Request, res: Response) => {
     } catch (error) {
         const err = error as Error;
         if (err.message.includes('Ya sigues')) {
-            return res.status(409).json({ error: err.message });
+            res.status(409).json({ error: err.message }); return;
         }
         if (err.message.includes('No puedes seguirte')) {
-            return res.status(400).json({ error: err.message });
+            res.status(400).json({ error: err.message }); return;
         }
         res.status(500).json({ error: err.message });
     }
@@ -28,7 +28,7 @@ export const followUser = async (req: Request, res: Response) => {
  * Unfollow a user
  * DELETE /api/follows/:userId/unfollow/:followingId
  */
-export const unfollowUser = async (req: Request, res: Response) => {
+export const unfollowUser = async (req: Request, res: Response): Promise<void> => {
     const { userId, followingId } = req.params;
 
     try {
@@ -44,7 +44,7 @@ export const unfollowUser = async (req: Request, res: Response) => {
  * Check if user follows another user
  * GET /api/follows/:userId/is-following/:followingId
  */
-export const checkIfFollowing = async (req: Request, res: Response) => {
+export const checkIfFollowing = async (req: Request, res: Response): Promise<void> => {
     const { userId, followingId } = req.params;
 
     try {
@@ -60,7 +60,7 @@ export const checkIfFollowing = async (req: Request, res: Response) => {
  * Get followers of a user
  * GET /api/follows/:userId/followers
  */
-export const getFollowers = async (req: Request, res: Response) => {
+export const getFollowers = async (req: Request, res: Response): Promise<void> => {
     const { userId } = req.params;
 
     try {
@@ -76,7 +76,7 @@ export const getFollowers = async (req: Request, res: Response) => {
  * Get users that a user is following
  * GET /api/follows/:userId/following
  */
-export const getFollowing = async (req: Request, res: Response) => {
+export const getFollowing = async (req: Request, res: Response): Promise<void> => {
     const { userId } = req.params;
 
     try {
@@ -92,7 +92,7 @@ export const getFollowing = async (req: Request, res: Response) => {
  * Get follow statistics for a user
  * GET /api/follows/:userId/stats
  */
-export const getFollowStats = async (req: Request, res: Response) => {
+export const getFollowStats = async (req: Request, res: Response): Promise<void> => {
     const { userId } = req.params;
 
     try {

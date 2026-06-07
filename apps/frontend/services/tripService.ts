@@ -1,5 +1,50 @@
 import { ApiError, apiFetch } from '@/constants/api';
-import { Trip } from '@planmyroute/types';
+import { Trip, Stop, CollaboratorRole } from '@planmyroute/types';
+
+export type CreateTripResponse = {
+  trip: Trip;
+  routesWithStops: unknown[];
+};
+
+export type TravelerWithUser = {
+  user: { id: string; name?: string | null; username?: string | null; img?: string | null; lastname?: string | null; email?: string | null };
+  role: CollaboratorRole;
+};
+
+export class PremiumLimitError extends Error {
+  status: number;
+  requiresPremium: boolean;
+  usedCount?: unknown;
+  maxCount?: unknown;
+  error?: unknown;
+
+  constructor(message: string, body: Record<string, unknown>) {
+    super(message);
+    this.name = 'PremiumLimitError';
+    this.status = 403;
+    this.requiresPremium = true;
+    this.usedCount = body.usedCount;
+    this.maxCount = body.maxCount;
+    this.error = body.error;
+  }
+}
+
+/**
+ * Error lanzado cuando el backend rechaza una acción de IA por saldo de tokens insuficiente (402).
+ */
+export class InsufficientTokensError extends Error {
+  status = 402;
+  code = 'INSUFFICIENT_TOKENS' as const;
+  required?: number;
+  balance?: number;
+
+  constructor(message: string, body: Record<string, unknown>) {
+    super(message);
+    this.name = 'InsufficientTokensError';
+    this.required = typeof body.required === 'number' ? body.required : undefined;
+    this.balance = typeof body.balance === 'number' ? body.balance : undefined;
+  }
+}
 
 type FetchOptions = {
   token?: string;
@@ -69,12 +114,12 @@ export class TripService {
     userId: string,
     iaTrip: boolean,
     token?: string
-  ): Promise<any> {
+  ): Promise<CreateTripResponse> {
     try {
-      let result;
+      let result: CreateTripResponse;
       if (iaTrip) {
         trip.description = ""; // IA will generate description
-        result = await apiFetch<any>(`/api/automatic-trips/${userId}/generate-trip`, {
+        result = await apiFetch<CreateTripResponse>(`/api/automatic-trips/${userId}/generate-trip`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -83,7 +128,7 @@ export class TripService {
           body: JSON.stringify(trip),
         });
       } else {
-        result = await apiFetch<any>(`/api/travelers/${userId}/trip`, {
+        result = await apiFetch<CreateTripResponse>(`/api/travelers/${userId}/trip`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -94,15 +139,14 @@ export class TripService {
       }
       return result;
     } catch (error) {
-      if (error instanceof ApiError && error.status === 403 && error.body && typeof error.body === 'object') {
-        const body = error.body as Record<string, any>;
-        const premiumError: any = new Error(body.error || error.message || 'Límite alcanzado');
-        premiumError.status = 403;
-        premiumError.requiresPremium = body.requiresPremium;
-        premiumError.usedCount = body.usedCount;
-        premiumError.maxCount = body.maxCount;
-        premiumError.error = body.error;
-        throw premiumError;
+      if (error instanceof ApiError && error.body && typeof error.body === 'object') {
+        const body = error.body as Record<string, unknown>;
+        if (error.status === 402 || body.code === 'INSUFFICIENT_TOKENS') {
+          throw new InsufficientTokensError(String(body.error ?? 'No tienes tokens suficientes.'), body);
+        }
+        if (error.status === 403) {
+          throw new PremiumLimitError(String(body.error ?? error.message ?? 'Límite alcanzado'), body);
+        }
       }
       console.error('Error in createTrip:', error);
       throw error;
@@ -143,9 +187,9 @@ export class TripService {
     }
   }
 
-  static async getNumberOfStops(tripId: string, opts?: FetchOptions): Promise<any[]> {
+  static async getNumberOfStops(tripId: string, opts?: FetchOptions): Promise<Stop[]> {
     try {
-      return await apiFetch<any[]>(`/api/itinerary/trip/${tripId}/stops`, {
+      return await apiFetch<Stop[]>(`/api/itinerary/trip/${tripId}/stops`, {
         token: opts?.token,
         signal: opts?.signal,
       });
@@ -156,9 +200,9 @@ export class TripService {
   }
 
   // =============== TRAVELERS CONTROLLERS ===============
-  static async getTravelersInTrip(tripId: string, opts?: FetchOptions): Promise<any[]> {
+  static async getTravelersInTrip(tripId: string, opts?: FetchOptions): Promise<TravelerWithUser[]> {
     try {
-      return await apiFetch<any[]>(`/api/travelers/trip/${tripId}`, {
+      return await apiFetch<TravelerWithUser[]>(`/api/travelers/trip/${tripId}`, {
         token: opts?.token,
         signal: opts?.signal,
       });
@@ -174,7 +218,7 @@ export class TripService {
   static async getUserRoleInTrip(userId: string, tripId: string, opts?: FetchOptions): Promise<'owner' | 'editor' | 'viewer' | null> {
     try {
       const travelers = await this.getTravelersInTrip(tripId, opts);
-      const traveler = travelers.find((t: any) => t.user.id === userId);
+      const traveler = travelers.find((t) => t.user.id === userId);
       return traveler ? traveler.role : null;
     } catch (error) {
       console.error('Error in getUserRoleInTrip:', error);
@@ -246,11 +290,11 @@ export class TripService {
     actorUserId: string,
     targetUserId: string,
     tripId: string,
-    role: 'owner' | 'editor' | 'viewer',
+    role: CollaboratorRole,
     token?: string
-  ): Promise<any> {
+  ): Promise<void> {
     try {
-      return await apiFetch<any>(`/api/travelers/${targetUserId}/trip/${tripId}/role`, {
+      await apiFetch<void>(`/api/travelers/${targetUserId}/trip/${tripId}/role`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',

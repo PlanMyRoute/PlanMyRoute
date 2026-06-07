@@ -350,7 +350,7 @@ export const validateStopOrderRestrictions = async (
         }
 
         return { valid: true };
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('Error en validateStopOrderRestrictions:', error);
         // Por seguridad, no permitir si hay error en validación
         return {

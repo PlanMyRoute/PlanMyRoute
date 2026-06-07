@@ -6,7 +6,7 @@ import { supabase } from '../../supabase.js';
 import { decode } from 'base64-arraybuffer';
 
 // =============== USER CONTROLLERS ===============
-export const getUserById = async (req: Request, res: Response) => {
+export const getUserById = async (req: Request, res: Response): Promise<void> => {
     const { id } = req.params;
 
     try {
@@ -15,13 +15,13 @@ export const getUserById = async (req: Request, res: Response) => {
     } catch (error) {
         const err = error as Error;
         if (err.message.includes('No se encontró')) {
-            return res.status(404).json({ error: err.message });
+            res.status(404).json({ error: err.message }); return;
         }
         res.status(500).json({ error: err.message });
     }
 };
 
-export const getUserByUsername = async (req: Request, res: Response) => {
+export const getUserByUsername = async (req: Request, res: Response): Promise<void> => {
     const { username } = req.params;
     try {
         const user = await UserService.getByUsername(username);
@@ -29,13 +29,13 @@ export const getUserByUsername = async (req: Request, res: Response) => {
     } catch (error) {
         const err = error as Error;
         if (err.message.includes('No se encontró')) {
-            return res.status(404).json({ error: err.message });
+            res.status(404).json({ error: err.message }); return;
         }
         res.status(500).json({ error: err.message });
     }
 };
 
-export const searchUsersByUsername = async (req: Request, res: Response) => {
+export const searchUsersByUsername = async (req: Request, res: Response): Promise<void> => {
     const { username } = req.params;
     const limit = Math.min(Math.max(Number(req.query.limit) || 20, 1), 50);
     try {
@@ -48,14 +48,14 @@ export const searchUsersByUsername = async (req: Request, res: Response) => {
     }
 };
 
-export const createUser = async (req: Request, res: Response) => {
+export const createUser = async (req: Request, res: Response): Promise<void> => {
     try {
         // Verificar que el usuario autenticado coincide con el ID que se está creando
         const userId = (req as any).user?.id;
         const bodyId = req.body.id;
 
         if (userId && bodyId && userId !== bodyId) {
-            return res.status(403).json({ error: 'No puedes crear un usuario con un ID diferente al tuyo' });
+            res.status(403).json({ error: 'No puedes crear un usuario con un ID diferente al tuyo' }); return;
         }
 
         const newUser = await UserService.create(req.body);
@@ -64,13 +64,13 @@ export const createUser = async (req: Request, res: Response) => {
     } catch (error) {
         const err = error as Error;
         if (err.message === 'USERNAME_ALREADY_TAKEN') {
-            return res.status(409).json({ error: 'El nombre de usuario ya está en uso' });
+            res.status(409).json({ error: 'El nombre de usuario ya está en uso' }); return;
         }
         res.status(500).json({ error: err.message });
     }
 };
 
-export const updateUser = async (req: Request, res: Response) => {
+export const updateUser = async (req: Request, res: Response): Promise<void> => {
     const { id } = req.params;
     const ALLOWED_FIELDS = ['name', 'lastname', 'username', 'img', 'user_type', 'timezone', 'auto_trip_status_update'];
     const filteredBody = Object.fromEntries(
@@ -83,16 +83,16 @@ export const updateUser = async (req: Request, res: Response) => {
     } catch (error) {
         const err = error as Error;
         if (err.message === 'USERNAME_ALREADY_TAKEN') {
-            return res.status(409).json({ error: 'El nombre de usuario ya está en uso' });
+            res.status(409).json({ error: 'El nombre de usuario ya está en uso' }); return;
         }
         if (err.message.includes('No se encontró')) {
-            return res.status(404).json({ error: err.message });
+            res.status(404).json({ error: err.message }); return;
         }
         res.status(500).json({ error: err.message });
     }
 };
 
-export const deleteUser = async (req: Request, res: Response) => {
+export const deleteUser = async (req: Request, res: Response): Promise<void> => {
     const { id } = req.params;
     try {
         await UserService.deleteUser(id);
@@ -100,14 +100,14 @@ export const deleteUser = async (req: Request, res: Response) => {
     } catch (error) {
         const err = error as Error;
         if (err.message.includes('No se encontró')) {
-            return res.status(404).json({ error: err.message });
+            res.status(404).json({ error: err.message }); return;
         }
         res.status(500).json({ error: err.message });
     }
 };
 
 // =============== USER'S TRIPS CONTROLLERS ===============
-export const getAllUserTrips = async (req: Request, res: Response) => {
+export const getAllUserTrips = async (req: Request, res: Response): Promise<void> => {
     const { id } = req.params;
     try {
         const trips = await UserService.getAllUserTrips(id);
@@ -118,14 +118,14 @@ export const getAllUserTrips = async (req: Request, res: Response) => {
     }
 };
 
-export const getUserTripByTripId = async (req: Request, res: Response) => {
+export const getUserTripByTripId = async (req: Request, res: Response): Promise<void> => {
     const { id, tripId } = req.params;
     const tripIdNum = Number(tripId);
     try {
         const belongsToUser = await UserService.thisTripBelongsToUser(id, tripId);
 
         if (!belongsToUser) {
-            return res.status(403).json({ error: `El viaje con id ${tripId} no pertenece al usuario con id ${id}` });
+            res.status(403).json({ error: `El viaje con id ${tripId} no pertenece al usuario con id ${id}` }); return;
         }
 
         const trip = await TripService.getById(tripIdNum);
@@ -134,13 +134,13 @@ export const getUserTripByTripId = async (req: Request, res: Response) => {
     } catch (error) {
         const err = error as Error;
         if (err.message.includes('No se encontró')) {
-            return res.status(404).json({ error: err.message });
+            res.status(404).json({ error: err.message }); return;
         }
         res.status(500).json({ error: err.message });
     }
 };
 
-export const getUserTripsCount = async (req: Request, res: Response) => {
+export const getUserTripsCount = async (req: Request, res: Response): Promise<void> => {
     const { id } = req.params;
     try {
         const count = await UserService.countUserTrips(id);
@@ -151,7 +151,7 @@ export const getUserTripsCount = async (req: Request, res: Response) => {
     }
 };
 
-export const getUserFinishedTripsCount = async (req: Request, res: Response) => {
+export const getUserFinishedTripsCount = async (req: Request, res: Response): Promise<void> => {
     const { id } = req.params;
     try {
         // Llamamos a la nueva función de servicio
@@ -164,7 +164,7 @@ export const getUserFinishedTripsCount = async (req: Request, res: Response) => 
     }
 };
 
-export const getUserProfile = async (req: Request, res: Response) => {
+export const getUserProfile = async (req: Request, res: Response): Promise<void> => {
     const { id } = req.params;
     try {
         const profileData = await UserService.getProfileData(id);
@@ -172,27 +172,27 @@ export const getUserProfile = async (req: Request, res: Response) => {
     } catch (error) {
         const err = error as Error;
         if (err.message.includes('No se encontró')) {
-            return res.status(404).json({ error: err.message });
+            res.status(404).json({ error: err.message }); return;
         }
         res.status(500).json({ error: err.message });
     }
 };
 
-export const uploadProfileImage = async (req: Request, res: Response) => {
+export const uploadProfileImage = async (req: Request, res: Response): Promise<void> => {
     const { id } = req.params;
 
     try {
         // Verificar que el usuario existe
         const user = await UserService.getById(id);
         if (!user) {
-            return res.status(404).json({ error: 'Usuario no encontrado' });
+            res.status(404).json({ error: 'Usuario no encontrado' }); return;
         }
 
         // Obtener la imagen del cuerpo de la petición
         const { image } = req.body;
 
         if (!image) {
-            return res.status(400).json({ error: 'No se proporcionó ninguna imagen' });
+            res.status(400).json({ error: 'No se proporcionó ninguna imagen' }); return;
         }
 
         // La imagen viene en formato base64 data URL
@@ -200,7 +200,7 @@ export const uploadProfileImage = async (req: Request, res: Response) => {
         const matches = image.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
 
         if (!matches || matches.length !== 3) {
-            return res.status(400).json({ error: 'Formato de imagen inválido' });
+            res.status(400).json({ error: 'Formato de imagen inválido' }); return;
         }
 
         const contentType = matches[1];
@@ -223,7 +223,7 @@ export const uploadProfileImage = async (req: Request, res: Response) => {
 
         if (uploadError) {
             console.error('Error uploading to Supabase Storage:', uploadError);
-            return res.status(500).json({ error: 'Error al subir la imagen' });
+            res.status(500).json({ error: 'Error al subir la imagen' }); return;
         }
 
         // Obtener URL pública de la imagen
@@ -255,25 +255,25 @@ export const uploadProfileImage = async (req: Request, res: Response) => {
  * Actualiza las preferencias del usuario (timezone, auto_trip_status_update)
  * PATCH /user/:id/preferences
  */
-export const updateUserPreferences = async (req: Request, res: Response) => {
+export const updateUserPreferences = async (req: Request, res: Response): Promise<void> => {
     const { id } = req.params;
     const { timezone, autoTripStatusUpdate } = req.body;
 
     // Validación: al menos un campo debe estar presente
     if (timezone === undefined && autoTripStatusUpdate === undefined) {
-        return res.status(400).json({
+        res.status(400).json({
             error: 'Debe proporcionar al menos un campo: timezone o autoTripStatusUpdate'
-        });
+        }); return;
     }
 
     // Validar timezone si se proporciona
     if (timezone !== undefined && typeof timezone !== 'string') {
-        return res.status(400).json({ error: 'timezone debe ser un string' });
+        res.status(400).json({ error: 'timezone debe ser un string' }); return;
     }
 
     // Validar autoTripStatusUpdate si se proporciona
     if (autoTripStatusUpdate !== undefined && typeof autoTripStatusUpdate !== 'boolean') {
-        return res.status(400).json({ error: 'autoTripStatusUpdate debe ser un boolean' });
+        res.status(400).json({ error: 'autoTripStatusUpdate debe ser un boolean' }); return;
     }
 
     try {
@@ -300,7 +300,7 @@ export const updateUserPreferences = async (req: Request, res: Response) => {
         console.error('Error in updateUserPreferences:', err);
 
         if (err.message.includes('No se encontró')) {
-            return res.status(404).json({ error: err.message });
+            res.status(404).json({ error: err.message }); return;
         }
 
         res.status(500).json({ error: err.message });
@@ -311,7 +311,7 @@ export const updateUserPreferences = async (req: Request, res: Response) => {
  * Obtiene las preferencias del usuario
  * GET /user/:id/preferences
  */
-export const getUserPreferences = async (req: Request, res: Response) => {
+export const getUserPreferences = async (req: Request, res: Response): Promise<void> => {
     const { id } = req.params;
 
     try {
@@ -322,7 +322,7 @@ export const getUserPreferences = async (req: Request, res: Response) => {
         console.error('Error in getUserPreferences:', err);
 
         if (err.message.includes('No se encontró')) {
-            return res.status(404).json({ error: err.message });
+            res.status(404).json({ error: err.message }); return;
         }
 
         res.status(500).json({ error: err.message });
@@ -334,23 +334,23 @@ export const getUserPreferences = async (req: Request, res: Response) => {
  * PATCH /user/:id/push-token
  * Body: { expoPushToken: string }
  */
-export const updatePushToken = async (req: Request, res: Response) => {
+export const updatePushToken = async (req: Request, res: Response): Promise<void> => {
     const { id } = req.params;
     const { expoPushToken } = req.body;
 
     // Validación básica
     if (!expoPushToken || typeof expoPushToken !== 'string') {
-        return res.status(400).json({
+        res.status(400).json({
             error: 'expoPushToken es requerido y debe ser una cadena de texto'
-        });
+        }); return;
     }
 
     // Validar formato del token (opcional pero recomendado)
     if (!expoPushToken.startsWith('ExponentPushToken[') &&
         !expoPushToken.startsWith('ExpoPushToken[')) {
-        return res.status(400).json({
+        res.status(400).json({
             error: 'Formato de token inválido. Debe ser un Expo Push Token válido'
-        });
+        }); return;
     }
 
     try {
@@ -369,34 +369,28 @@ export const updatePushToken = async (req: Request, res: Response) => {
         console.error('❌ [updatePushToken] Error:', err);
 
         if (err.message.includes('No se encontró')) {
-            return res.status(404).json({ error: err.message });
+            res.status(404).json({ error: err.message }); return;
         }
 
         res.status(500).json({ error: err.message });
     }
 };
 
-export const getUserUsageStats = async (req: Request, res: Response) => {
+export const getUserUsageStats = async (req: Request, res: Response): Promise<void> => {
     const { id } = req.params;
 
     try {
-        // Obtener información de uso del usuario
-        const { getUserUsage, canCreateAITrip } = await import('../../services/userUsageService.js');
-        
+        // Obtener información de uso del usuario.
+        // El gating de IA se basa ahora en el saldo de tokens (ver /api/tokens/balance).
+        const { getUserUsage } = await import('../../services/userUsageService.js');
+
         const usage = await getUserUsage(id);
-        const aiTripStatus = await canCreateAITrip(id);
 
         res.json({
             usage: {
                 ai_trips_generated_month: usage.ai_trips_generated_month,
                 max_vehicles_allowed: usage.max_vehicles_allowed,
                 last_reset_date: usage.last_reset_date
-            },
-            ai_trip_creation: {
-                can_create: aiTripStatus.canCreate,
-                used_count: aiTripStatus.usedCount,
-                max_count: aiTripStatus.maxCount,
-                reason: aiTripStatus.reason
             }
         });
     } catch (error) {

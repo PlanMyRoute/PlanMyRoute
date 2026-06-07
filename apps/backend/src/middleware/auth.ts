@@ -23,6 +23,8 @@ declare global {
     interface Request {
       userId?: string;
       user?: { id: string; email?: string };
+      userRole?: string;
+      tripStatus?: string;
     }
   }
 }

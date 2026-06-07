@@ -5,7 +5,7 @@ import * as VehicleService from './vehicles.service.js';
 /**
  * Obtiene todos los vehículos de un usuario
  */
-export const getUserVehicles = async (req: Request, res: Response) => {
+export const getUserVehicles = async (req: Request, res: Response): Promise<void> => {
     const { userId } = req.params;
     try {
         const vehicles = await VehicleService.getUserVehicles(userId);
@@ -19,7 +19,7 @@ export const getUserVehicles = async (req: Request, res: Response) => {
 /**
  * Obtiene un vehículo por su ID
  */
-export const getVehicleFromId = async (req: Request, res: Response) => {
+export const getVehicleFromId = async (req: Request, res: Response): Promise<void> => {
     const { vehicleId } = req.params;
     try {
         const vehicle = await VehicleService.getVehicleFromId(vehicleId);
@@ -37,7 +37,7 @@ export const getVehicleFromId = async (req: Request, res: Response) => {
 /**
  * Crea un nuevo vehículo para un usuario
  */
-export const createVehicle = async (req: Request, res: Response) => {
+export const createVehicle = async (req: Request, res: Response): Promise<void> => {
     const { userId } = req.params;
     const payload = req.body;
 
@@ -47,7 +47,7 @@ export const createVehicle = async (req: Request, res: Response) => {
     } catch (error) {
         const err = error as Error;
         if (err.message === 'VEHICLE_LIMIT_REACHED') {
-            return res.status(403).json({ error: 'Has alcanzado el límite máximo de 3 vehículos' });
+            res.status(403).json({ error: 'Has alcanzado el límite máximo de 3 vehículos' }); return;;
         }
         res.status(500).json({ error: err.message });
     }
@@ -56,7 +56,7 @@ export const createVehicle = async (req: Request, res: Response) => {
 /**
  * Actualiza un vehículo existente
  */
-export const updateVehicle = async (req: Request, res: Response) => {
+export const updateVehicle = async (req: Request, res: Response): Promise<void> => {
     const { userId, vehicleId } = req.params;
     const payload = req.body;
 
@@ -76,7 +76,7 @@ export const updateVehicle = async (req: Request, res: Response) => {
 /**
  * Elimina un vehículo
  */
-export const deleteVehicle = async (req: Request, res: Response) => {
+export const deleteVehicle = async (req: Request, res: Response): Promise<void> => {
     const { userId, vehicleId } = req.params;
 
     try {

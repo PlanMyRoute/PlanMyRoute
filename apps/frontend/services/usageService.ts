@@ -5,12 +5,6 @@ export interface UserUsageStats {
     max_vehicles_allowed: number;
     last_reset_date: string;
   };
-  ai_trip_creation: {
-    can_create: boolean;
-    used_count?: number;
-    max_count?: number;
-    reason?: string;
-  };
 }
 
 export async function getUserUsageStats(userId: string, token: string): Promise<UserUsageStats> {

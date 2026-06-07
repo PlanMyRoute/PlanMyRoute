@@ -1,6 +1,6 @@
 import { useAuth } from '@/context/AuthContext';
 import NotificationService from '@/services/notificationService';
-import { CollaboratorRole, notifications as Notification } from '@planmyroute/types';
+import { CollaboratorRole, Notification } from '@planmyroute/types';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 const NOTIFICATIONS_STALE_TIME = 15_000;

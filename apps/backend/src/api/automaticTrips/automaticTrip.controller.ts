@@ -7,7 +7,9 @@ import {
 } from "./automaticTrip.service.js";
 import { getUserInterests } from '../users/users.service.js';
 import * as VehicleService from '../vehicles/vehicles.service.js';
-import * as UserUsageService from '../../services/userUsageService.js';
+import * as TokenWalletService from '../../services/tokenWalletService.js';
+import { InsufficientTokensError } from '../../services/tokenWalletService.js';
+import { getIsPremium } from '../subscriptions/subscriptions.service.js';
 import * as TripService from '../trips/trips.service.js';
 import * as ItineraryService from '../itinerary/itinerary.service.js';
 
@@ -28,10 +30,10 @@ export async function validateTrip(req: Request, res: Response) {
             n_adults,
             budget_total
         });
-        return res.json(result);
+        res.json(result); return;
     } catch (err) {
         console.error('validateTrip error', err);
-        return res.status(500).json({ ok: false, error: String(err) });
+        res.status(500).json({ ok: false, error: String(err) }); return;
     }
 }
 
@@ -41,23 +43,37 @@ export async function generateAutomaticTrip(req: Request, res: Response) {
         const tripInput = req.body;
 
         if (!tripInput.origin || !tripInput.destination) {
-            return res.status(400).json({ error: 'Se requieren origen y destino para generar el viaje' });
+            res.status(400).json({ error: 'Se requieren origen y destino para generar el viaje' }); return;
         }
         if (!tripInput.start_date || !tripInput.end_date) {
-            return res.status(400).json({ error: 'Se requieren fechas de inicio y fin para generar el viaje' });
+            res.status(400).json({ error: 'Se requieren fechas de inicio y fin para generar el viaje' }); return;
         }
 
-        const usageCheck = await UserUsageService.canCreateAITrip(userId);
-        if (!usageCheck.canCreate) {
-            return res.status(403).json({
-                error: usageCheck.reason,
-                usedCount: usageCheck.usedCount,
-                maxCount: usageCheck.maxCount,
-                requiresPremium: true
-            });
+        // Cobro de tokens ANTES de generar: GENERATE_TRIP (+ ADDON_ROUNDTRIP si es circular).
+        // El cobro es atómico (RPC) y previene doble gasto en peticiones concurrentes.
+        const isPremium = await getIsPremium(userId);
+        let charged = 0;
+        try {
+            const result = await TokenWalletService.chargeGeneration(
+                userId,
+                isPremium,
+                !!tripInput.circular,
+                { action: 'generate_trip' }
+            );
+            charged = result.charged;
+        } catch (err) {
+            if (err instanceof InsufficientTokensError) {
+                res.status(402).json({
+                    error: 'No tienes tokens suficientes para generar este viaje.',
+                    code: 'INSUFFICIENT_TOKENS',
+                    required: err.required,
+                    balance: err.balance,
+                }); return;
+            }
+            throw err;
         }
 
-        console.log(`\n🚀 Generando viaje IA para usuario ${userId}: ${tripInput.origin} → ${tripInput.destination}`);
+        console.log(`\n🚀 Generando viaje IA para usuario ${userId}: ${tripInput.origin} → ${tripInput.destination} (cobrados ${charged} tokens)`);
 
         const userPreferences: UserPreferences = {
             interests: await getUserInterests(userId),
@@ -105,34 +121,42 @@ export async function generateAutomaticTrip(req: Request, res: Response) {
             generation_status: 'generating',
         };
 
-        const tripWithItinerary = await TripService.createTripWithRelations(
-            userId, vehicleIds, baseTripPayload, tripInput.origin, tripInput.destination
-        );
+        let tripWithItinerary;
+        try {
+            tripWithItinerary = await TripService.createTripWithRelations(
+                userId, vehicleIds, baseTripPayload, tripInput.origin, tripInput.destination
+            );
+        } catch (err) {
+            // Si no se pudo ni crear el viaje, reembolsamos los tokens cobrados.
+            await TokenWalletService.refund(userId, charged, { reason: 'trip_creation_failed' }).catch(() => {});
+            throw err;
+        }
         const tripId = tripWithItinerary.trip.id!;
 
         // 2. Responder inmediatamente — el frontend navega al viaje sin esperar a la IA
         res.status(202).json({ ...tripWithItinerary, generation_status: 'generating' });
 
         // 3. Llamar a la IA y crear todas las paradas en background
-        generateItineraryInBackground(tripId, userId, tripInputForLLM, userPreferences, vehicles, totalDays)
+        generateItineraryInBackground(tripId, tripInputForLLM, userPreferences, vehicles, totalDays)
             .catch(async (err) => {
                 console.error(`❌ [Background] Error generando itinerario para trip ${tripId}:`, err);
                 await TripService.update(String(tripId), { generation_status: 'failed' } as any).catch(() => {});
+                // La generación falló: devolvemos los tokens cobrados.
+                await TokenWalletService.refund(userId, charged, { trip_id: tripId, reason: 'generation_failed' }).catch(() => {});
             });
 
     } catch (error) {
         console.error("❌ Error creando viaje automático:", error);
         const errorMessage = error instanceof Error ? error.message : String(error);
-        return res.status(500).json({
+        res.status(500).json({
             error: 'Error al generar el viaje automático',
             details: errorMessage
-        });
+        }); return;
     }
 }
 
 async function generateItineraryInBackground(
     tripId: number,
-    userId: string,
     tripInputForLLM: any,
     userPreferences: UserPreferences,
     vehicles: any[],
@@ -158,6 +182,5 @@ async function generateItineraryInBackground(
     }
 
     await TripService.update(String(tripId), { generation_status: 'ready' } as any);
-    await UserUsageService.incrementAITripsCount(userId);
     console.log(`✅ [Background] Generación completa para trip ${tripId}`);
 }

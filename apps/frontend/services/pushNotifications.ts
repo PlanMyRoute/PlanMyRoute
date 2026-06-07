@@ -49,9 +49,9 @@ export async function registerForPushNotificationsAsync(userId: string, authToke
         let tokenData;
         try {
             tokenData = await Notifications.getExpoPushTokenAsync();
-        } catch (error: any) {
+        } catch (error: unknown) {
             // Si falla sin projectId, mostrar el error
-            console.error('❌ Failed to get push token:', error.message);
+            console.error('❌ Failed to get push token:', error instanceof Error ? error.message : String(error));
             throw error;
         }
         const expoPushToken = tokenData.data;

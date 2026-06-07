@@ -80,11 +80,11 @@ const Travelers = ({
                 message: 'Rol actualizado correctamente'
             });
             setShowAlert(true);
-        } catch (error: any) {
+        } catch (error: unknown) {
             setAlertConfig({
                 type: 'error',
                 title: 'Error',
-                message: error?.message || 'No se pudo cambiar el rol'
+                message: error instanceof Error ? error.message : 'No se pudo cambiar el rol'
             });
             setShowAlert(true);
         }
@@ -136,11 +136,11 @@ const Travelers = ({
                                     : `${userName} ha sido expulsado del viaje`
                             });
                             setShowAlert(true);
-                        } catch (error: any) {
+                        } catch (error: unknown) {
                             setAlertConfig({
                                 type: 'error',
                                 title: 'Error',
-                                message: error?.message || 'No se pudo realizar la acción'
+                                message: error instanceof Error ? error.message : 'No se pudo realizar la acción'
                             });
                             setShowAlert(true);
                         }

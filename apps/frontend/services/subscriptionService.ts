@@ -67,14 +67,14 @@ export class SubscriptionService {
     // ==========================================
 
     /**
-     * Crea una sesión de checkout de Stripe
-     * @param plan - 'monthly' o 'yearly'
+     * Crea una sesión de checkout de Stripe (suscripción anual)
+     * @param plan - 'yearly'
      * @param platform - 'web' o 'mobile'
      * @returns sessionId y url para redirigir al usuario
      */
     static async createCheckoutSession(
         token: string,
-        plan: 'monthly' | 'yearly',
+        plan: 'yearly',
         platform: 'web' | 'mobile' = 'web'
     ): Promise<{ sessionId: string; url: string }> {
         try {

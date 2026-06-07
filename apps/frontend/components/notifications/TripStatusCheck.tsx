@@ -1,7 +1,7 @@
 import CustomButton from '@/components/customElements/CustomButton';
 import { MicrotextDark, TextRegular } from '@/components/customElements/CustomText';
 import { useAuth } from '@/context/AuthContext';
-import { notifications } from '@planmyroute/types';
+import { Notification } from '@planmyroute/types';
 import { useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import { ROUTES } from '@/constants/routes';
@@ -10,7 +10,7 @@ import { View } from 'react-native';
 import Toast from 'react-native-toast-message';
 
 interface TripStatusCheckProps {
-    notification: notifications;
+    notification: Notification;
     userId: string | number;
 }
 
@@ -61,12 +61,12 @@ export const TripStatusCheck: React.FC<TripStatusCheckProps> = ({ notification, 
                 },
                 visibilityTime: 4000,
             });
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error('Error responding to trip status:', error);
             Toast.show({
                 type: 'error',
                 text1: 'Error',
-                text2: error?.message || 'No se pudo actualizar el estado del viaje',
+                text2: error instanceof Error ? error.message : 'No se pudo actualizar el estado del viaje',
             });
         } finally {
             setIsLoading(false);
@@ -104,12 +104,12 @@ export const TripStatusCheck: React.FC<TripStatusCheckProps> = ({ notification, 
                     ? 'El viaje se mantendrá en planificación'
                     : 'El viaje continuará en curso',
             });
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error('Error responding to trip status:', error);
             Toast.show({
                 type: 'error',
                 text1: 'Error',
-                text2: error?.message || 'No se pudo registrar la respuesta',
+                text2: error instanceof Error ? error.message : 'No se pudo registrar la respuesta',
             });
         } finally {
             setIsLoading(false);

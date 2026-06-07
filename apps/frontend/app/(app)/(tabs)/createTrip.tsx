@@ -6,11 +6,12 @@ import { ROUTES } from '@/constants/routes';
 import { useAuth } from '@/context/AuthContext';
 import { useDraftBanner } from '@/hooks/trip/useWizardDraft';
 import { useNeedsProfileCompletion } from '@/hooks/users/useNeedsProfileCompletion';
-import { useUserUsage } from '@/hooks/users/useUserUsage';
+import { useTokenBalance } from '@/hooks/users/useTokenBalance';
+import { useSubscription } from '@/context/SubscriptionContext';
 import { useTrips } from '@/hooks/useTrips';
 import '@/index.css';
 import { Ionicons } from '@expo/vector-icons';
-import { Trip } from '@planmyroute/types';
+import { Trip, getActionCost } from '@planmyroute/types';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, ScrollView, TouchableOpacity, View } from 'react-native';
@@ -20,8 +21,13 @@ export default function CreateTripTabScreen() {
     const router = useRouter();
     const { user } = useAuth();
     const { needsCompletion, isLoading: profileLoading } = useNeedsProfileCompletion();
-    const { data: userUsage } = useUserUsage();
+    const { data: tokenBalance } = useTokenBalance();
+    const { isPremium } = useSubscription();
     const { draft, hasDraft, checked, discard } = useDraftBanner(user?.id);
+
+    // Coste base para iniciar un viaje con IA (GENERATE_TRIP).
+    const aiBaseCost = getActionCost('GENERATE_TRIP', isPremium);
+    const hasEnoughForAiBase = typeof tokenBalance !== 'number' || tokenBalance >= aiBaseCost;
 
     useEffect(() => {
         if (needsCompletion) {
@@ -55,27 +61,32 @@ export default function CreateTripTabScreen() {
 
     const hideAlert = () => setShowAlert(false);
 
+    const showInsufficientTokensAlert = () => {
+        const balanceText = typeof tokenBalance === 'number' ? ` Tienes ${tokenBalance}.` : '';
+        setAlertConfig({
+            title: '💎 Tokens insuficientes',
+            message: `Necesitas ${aiBaseCost} tokens para generar un viaje con IA.${balanceText} Compra más tokens o usa el modo manual.`,
+            type: 'warning',
+            actions: [
+                {
+                    text: 'Comprar tokens',
+                    onPress: () => { hideAlert(); router.push(ROUTES.premium); },
+                    variant: 'yellow',
+                },
+                {
+                    text: 'Usar modo manual',
+                    onPress: () => { hideAlert(); setIsAiTrip(false); },
+                    variant: 'outline',
+                },
+                { text: 'Cerrar', onPress: hideAlert, variant: 'dark' },
+            ],
+        });
+        setShowAlert(true);
+    };
+
     const handleSelectAiMode = () => {
-        if (userUsage?.ai_trip_creation && !userUsage.ai_trip_creation.can_create) {
-            setAlertConfig({
-                title: '🔒 Límite alcanzado',
-                message: `Has usado ${userUsage.ai_trip_creation.used_count}/${userUsage.ai_trip_creation.max_count} viajes con IA este mes. Actualiza a Premium o usa el modo manual.`,
-                type: 'warning',
-                actions: [
-                    {
-                        text: 'Ver Premium',
-                        onPress: () => { hideAlert(); router.push(ROUTES.premium); },
-                        variant: 'yellow',
-                    },
-                    {
-                        text: 'Usar modo manual',
-                        onPress: () => { hideAlert(); setIsAiTrip(false); },
-                        variant: 'outline',
-                    },
-                    { text: 'Cerrar', onPress: hideAlert, variant: 'dark' },
-                ],
-            });
-            setShowAlert(true);
+        if (!hasEnoughForAiBase) {
+            showInsufficientTokensAlert();
         } else {
             setIsAiTrip(true);
         }
@@ -83,26 +94,8 @@ export default function CreateTripTabScreen() {
 
     const handleContinue = () => {
         if (!tripName.trim()) return;
-        if (isAiTrip && userUsage?.ai_trip_creation && !userUsage.ai_trip_creation.can_create) {
-            setAlertConfig({
-                title: '🔒 Límite alcanzado',
-                message: `Has usado ${userUsage.ai_trip_creation.used_count}/${userUsage.ai_trip_creation.max_count} viajes con IA este mes. Cambia a modo manual o actualiza a Premium.`,
-                type: 'warning',
-                actions: [
-                    {
-                        text: 'Ver Premium',
-                        onPress: () => { hideAlert(); router.push(ROUTES.premium); },
-                        variant: 'yellow',
-                    },
-                    {
-                        text: 'Usar modo manual',
-                        onPress: () => { hideAlert(); setIsAiTrip(false); },
-                        variant: 'outline',
-                    },
-                    { text: 'Cerrar', onPress: hideAlert, variant: 'dark' },
-                ],
-            });
-            setShowAlert(true);
+        if (isAiTrip && !hasEnoughForAiBase) {
+            showInsufficientTokensAlert();
             return;
         }
         router.push(ROUTES.tripCreateWizard(tripName.trim(), isAiTrip));
@@ -197,15 +190,13 @@ export default function CreateTripTabScreen() {
                                     Itinerario personalizado
                                 </MicrotextDark>
 
-                                {userUsage?.ai_trip_creation && (
-                                    <View className={`mt-2 px-3 py-1.5 rounded-full ${userUsage.ai_trip_creation.can_create ? 'bg-green-100' : 'bg-red-500'}`}>
-                                        <MicrotextDark className={`text-xs font-semibold ${userUsage.ai_trip_creation.can_create ? 'text-green-700' : 'text-white'}`}>
-                                            {userUsage.ai_trip_creation.max_count === undefined
-                                                ? `${userUsage.ai_trip_creation.used_count || 0}/ilimitado`
-                                                : `${userUsage.ai_trip_creation.used_count || 0}/${userUsage.ai_trip_creation.max_count}`}
-                                        </MicrotextDark>
-                                    </View>
-                                )}
+                                <View className={`mt-2 px-3 py-1.5 rounded-full ${hasEnoughForAiBase ? 'bg-primary-yellow/20' : 'bg-red-500'}`}>
+                                    <MicrotextDark className={`text-xs font-semibold ${hasEnoughForAiBase ? 'text-dark-black' : 'text-white'}`}>
+                                        {typeof tokenBalance === 'number'
+                                            ? `💎 ${tokenBalance} · ${aiBaseCost}/viaje`
+                                            : `${aiBaseCost} tokens/viaje`}
+                                    </MicrotextDark>
+                                </View>
 
                                 {isAiTrip && (
                                     <View className="absolute top-2 right-2">

@@ -1,26 +1,114 @@
 import CustomButton from '@/components/customElements/CustomButton';
 import { MicrotextDark, SubtitleSemibold } from '@/components/customElements/CustomText';
 import { Ionicons } from '@expo/vector-icons';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Modal, TouchableOpacity, View } from 'react-native';
 import type { MapPickerCoords } from './MapLocationPicker';
-
-import { MapContainer, TileLayer, useMapEvents } from 'react-leaflet';
-import 'leaflet/dist/leaflet.css';
 
 function getApiBaseUrl(): string {
     return process.env.EXPO_PUBLIC_API_URL
         || (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000');
 }
 
-function MapMoveHandler({ onMove }: { onMove: (lat: number, lng: number) => void }) {
-    useMapEvents({
-        moveend(e) {
-            const center = e.target.getCenter();
-            onMove(center.lat, center.lng);
-        },
+function buildPickerHtml(centerLat: number, centerLng: number, centerZoom: number): string {
+    return `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no"/>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <style>
+    * { margin:0; padding:0; box-sizing:border-box; }
+    html,body,#map { height:100%; width:100%; }
+    #search-container { position:absolute; top:10px; left:10px; right:10px; z-index:1000; }
+    #search-input {
+      width:100%; padding:11px 16px; border:none; border-radius:14px;
+      background:#fff; box-shadow:0 2px 12px rgba(0,0,0,0.18);
+      font-size:15px; font-family:system-ui,-apple-system,sans-serif;
+      outline:none;
+    }
+    #search-input::placeholder { color:#aaa; }
+    #search-results {
+      display:none; background:#fff; border-radius:14px;
+      box-shadow:0 4px 18px rgba(0,0,0,0.16); margin-top:6px; overflow:hidden;
+    }
+    .result-item {
+      padding:11px 16px; font-size:13px;
+      font-family:system-ui,-apple-system,sans-serif; color:#202020;
+      border-bottom:1px solid rgba(0,0,0,0.06); cursor:pointer;
+      white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+    }
+    .result-item:last-child { border-bottom:none; }
+    .result-item:active { background:#f5f5f5; }
+    .leaflet-control-attribution { font-size:9px; }
+  </style>
+</head>
+<body>
+<div id="map"></div>
+<div id="search-container">
+  <input id="search-input" type="text" placeholder="Buscar ciudad o lugar..."
+         autocomplete="off" autocorrect="off" spellcheck="false"/>
+  <div id="search-results"></div>
+</div>
+<script>
+  var map = L.map('map', { zoomControl: true }).setView([${centerLat}, ${centerLng}], ${centerZoom});
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© <a href="https://www.openstreetmap.org/copyright">OSM</a>', maxZoom: 19,
+  }).addTo(map);
+
+  function notifyCenter() {
+    var c = map.getCenter();
+    window.parent.postMessage(JSON.stringify({ type: 'mapMoved', lat: c.lat, lng: c.lng }), '*');
+  }
+
+  map.on('moveend', function() { notifyCenter(); });
+  map.whenReady(function() { notifyCenter(); });
+
+  var searchTimer = null;
+  document.getElementById('search-input').addEventListener('input', function(e) {
+    var q = e.target.value.trim();
+    clearTimeout(searchTimer);
+    if (q.length < 3) { document.getElementById('search-results').style.display = 'none'; return; }
+    searchTimer = setTimeout(function() { searchPlaces(q); }, 450);
+  });
+  document.getElementById('search-input').addEventListener('blur', function() {
+    setTimeout(function() { document.getElementById('search-results').style.display = 'none'; }, 200);
+  });
+
+  async function searchPlaces(query) {
+    try {
+      var resp = await fetch(
+        'https://nominatim.openstreetmap.org/search?q=' + encodeURIComponent(query) +
+        '&format=json&limit=6&addressdetails=0', { headers: { 'Accept-Language': 'es' } }
+      );
+      var data = await resp.json();
+      renderResults(data);
+    } catch(e) { document.getElementById('search-results').style.display = 'none'; }
+  }
+
+  function renderResults(results) {
+    var container = document.getElementById('search-results');
+    container.innerHTML = '';
+    if (!results || !results.length) { container.style.display = 'none'; return; }
+    results.forEach(function(r) {
+      var div = document.createElement('div');
+      div.className = 'result-item';
+      div.textContent = r.display_name;
+      div.title = r.display_name;
+      div.addEventListener('mousedown', function(e) { e.preventDefault(); });
+      div.addEventListener('click', function() {
+        map.flyTo([parseFloat(r.lat), parseFloat(r.lon)], 14);
+        document.getElementById('search-input').value = r.display_name;
+        container.style.display = 'none';
+      });
+      container.appendChild(div);
     });
-    return null;
+    container.style.display = 'block';
+  }
+</script>
+</body>
+</html>`;
 }
 
 type Props = {
@@ -39,22 +127,40 @@ export function MapLocationPickerWeb({ visible, initialLocation, onLocationSelec
     const [geoLoading, setGeoLoading] = useState(false);
     const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-    const handleMove = (lat: number, lng: number) => {
-        setCoords({ latitude: lat, longitude: lng });
-        if (debounceRef.current) clearTimeout(debounceRef.current);
-        setGeoLoading(true);
-        debounceRef.current = setTimeout(async () => {
+    useEffect(() => {
+        if (!visible) return;
+
+        const handleMessage = (event: MessageEvent) => {
             try {
-                const res = await fetch(`${getApiBaseUrl()}/api/places/reverse?lat=${lat}&lng=${lng}`);
-                const data = await res.json();
-                setResolvedAddress(data.address ?? null);
+                const data = JSON.parse(event.data);
+                if (data.type === 'mapMoved' && typeof data.lat === 'number' && typeof data.lng === 'number') {
+                    const newCoords: MapPickerCoords = { latitude: data.lat, longitude: data.lng };
+                    setCoords(newCoords);
+                    if (debounceRef.current) clearTimeout(debounceRef.current);
+                    setGeoLoading(true);
+                    debounceRef.current = setTimeout(async () => {
+                        try {
+                            const res = await fetch(`${getApiBaseUrl()}/api/places/reverse?lat=${data.lat}&lng=${data.lng}`);
+                            const json = await res.json();
+                            setResolvedAddress(json.address ?? null);
+                        } catch {
+                            setResolvedAddress(null);
+                        } finally {
+                            setGeoLoading(false);
+                        }
+                    }, 600);
+                }
             } catch {
-                setResolvedAddress(null);
-            } finally {
-                setGeoLoading(false);
+                // ignore non-JSON messages
             }
-        }, 600);
-    };
+        };
+
+        window.addEventListener('message', handleMessage);
+        return () => {
+            window.removeEventListener('message', handleMessage);
+            if (debounceRef.current) clearTimeout(debounceRef.current);
+        };
+    }, [visible]);
 
     const handleConfirm = () => {
         onLocationSelect(coords, resolvedAddress ?? undefined);
@@ -62,6 +168,11 @@ export function MapLocationPickerWeb({ visible, initialLocation, onLocationSelec
     };
 
     if (!visible) return null;
+
+    const centerLat = initialLocation?.latitude ?? 40.4168;
+    const centerLng = initialLocation?.longitude ?? -3.7038;
+    const centerZoom = initialLocation ? 14 : 5;
+    const mapHtml = buildPickerHtml(centerLat, centerLng, centerZoom);
 
     return (
         <Modal visible={visible} animationType="slide" presentationStyle="fullScreen" onRequestClose={onClose}>
@@ -79,22 +190,13 @@ export function MapLocationPickerWeb({ visible, initialLocation, onLocationSelec
                     <View style={{ width: 32 }} />
                 </View>
 
-                {/* Map with fixed crosshair */}
+                {/* Map with fixed crosshair overlay */}
                 <View style={{ flex: 1, position: 'relative' }}>
-                    <MapContainer
-                        center={[coords.latitude, coords.longitude]}
-                        zoom={initialLocation ? 14 : 5}
-                        style={{ height: '100%', width: '100%' }}
-                        zoomControl={true}
-                    >
-                        <TileLayer
-                            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-                        />
-                        <MapMoveHandler onMove={handleMove} />
-                    </MapContainer>
-
-                    {/* Fixed crosshair pin */}
+                    <iframe
+                        srcDoc={mapHtml}
+                        style={{ width: '100%', height: '100%', border: 'none' } as React.CSSProperties}
+                        title="Map picker"
+                    />
                     <View style={{
                         position: 'absolute',
                         left: '50%' as any,

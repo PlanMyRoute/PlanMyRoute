@@ -175,8 +175,8 @@ export default function VerifyEmailScreen() {
                 try {
                   await resendOtp(email);
                   showAlert('Código reenviado', 'Revisa tu correo electrónico', 'success');
-                } catch (error: any) {
-                  showAlert('Error', error.message || 'No se pudo reenviar el código', 'error');
+                } catch (error: unknown) {
+                  showAlert('Error', error instanceof Error ? error.message : 'No se pudo reenviar el código', 'error');
                 } finally {
                   setIsResending(false);
                 }

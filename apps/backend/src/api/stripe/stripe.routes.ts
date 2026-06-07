@@ -1,11 +1,12 @@
 import { Router } from 'express';
 import express from 'express';
-import { 
-    createCheckoutSession, 
-    createPortalSession, 
+import {
+    createCheckoutSession,
+    createTokenCheckoutSession,
+    createPortalSession,
     cancelSubscription,
     reactivateSubscription,
-    handleWebhook 
+    handleWebhook
 } from './stripe.controller.js';
 import { verifyToken } from '../../middleware/auth.js';
 
@@ -13,6 +14,7 @@ const router = Router();
 
 // Rutas protegidas (requieren autenticación)
 router.post('/create-checkout-session', verifyToken, createCheckoutSession);
+router.post('/create-token-checkout-session', verifyToken, createTokenCheckoutSession);
 router.post('/create-portal-session', verifyToken, createPortalSession);
 router.post('/cancel', verifyToken, cancelSubscription);
 router.post('/reactivate', verifyToken, reactivateSubscription);

@@ -44,10 +44,9 @@ export async function parseResponse<T>(response: Response): Promise<T> {
     const body = isJson ? await response.json().catch(() => null) : await response.text().catch(() => null);
 
     if (!response.ok) {
-        const message =
-            (body && typeof body === 'object' && 'error' in body && (body as any).error) ||
-            (body && typeof body === 'object' && 'message' in body && (body as any).message) ||
-            `Request failed with status ${response.status}`;
+        type ApiErrorBody = { error?: unknown; message?: unknown };
+        const errorBody = (body && typeof body === 'object') ? body as ApiErrorBody : null;
+        const message = errorBody?.error ?? errorBody?.message ?? `Request failed with status ${response.status}`;
 
         throw new ApiError(String(message), response.status, response.statusText, body);
     }

@@ -6,25 +6,25 @@ import * as ReviewService from './reviews.service.js';
  * POST /api/reviews
  * Crea una nueva reseña
  */
-export const createReview = async (req: Request, res: Response) => {
+export const createReview = async (req: Request, res: Response): Promise<void> => {
     try {
         const { trip_id, rating, comment, is_public } = req.body;
 
         // Verificar autenticación
         const authHeader = req.headers.authorization;
         if (!authHeader || !authHeader.startsWith('Bearer ')) {
-            return res.status(401).json({ error: 'No autenticado' });
+            res.status(401).json({ error: 'No autenticado' }); return;
         }
 
         const token = authHeader.substring(7);
         const { data: { user }, error: authError } = await supabase.auth.getUser(token);
 
         if (authError || !user) {
-            return res.status(401).json({ error: 'Token inválido' });
+            res.status(401).json({ error: 'Token inválido' }); return;
         }
 
         if (!trip_id || !rating) {
-            return res.status(400).json({ error: 'trip_id y rating son requeridos' });
+            res.status(400).json({ error: 'trip_id y rating son requeridos' }); return;
         }
 
         const review = await ReviewService.createReview(
@@ -39,11 +39,11 @@ export const createReview = async (req: Request, res: Response) => {
             success: true,
             data: review,
         });
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('Error creating review:', error);
         res.status(400).json({
             success: false,
-            error: error.message || 'Error al crear la reseña',
+            error: error instanceof Error ? error.message : 'Error al crear la reseña',
         });
     }
 };
@@ -52,7 +52,7 @@ export const createReview = async (req: Request, res: Response) => {
  * PUT /api/reviews/:reviewId
  * Actualiza una reseña existente
  */
-export const updateReview = async (req: Request, res: Response) => {
+export const updateReview = async (req: Request, res: Response): Promise<void> => {
     try {
         const { reviewId } = req.params;
         const { rating, comment, is_public } = req.body;
@@ -60,14 +60,14 @@ export const updateReview = async (req: Request, res: Response) => {
         // Verificar autenticación
         const authHeader = req.headers.authorization;
         if (!authHeader || !authHeader.startsWith('Bearer ')) {
-            return res.status(401).json({ error: 'No autenticado' });
+            res.status(401).json({ error: 'No autenticado' }); return;
         }
 
         const token = authHeader.substring(7);
         const { data: { user }, error: authError } = await supabase.auth.getUser(token);
 
         if (authError || !user) {
-            return res.status(401).json({ error: 'Token inválido' });
+            res.status(401).json({ error: 'Token inválido' }); return;
         }
 
         const updates: any = {};
@@ -81,11 +81,11 @@ export const updateReview = async (req: Request, res: Response) => {
             success: true,
             data: review,
         });
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('Error updating review:', error);
         res.status(400).json({
             success: false,
-            error: error.message || 'Error al actualizar la reseña',
+            error: error instanceof Error ? error.message : 'Error al actualizar la reseña',
         });
     }
 };
@@ -94,21 +94,21 @@ export const updateReview = async (req: Request, res: Response) => {
  * DELETE /api/reviews/:reviewId
  * Elimina una reseña
  */
-export const deleteReview = async (req: Request, res: Response) => {
+export const deleteReview = async (req: Request, res: Response): Promise<void> => {
     try {
         const { reviewId } = req.params;
 
         // Verificar autenticación
         const authHeader = req.headers.authorization;
         if (!authHeader || !authHeader.startsWith('Bearer ')) {
-            return res.status(401).json({ error: 'No autenticado' });
+            res.status(401).json({ error: 'No autenticado' }); return;
         }
 
         const token = authHeader.substring(7);
         const { data: { user }, error: authError } = await supabase.auth.getUser(token);
 
         if (authError || !user) {
-            return res.status(401).json({ error: 'Token inválido' });
+            res.status(401).json({ error: 'Token inválido' }); return;
         }
 
         await ReviewService.deleteReview(reviewId, user.id);
@@ -117,11 +117,11 @@ export const deleteReview = async (req: Request, res: Response) => {
             success: true,
             message: 'Reseña eliminada correctamente',
         });
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('Error deleting review:', error);
         res.status(400).json({
             success: false,
-            error: error.message || 'Error al eliminar la reseña',
+            error: error instanceof Error ? error.message : 'Error al eliminar la reseña',
         });
     }
 };
@@ -130,21 +130,21 @@ export const deleteReview = async (req: Request, res: Response) => {
  * GET /api/reviews/trip/:tripId/check
  * Verifica si el usuario puede crear una reseña para un viaje
  */
-export const checkCanReview = async (req: Request, res: Response) => {
+export const checkCanReview = async (req: Request, res: Response): Promise<void> => {
     try {
         const { tripId } = req.params;
 
         // Verificar autenticación
         const authHeader = req.headers.authorization;
         if (!authHeader || !authHeader.startsWith('Bearer ')) {
-            return res.status(401).json({ error: 'No autenticado' });
+            res.status(401).json({ error: 'No autenticado' }); return;
         }
 
         const token = authHeader.substring(7);
         const { data: { user }, error: authError } = await supabase.auth.getUser(token);
 
         if (authError || !user) {
-            return res.status(401).json({ error: 'Token inválido' });
+            res.status(401).json({ error: 'Token inválido' }); return;
         }
 
         const result = await ReviewService.canUserReviewTrip(tripId, user.id);
@@ -153,11 +153,11 @@ export const checkCanReview = async (req: Request, res: Response) => {
             success: true,
             data: result,
         });
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('Error checking review permission:', error);
         res.status(400).json({
             success: false,
-            error: error.message || 'Error al verificar permisos',
+            error: error instanceof Error ? error.message : 'Error al verificar permisos',
         });
     }
 };
@@ -166,21 +166,21 @@ export const checkCanReview = async (req: Request, res: Response) => {
  * GET /api/reviews/trip/:tripId/user
  * Obtiene la reseña del usuario para un viaje específico
  */
-export const getUserReviewForTrip = async (req: Request, res: Response) => {
+export const getUserReviewForTrip = async (req: Request, res: Response): Promise<void> => {
     try {
         const { tripId } = req.params;
 
         // Verificar autenticación
         const authHeader = req.headers.authorization;
         if (!authHeader || !authHeader.startsWith('Bearer ')) {
-            return res.status(401).json({ error: 'No autenticado' });
+            res.status(401).json({ error: 'No autenticado' }); return;
         }
 
         const token = authHeader.substring(7);
         const { data: { user }, error: authError } = await supabase.auth.getUser(token);
 
         if (authError || !user) {
-            return res.status(401).json({ error: 'Token inválido' });
+            res.status(401).json({ error: 'Token inválido' }); return;
         }
 
         const review = await ReviewService.getUserReviewForTrip(tripId, user.id);
@@ -189,11 +189,11 @@ export const getUserReviewForTrip = async (req: Request, res: Response) => {
             success: true,
             data: review,
         });
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('Error getting user review:', error);
         res.status(400).json({
             success: false,
-            error: error.message || 'Error al obtener la reseña',
+            error: error instanceof Error ? error.message : 'Error al obtener la reseña',
         });
     }
 };
@@ -202,19 +202,19 @@ export const getUserReviewForTrip = async (req: Request, res: Response) => {
  * GET /api/reviews/user
  * Obtiene todas las reseñas del usuario autenticado
  */
-export const getUserReviews = async (req: Request, res: Response) => {
+export const getUserReviews = async (req: Request, res: Response): Promise<void> => {
     try {
         // Verificar autenticación
         const authHeader = req.headers.authorization;
         if (!authHeader || !authHeader.startsWith('Bearer ')) {
-            return res.status(401).json({ error: 'No autenticado' });
+            res.status(401).json({ error: 'No autenticado' }); return;
         }
 
         const token = authHeader.substring(7);
         const { data: { user }, error: authError } = await supabase.auth.getUser(token);
 
         if (authError || !user) {
-            return res.status(401).json({ error: 'Token inválido' });
+            res.status(401).json({ error: 'Token inválido' }); return;
         }
 
         const reviews = await ReviewService.getUserReviews(user.id);
@@ -223,11 +223,11 @@ export const getUserReviews = async (req: Request, res: Response) => {
             success: true,
             data: reviews,
         });
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('Error getting user reviews:', error);
         res.status(400).json({
             success: false,
-            error: error.message || 'Error al obtener las reseñas',
+            error: error instanceof Error ? error.message : 'Error al obtener las reseñas',
         });
     }
 };
@@ -236,7 +236,7 @@ export const getUserReviews = async (req: Request, res: Response) => {
  * GET /api/reviews/feed
  * Obtiene el feed público de reseñas
  */
-export const getPublicFeed = async (req: Request, res: Response) => {
+export const getPublicFeed = async (req: Request, res: Response): Promise<void> => {
     try {
         const limit = parseInt(req.query.limit as string) || 20;
         const offset = parseInt(req.query.offset as string) || 0;
@@ -247,11 +247,11 @@ export const getPublicFeed = async (req: Request, res: Response) => {
             success: true,
             data: reviews,
         });
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('Error getting public feed:', error);
         res.status(400).json({
             success: false,
-            error: error.message || 'Error al obtener el feed',
+            error: error instanceof Error ? error.message : 'Error al obtener el feed',
         });
     }
 };
@@ -260,7 +260,7 @@ export const getPublicFeed = async (req: Request, res: Response) => {
  * GET /api/reviews/feed/social
  * Obtiene el feed social de reseñas (filtrado por follows/followers)
  */
-export const getSocialFeed = async (req: Request, res: Response) => {
+export const getSocialFeed = async (req: Request, res: Response): Promise<void> => {
     try {
         const limit = parseInt(req.query.limit as string) || 20;
         const offset = parseInt(req.query.offset as string) || 0;
@@ -268,14 +268,14 @@ export const getSocialFeed = async (req: Request, res: Response) => {
         // Verificar autenticación
         const authHeader = req.headers.authorization;
         if (!authHeader || !authHeader.startsWith('Bearer ')) {
-            return res.status(401).json({ error: 'No autenticado' });
+            res.status(401).json({ error: 'No autenticado' }); return;
         }
 
         const token = authHeader.substring(7);
         const { data: { user }, error: authError } = await supabase.auth.getUser(token);
 
         if (authError || !user) {
-            return res.status(401).json({ error: 'Token inválido' });
+            res.status(401).json({ error: 'Token inválido' }); return;
         }
 
         const reviews = await ReviewService.getSocialReviewsFeed(user.id, limit, offset);
@@ -284,11 +284,11 @@ export const getSocialFeed = async (req: Request, res: Response) => {
             success: true,
             data: reviews,
         });
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('Error getting social feed:', error);
         res.status(400).json({
             success: false,
-            error: error.message || 'Error al obtener el feed social',
+            error: error instanceof Error ? error.message : 'Error al obtener el feed social',
         });
     }
 };
@@ -297,7 +297,7 @@ export const getSocialFeed = async (req: Request, res: Response) => {
  * GET /api/reviews/trip/:tripId
  * Obtiene todas las reseñas públicas de un viaje
  */
-export const getTripReviews = async (req: Request, res: Response) => {
+export const getTripReviews = async (req: Request, res: Response): Promise<void> => {
     try {
         const { tripId } = req.params;
 
@@ -307,11 +307,11 @@ export const getTripReviews = async (req: Request, res: Response) => {
             success: true,
             data: reviews,
         });
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('Error getting trip reviews:', error);
         res.status(400).json({
             success: false,
-            error: error.message || 'Error al obtener las reseñas del viaje',
+            error: error instanceof Error ? error.message : 'Error al obtener las reseñas del viaje',
         });
     }
 };
@@ -320,7 +320,7 @@ export const getTripReviews = async (req: Request, res: Response) => {
  * GET /api/reviews/trip/:tripId/stats
  * Obtiene estadísticas de reseñas de un viaje
  */
-export const getTripStats = async (req: Request, res: Response) => {
+export const getTripStats = async (req: Request, res: Response): Promise<void> => {
     try {
         const { tripId } = req.params;
 
@@ -330,11 +330,11 @@ export const getTripStats = async (req: Request, res: Response) => {
             success: true,
             data: stats,
         });
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('Error getting trip stats:', error);
         res.status(400).json({
             success: false,
-            error: error.message || 'Error al obtener estadísticas',
+            error: error instanceof Error ? error.message : 'Error al obtener estadísticas',
         });
     }
 };

@@ -1,11 +1,8 @@
 // src/api/vehicles/vehicles.service.ts
 import { supabase } from '../../supabase.js';
-import { Vehicle, VehicleType, TablesUpdate } from '@planmyroute/types';
+import { Vehicle, VehicleType, FuelType, TablesUpdate } from '@planmyroute/types';
 
 const TABLE_NAME = 'vehicle';
-
-// Tipo de enum para fuel type (definido localmente hasta que se publique en shared)
-export type FuelType = 'diesel' | 'gasoline' | 'electric' | 'LPG';
 
 // Payload para crear vehículo (omitimos id, user_id ya que se asignan en el backend)
 export interface CreateVehiclePayload {

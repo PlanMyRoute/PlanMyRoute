@@ -118,8 +118,8 @@ export default function CreateFromEventScreen() {
             } else {
                 router.back();
             }
-        } catch (error: any) {
-            Alert.alert('Error', error?.message || 'No se pudo crear el viaje. Inténtalo de nuevo.');
+        } catch (error: unknown) {
+            Alert.alert('Error', error instanceof Error ? error.message : 'No se pudo crear el viaje. Inténtalo de nuevo.');
         } finally {
             setCreating(false);
         }

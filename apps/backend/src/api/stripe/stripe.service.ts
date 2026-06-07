@@ -1,5 +1,7 @@
-import { stripe, STRIPE_CONFIG, getPriceIdByPlan, PlanType } from '../../config/stripe.config.js';
+import { stripe, STRIPE_CONFIG, getPriceIdByPlan, getTokenPriceId, getTokenPackageByPriceId, PlanType } from '../../config/stripe.config.js';
 import { supabase } from '../../supabase.js';
+import * as TokenWalletService from '../../services/tokenWalletService.js';
+import { getTokenPackage, TOKEN_GRANTS } from '@planmyroute/types';
 import Stripe from 'stripe';
 
 export class StripeService {
@@ -85,6 +87,71 @@ export class StripeService {
     }
 
     /**
+     * Crea una sesión de Stripe Checkout para COMPRA ÚNICA de un paquete de tokens.
+     */
+    async createTokenCheckoutSession(
+        userId: string,
+        packageId: string,
+        platform: 'web' | 'mobile' = 'web',
+        customSuccessUrl?: string,
+        customCancelUrl?: string
+    ): Promise<{ sessionId: string; url: string }> {
+        const pkg = getTokenPackage(packageId);
+        if (!pkg) {
+            throw new Error(`Paquete de tokens inválido: ${packageId}`);
+        }
+
+        const { data: user, error: userError } = await supabase
+            .from('user')
+            .select('email')
+            .eq('id', userId)
+            .single();
+
+        if (userError || !user) {
+            throw new Error('Usuario no encontrado');
+        }
+
+        const customerId = await this.getOrCreateStripeCustomer(userId, user.email);
+        const priceId = getTokenPriceId(pkg);
+
+        let successUrl: string;
+        let cancelUrl: string;
+        if (platform === 'mobile') {
+            successUrl = STRIPE_CONFIG.MOBILE_SUCCESS_URL;
+            cancelUrl = STRIPE_CONFIG.MOBILE_CANCEL_URL;
+        } else if (customSuccessUrl && customCancelUrl) {
+            successUrl = `${customSuccessUrl}?session_id={CHECKOUT_SESSION_ID}`;
+            cancelUrl = customCancelUrl;
+        } else {
+            successUrl = `${STRIPE_CONFIG.SUCCESS_URL}?session_id={CHECKOUT_SESSION_ID}`;
+            cancelUrl = STRIPE_CONFIG.CANCEL_URL;
+        }
+
+        const session = await stripe.checkout.sessions.create({
+            customer: customerId,
+            payment_method_types: ['card'],
+            line_items: [{ price: priceId, quantity: 1 }],
+            mode: 'payment', // compra única (no suscripción)
+            success_url: successUrl,
+            cancel_url: cancelUrl,
+            metadata: {
+                userId,
+                tokenPackage: pkg.id,
+            },
+            payment_intent_data: {
+                metadata: {
+                    userId,
+                    tokenPackage: pkg.id,
+                },
+            },
+            allow_promotion_codes: true,
+            billing_address_collection: 'auto',
+        });
+
+        return { sessionId: session.id, url: session.url || '' };
+    }
+
+    /**
      * Crea un portal de cliente para gestionar suscripción
      */
     async createCustomerPortalSession(userId: string): Promise<{ url: string }> {
@@ -103,22 +170,65 @@ export class StripeService {
     }
 
     /**
-     * Maneja el webhook de Stripe para checkout completado
+     * Maneja el webhook de Stripe para checkout completado.
+     * Distingue compra única de tokens (mode: payment) de suscripción (mode: subscription).
      */
     async handleCheckoutCompleted(session: Stripe.Checkout.Session): Promise<void> {
         const userId = session.metadata?.userId;
-        const subscriptionId = session.subscription as string;
 
         if (!userId) {
             console.error('Checkout completado sin userId en metadata');
             return;
         }
 
-        // Obtener detalles de la suscripción
+        // Compra única de tokens
+        if (session.mode === 'payment') {
+            const packageId = session.metadata?.tokenPackage;
+            const pkg = packageId ? getTokenPackage(packageId) : undefined;
+            if (!pkg) {
+                console.error('Checkout de pago sin tokenPackage válido en metadata:', packageId);
+                return;
+            }
+            // Idempotente por payment_intent.
+            const reference = { payment_intent: String(session.payment_intent ?? session.id) };
+            await TokenWalletService.grant(userId, pkg.type, pkg.tokens, reference);
+            console.log(`Concedidos ${pkg.tokens} tokens (${pkg.id}) al usuario ${userId}`);
+            return;
+        }
+
+        // Suscripción
+        const subscriptionId = session.subscription as string;
         const subscription = await stripe.subscriptions.retrieve(subscriptionId);
-        
-        // Actualizar la suscripción en nuestra base de datos
         await this.updateSubscriptionInDatabase(userId, subscription);
+    }
+
+    /**
+     * Maneja `invoice.paid`. Para la suscripción anual concede el grant de 1000 tokens
+     * de forma idempotente por invoice.id (cubre alta inicial y renovaciones anuales).
+     */
+    async handleInvoicePaid(invoice: Stripe.Invoice): Promise<void> {
+        // Solo nos interesan facturas del precio anual.
+        const yearlyPriceId = STRIPE_CONFIG.PRICES.YEARLY;
+        const lines = invoice.lines?.data ?? [];
+        // `as any`: el shape de InvoiceLineItem varía según la versión de la API de Stripe.
+        const isYearly = lines.some((line) => (line as any).price?.id === yearlyPriceId);
+        if (!isYearly) return;
+
+        const customerId = invoice.customer as string;
+        const userId = await this.getUserIdByCustomerId(customerId);
+        if (!userId) {
+            console.error('invoice.paid anual sin userId asociado');
+            return;
+        }
+
+        // Idempotente por invoice.id.
+        await TokenWalletService.grant(
+            userId,
+            'PREMIUM_ANNUAL_GRANT',
+            TOKEN_GRANTS.PREMIUM_ANNUAL_GRANT,
+            { invoice_id: invoice.id }
+        );
+        console.log(`Concedidos ${TOKEN_GRANTS.PREMIUM_ANNUAL_GRANT} tokens (grant anual) al usuario ${userId}`);
     }
 
     /**
@@ -296,7 +406,7 @@ export class StripeService {
         };
 
         const status = statusMap[subscription.status] || 'active';
-        const plan = subscription.metadata?.plan || 'monthly';
+        const plan = subscription.metadata?.plan || 'yearly';
         
         // Calcular fechas - usar 'as any' para acceder a propiedades que pueden variar según versión de API
         const subData = subscription as any;
@@ -316,6 +426,7 @@ export class StripeService {
                 is_trial: subscription.status === 'trialing',
                 trial_end: trialEnd?.toISOString() || null,
                 provider_subscription_id: subscription.id,
+                stripe_customer_id: subscription.customer as string,
                 cancel_at_period_end: subscription.cancel_at_period_end,
                 updated_at: new Date().toISOString(),
             })
@@ -359,7 +470,7 @@ export class StripeService {
                     success: true, 
                     message: 'Tu suscripción se cancelará al final del período actual.' 
                 };
-            } catch (error: any) {
+            } catch (error: unknown) {
                 console.error('Error cancelando en Stripe:', error);
                 throw new Error('Error al cancelar la suscripción en Stripe');
             }

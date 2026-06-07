@@ -4,7 +4,7 @@ import * as TripService from './trips.service.js';
 /**
  * Obtiene todos los viajes de un usuario específico
  */
-export const getUserTrips = async (req: Request, res: Response) => {
+export const getUserTrips = async (req: Request, res: Response): Promise<void> => {
     const { userId } = req.params; // userId es un UUID (string)
     try {
         const trips = await TripService.getUserTrips(userId);
@@ -18,7 +18,7 @@ export const getUserTrips = async (req: Request, res: Response) => {
 /**
  * Obtiene el historial de viajes completados de un usuario
  */
-export const getUserTripHistory = async (req: Request, res: Response) => {
+export const getUserTripHistory = async (req: Request, res: Response): Promise<void> => {
     const { userId } = req.params; // userId es un UUID (string)
     try {
         const trips = await TripService.getUserTripHistory(userId);
@@ -29,7 +29,7 @@ export const getUserTripHistory = async (req: Request, res: Response) => {
     }
 };
 
-export const getTripById = async (req: Request, res: Response) => {
+export const getTripById = async (req: Request, res: Response): Promise<void> => {
     const { id } = req.params;
     const tripId = parseInt(id, 10);
 
@@ -45,13 +45,13 @@ export const getTripById = async (req: Request, res: Response) => {
             stack: err.stack,
         });
         if (err.message.includes('No se encontró')) {
-            return res.status(404).json({ error: err.message });
+            res.status(404).json({ error: err.message }); return;
         }
         res.status(500).json({ error: err.message });
     }
 };
 
-export const createTrip = async (req: Request, res: Response) => {
+export const createTrip = async (req: Request, res: Response): Promise<void> => {
     const { userId } = req.params; // userId es un UUID (string)
     try {
         const { origin, destination, vehicleIds, ...tripPayload } = req.body as any;
@@ -65,14 +65,14 @@ export const createTrip = async (req: Request, res: Response) => {
             destination
         );
 
-        return res.status(201).json(itinerary);
+        res.status(201).json(itinerary); return;
     } catch (error) {
         const err = error as Error;
         res.status(500).json({ error: err.message });
     }
 };
 
-export const updateTrip = async (req: Request, res: Response) => {
+export const updateTrip = async (req: Request, res: Response): Promise<void> => {
     const { id } = req.params;
 
     try {
@@ -81,13 +81,13 @@ export const updateTrip = async (req: Request, res: Response) => {
     } catch (error) {
         const err = error as Error;
         if (err.message.includes('No se encontró')) {
-            return res.status(404).json({ error: err.message });
+            res.status(404).json({ error: err.message }); return;
         }
         res.status(500).json({ error: err.message });
     }
 };
 
-export const deleteTrip = async (req: Request, res: Response) => {
+export const deleteTrip = async (req: Request, res: Response): Promise<void> => {
     const { id } = req.params;
     try {
         await TripService.deleteTrip(id);
@@ -95,14 +95,14 @@ export const deleteTrip = async (req: Request, res: Response) => {
     } catch (error) {
         const err = error as Error;
         if (err.message.includes('No se encontró')) {
-            return res.status(404).json({ error: err.message });
+            res.status(404).json({ error: err.message }); return;
         }
         res.status(500).json({ error: err.message });
     }
 };
 
 // =============== TRAVELERS CONTROLLERS ===============
-export const getTravelersInTrip = async (req: Request, res: Response) => {
+export const getTravelersInTrip = async (req: Request, res: Response): Promise<void> => {
     const { id } = req.params;
     const numId = parseInt(id, 10);
     try {
@@ -112,7 +112,7 @@ export const getTravelersInTrip = async (req: Request, res: Response) => {
     catch (error) {
         const err = error as Error;
         if (err.message.includes('No se encontró')) {
-            return res.status(404).json({ error: err.message });
+            res.status(404).json({ error: err.message }); return;
         }
         res.status(500).json({ error: err.message });
     }
@@ -121,7 +121,7 @@ export const getTravelersInTrip = async (req: Request, res: Response) => {
 /**
  * Elimina a un usuario de un viaje (salir del viaje o expulsar)
  */
-export const removeUserFromTrip = async (req: Request, res: Response) => {
+export const removeUserFromTrip = async (req: Request, res: Response): Promise<void> => {
     const { userId, tripId } = req.params;
     const numTripId = parseInt(tripId, 10);
 
@@ -131,7 +131,7 @@ export const removeUserFromTrip = async (req: Request, res: Response) => {
     } catch (error) {
         const err = error as Error;
         if (err.message.includes('no es parte') || err.message.includes('único propietario')) {
-            return res.status(400).json({ error: err.message });
+            res.status(400).json({ error: err.message }); return;
         }
         res.status(500).json({ error: err.message });
     }
@@ -140,15 +140,15 @@ export const removeUserFromTrip = async (req: Request, res: Response) => {
 /**
  * Cambia el rol de un usuario en un viaje
  */
-export const changeUserRole = async (req: Request, res: Response) => {
+export const changeUserRole = async (req: Request, res: Response): Promise<void> => {
     const { userId, tripId } = req.params;
     const { role } = req.body;
     const numTripId = parseInt(tripId, 10);
 
     if (!role || !['owner', 'editor', 'viewer'].includes(role)) {
-        return res.status(400).json({
+        res.status(400).json({
             error: 'Rol inválido. Debe ser: owner, editor o viewer'
-        });
+        }); return;
     }
 
     try {
@@ -157,7 +157,7 @@ export const changeUserRole = async (req: Request, res: Response) => {
     } catch (error) {
         const err = error as Error;
         if (err.message.includes('no es parte') || err.message.includes('único propietario')) {
-            return res.status(400).json({ error: err.message });
+            res.status(400).json({ error: err.message }); return;
         }
         res.status(500).json({ error: err.message });
     }
@@ -165,7 +165,7 @@ export const changeUserRole = async (req: Request, res: Response) => {
 
 // =============== VEHICLE CONTROLLERS ===============
 
-export const getVehiclesInTrip = async (req: Request, res: Response) => {
+export const getVehiclesInTrip = async (req: Request, res: Response): Promise<void> => {
     const { id } = req.params;
     const numId = parseInt(id, 10);
     try {
@@ -174,13 +174,13 @@ export const getVehiclesInTrip = async (req: Request, res: Response) => {
     } catch (error) {
         const err = error as Error;
         if (err.message.includes('No se encontró')) {
-            return res.status(404).json({ error: err.message });
+            res.status(404).json({ error: err.message }); return;
         }
         res.status(500).json({ error: err.message });
     }
 };
 
-export const removeVehicleFromTrip = async (req: Request, res: Response) => {
+export const removeVehicleFromTrip = async (req: Request, res: Response): Promise<void> => {
     const { vehicleId, tripId } = req.params;
     const numTripId = parseInt(tripId, 10);
     try {
@@ -189,7 +189,7 @@ export const removeVehicleFromTrip = async (req: Request, res: Response) => {
     } catch (error) {
         const err = error as Error;
         if (err.message.includes('no está asociado')) {
-            return res.status(400).json({ error: err.message });
+            res.status(400).json({ error: err.message }); return;
         }
         res.status(500).json({ error: err.message });
     }
@@ -202,36 +202,36 @@ export const removeVehicleFromTrip = async (req: Request, res: Response) => {
  * POST /trips/:id/status/respond
  * Body: {notificationId: string, started?: boolean, completed?: boolean}
  */
-export const respondToTripStatus = async (req: Request, res: Response) => {
+export const respondToTripStatus = async (req: Request, res: Response): Promise<void> => {
     const { id } = req.params;
     const { notificationId, started, completed } = req.body;
     const tripId = parseInt(id, 10);
 
     // Validaciones
     if (isNaN(tripId)) {
-        return res.status(400).json({ error: 'ID de viaje inválido' });
+        res.status(400).json({ error: 'ID de viaje inválido' }); return;
     }
 
     if (!notificationId) {
-        return res.status(400).json({ error: 'notificationId es requerido' });
+        res.status(400).json({ error: 'notificationId es requerido' }); return;
     }
 
     if (started === undefined && completed === undefined) {
-        return res.status(400).json({
+        res.status(400).json({
             error: 'Debe proporcionar "started" o "completed" en la respuesta'
-        });
+        }); return;
     }
 
     if (started !== undefined && completed !== undefined) {
-        return res.status(400).json({
+        res.status(400).json({
             error: 'Solo puede proporcionar "started" o "completed", no ambos'
-        });
+        }); return;
     }
 
     // El userId viene del middleware de autenticación
     const userId = (req as any).user?.id;
     if (!userId) {
-        return res.status(401).json({ error: 'Usuario no autenticado' });
+        res.status(401).json({ error: 'Usuario no autenticado' }); return;
     }
 
     try {
@@ -248,11 +248,11 @@ export const respondToTripStatus = async (req: Request, res: Response) => {
 
         if (err.message.includes('Solo el propietario') ||
             err.message.includes('no está en estado')) {
-            return res.status(403).json({ error: err.message });
+            res.status(403).json({ error: err.message }); return;
         }
 
         if (err.message.includes('No se encontró')) {
-            return res.status(404).json({ error: err.message });
+            res.status(404).json({ error: err.message }); return;
         }
 
         res.status(500).json({ error: err.message });
@@ -263,17 +263,17 @@ export const respondToTripStatus = async (req: Request, res: Response) => {
  * Obtiene el nivel de acceso del usuario actual en un viaje
  * GET /trip/:id/access-level
  */
-export const getAccessLevel = async (req: Request, res: Response) => {
+export const getAccessLevel = async (req: Request, res: Response): Promise<void> => {
     const { id } = req.params;
     const tripId = parseInt(id, 10);
     const userId = (req as any).user?.id;
 
     if (!userId) {
-        return res.status(401).json({ error: 'Usuario no autenticado' });
+        res.status(401).json({ error: 'Usuario no autenticado' }); return;
     }
 
     if (isNaN(tripId)) {
-        return res.status(400).json({ error: 'ID de viaje inválido' });
+        res.status(400).json({ error: 'ID de viaje inválido' }); return;
     }
 
     try {
@@ -288,7 +288,7 @@ export const getAccessLevel = async (req: Request, res: Response) => {
         const changeRolesAccess = await checkPermission(userId, tripId, 'change_roles');
         const leaveAccess = await checkPermission(userId, tripId, 'leave_trip');
 
-        return res.json({
+        res.json({
             role: viewAccess.role,
             tripStatus: viewAccess.tripStatus,
             isGuest: viewAccess.isGuest,
@@ -301,13 +301,13 @@ export const getAccessLevel = async (req: Request, res: Response) => {
                 canChangeRoles: changeRolesAccess.allowed,
                 canLeave: leaveAccess.allowed
             }
-        });
+        }); return;
     } catch (error) {
         const err = error as Error;
         console.error('🔴 [getAccessLevel] Error:', err.message);
 
         if (err.message.includes('No se encontró')) {
-            return res.status(404).json({ error: err.message });
+            res.status(404).json({ error: err.message }); return;
         }
 
         res.status(500).json({ error: err.message });

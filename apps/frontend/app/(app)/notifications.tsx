@@ -6,7 +6,7 @@ import { TripUpdate } from '@/components/notifications/TripUpdate';
 import { useAuth } from '@/context/AuthContext';
 import useNotifications, { useDeleteNotification } from '@/hooks/useNotifications';
 import { Ionicons } from '@expo/vector-icons';
-import { notifications } from '@planmyroute/types';
+import { Notification } from '@planmyroute/types';
 import { useMemo, useState } from 'react';
 import { ActivityIndicator, FlatList, Modal, RefreshControl, TouchableOpacity, View } from 'react-native';
 import Swipeable from 'react-native-gesture-handler/Swipeable';
@@ -17,7 +17,7 @@ type FilterType = 'all' | 'pending' | 'accepted' | 'rejected';
 
 interface GroupedNotifications {
     title: string;
-    data: notifications[];
+    data: Notification[];
 }
 
 export default function NotificationsScreen() {
@@ -72,11 +72,11 @@ export default function NotificationsScreen() {
             });
         }
 
-        const today: notifications[] = [];
-        const yesterday: notifications[] = [];
-        const last7Days: notifications[] = [];
-        const last30Days: notifications[] = [];
-        const older: notifications[] = [];
+        const today: Notification[] = [];
+        const yesterday: Notification[] = [];
+        const last7Days: Notification[] = [];
+        const last30Days: Notification[] = [];
+        const older: Notification[] = [];
 
         others.forEach(notification => {
             const daysAgo = getDaysAgo(notification.created_at);
@@ -134,7 +134,7 @@ export default function NotificationsScreen() {
         );
     };
 
-    const renderNotificationItem = ({ item }: { item: notifications }) => {
+    const renderNotificationItem = ({ item }: { item: Notification }) => {
         // Renderizar componente según el tipo de notificación
         let NotificationComponent;
 
@@ -276,7 +276,7 @@ export default function NotificationsScreen() {
                                 {section.title}
                             </SubtitleSemibold>
                             <View className="gap-3">
-                                {section.data.map(notification => (
+                                {section.data.map((notification: Notification) => (
                                     <View key={notification.id}>
                                         {renderNotificationItem({ item: notification })}
                                     </View>

@@ -1,10 +1,10 @@
 import { MicrotextDark, TextRegular } from '@/components/customElements/CustomText';
-import { notifications } from '@planmyroute/types';
+import { Notification } from '@planmyroute/types';
 import { Link } from 'expo-router';
 import { TouchableOpacity, View } from 'react-native';
 
 interface TripUpdateProps {
-    notification: notifications;
+    notification: Notification;
 }
 
 export const TripUpdate: React.FC<TripUpdateProps> = ({ notification }) => {

@@ -1,5 +1,5 @@
 import { apiFetch } from '@/constants/api';
-import { CollaboratorRole, notifications as Notification } from '@planmyroute/types';
+import { CollaboratorRole, Notification } from '@planmyroute/types';
 
 const BASE_PATH = '/notification';
 

@@ -1,4 +1,4 @@
-import { notifications as Notification, Trip, User } from '@planmyroute/types';
+import { Notification, Trip, User } from '@planmyroute/types';
 import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
@@ -272,9 +272,9 @@ export function useTravelersWithPending(
   const travelersWithPending = useMemo<TravelerWithRole[]>(() => {
     const result: TravelerWithRole[] = [];
 
-    // Añadir viajeros confirmados
+    // Añadir viajeros confirmados (el API retorna un subset de User; cast necesario)
     if (confirmedTravelers) {
-      result.push(...confirmedTravelers);
+      result.push(...(confirmedTravelers as unknown as TravelerWithRole[]));
     }
 
     // Añadir viajeros pendientes (solo si no están ya confirmados)

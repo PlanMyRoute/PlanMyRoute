@@ -15,6 +15,7 @@ import placesRoutes from './api/places/places.routes.js';
 import stripeRoutes from './api/stripe/stripe.routes.js';
 import eventsRoutes from './api/events/events.routes.js';
 import eventChatRoutes from './api/eventChat/eventChat.routes.js';
+import tokensRoutes from './api/tokens/tokens.routes.js';
 import { initScheduler, stopScheduler } from './jobs/tripStatusScheduler.js';
 
 dotenv.config();
@@ -71,6 +72,7 @@ app.use('/api/reviews', reviewsRoutes);
 app.use('/api', vehiclesRoutes);
 app.use('/api', followsRoutes);
 app.use('/api/subscriptions', subscriptionRoutes);
+app.use('/api/tokens', tokensRoutes);
 app.use('/api/places', placesRoutes);
 app.use('/api/stripe', stripeRoutes);
 app.use('/api/events', eventsRoutes);

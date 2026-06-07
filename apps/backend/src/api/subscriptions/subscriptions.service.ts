@@ -1,6 +1,28 @@
 import { supabase } from '../../supabase.js';
 import { SUB_CONFIG } from '../../config/subscription.constants.js';
 
+/**
+ * Comprueba si un usuario tiene premium activo (tier premium + estado activo/trial + no expirado).
+ * Reutilizable por la lógica de tokens (costes tier-aware) y otros gatings.
+ */
+export async function getIsPremium(userId: string): Promise<boolean> {
+    const { data } = await supabase
+        .from('subscriptions')
+        .select('tier, status, current_period_end')
+        .eq('user_id', userId)
+        .single();
+
+    if (!data) return false;
+
+    const isPremiumTier = data.tier === 'premium';
+    const isActive = data.status === 'active' || data.status === 'trialing';
+    const notExpired = data.current_period_end
+        ? new Date(data.current_period_end) > new Date()
+        : true;
+
+    return isPremiumTier && isActive && notExpired;
+}
+
 export class SubscriptionService {
 
     /**
@@ -128,7 +150,7 @@ export class SubscriptionService {
         if (error || !promo) throw new Error('Código promocional no válido');
         if (!promo.is_active) throw new Error('Este código ha sido desactivado');
         if (promo.expiration_date && new Date(promo.expiration_date) < new Date()) throw new Error('El código ha caducado');
-        if (promo.max_uses && promo.used_count >= promo.max_uses) throw new Error('El código se ha agotado');
+        if (promo.max_uses && (promo.used_count ?? 0) >= promo.max_uses) throw new Error('El código se ha agotado');
 
         // Aplicar días
         await this.addPremiumDays(userId, promo.duration_days);
@@ -141,7 +163,7 @@ export class SubscriptionService {
         // Actualizar uso (Incrementar contador)
         await supabase
             .from('promo_codes')
-            .update({ used_count: promo.used_count + 1 })
+            .update({ used_count: (promo.used_count ?? 0) + 1 })
             .eq('code', codeInput);
 
         return { success: true, daysAwarded: promo.duration_days };
