@@ -9,6 +9,7 @@ COPY packages/ ./packages/
 COPY apps/backend/ ./apps/backend/
 
 RUN pnpm install
+RUN pnpm --filter @planmyroute/types build
 
 WORKDIR /app/apps/backend
 RUN npx tsc --noEmitOnError false || true

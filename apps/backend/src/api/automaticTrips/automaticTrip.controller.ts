@@ -138,7 +138,7 @@ export async function generateAutomaticTrip(req: Request, res: Response) {
         res.status(202).json({ ...tripWithItinerary, generation_status: 'generating' });
 
         // 3. Llamar a la IA y crear todas las paradas en background
-        generateItineraryInBackground(tripId, tripInputForLLM, userPreferences, vehicles, totalDays)
+        generateItineraryInBackground(tripId, userId, tripInputForLLM, userPreferences, vehicles, totalDays)
             .catch(async (err) => {
                 console.error(`❌ [Background] Error generando itinerario para trip ${tripId}:`, err);
                 await TripService.update(String(tripId), { generation_status: 'failed' } as any).catch(() => {});
@@ -158,13 +158,14 @@ export async function generateAutomaticTrip(req: Request, res: Response) {
 
 async function generateItineraryInBackground(
     tripId: number,
+    userId: string,
     tripInputForLLM: any,
     userPreferences: UserPreferences,
     vehicles: any[],
     totalDays: number
 ) {
     console.log(`📝 [Background] Solicitando itinerario a la IA para trip ${tripId}...`);
-    const itineraryAI = await requestItineraryToLLM(tripInputForLLM, userPreferences, vehicles);
+    const itineraryAI = await requestItineraryToLLM(tripInputForLLM, userPreferences, vehicles, { tripId, userId, totalDays });
 
     if (itineraryAI.description) {
         await TripService.update(String(tripId), { description: itineraryAI.description } as any);

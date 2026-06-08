@@ -224,8 +224,6 @@ ${(() => {
   INCORRECTO: "2 horas", 0.5, "2.5"
   CORRECTO: 120, 30, 150
   
-- **category**: Usa valores como: "museo", "restaurante", "monumento", "naturaleza", "aventura", "cultural"
-
 - **address**: CRÍTICO para geocodificación. Usa direcciones REALES y ESPECÍFICAS
   ❌ INCORRECTO: "Plaza Principal", "Muelle Principal", "Centro de la ciudad"
   ✅ CORRECTO: "Copacabana, La Paz, Bolivia" o "Calle Real 123, Copacabana, Bolivia"
