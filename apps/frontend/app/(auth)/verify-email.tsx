@@ -21,6 +21,7 @@ interface AlertConfig {
   title: string;
   message: string;
   type: 'error' | 'success';
+  onCloseAction?: 'navigateHome';
 }
 
 export default function VerifyEmailScreen() {
@@ -44,8 +45,8 @@ export default function VerifyEmailScreen() {
     type: 'error'
   });
 
-  const showAlert = (title: string, message: string, type: 'error' | 'success' = 'error') => {
-    setAlertConfig({ title, message, type });
+  const showAlert = (title: string, message: string, type: 'error' | 'success' = 'error', onCloseAction?: 'navigateHome') => {
+    setAlertConfig({ title, message, type, onCloseAction });
     setAlertVisible(true);
   };
 
@@ -93,7 +94,8 @@ export default function VerifyEmailScreen() {
       showAlert(
         '¡Email verificado!',
         'Tu cuenta ha sido verificada correctamente.',
-        'success'
+        'success',
+        'navigateHome'
       );
     } catch (e: any) {
       console.error('🔴 Error en verificación:', e);
@@ -115,7 +117,7 @@ export default function VerifyEmailScreen() {
         type={alertConfig.type}
         onClose={() => {
           setAlertVisible(false);
-          if (alertConfig.type === 'success') {
+          if (alertConfig.onCloseAction === 'navigateHome') {
             router.replace(ROUTES.tabsHome);
           }
         }}

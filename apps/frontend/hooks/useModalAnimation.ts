@@ -1,5 +1,11 @@
-import { useEffect, useRef } from 'react';
-import { Animated, Platform } from 'react-native';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { Animated, PanResponder, Platform } from 'react-native';
+
+// useNativeDriver: true only works for opacity + transform on native.
+// On web (React Native Web), JS-driven animation (false) is more reliable.
+const NATIVE_DRIVER = Platform.OS !== 'web';
+const SWIPE_THRESHOLD = 120;
+const SWIPE_VELOCITY = 0.5;
 
 type UseModalAnimationProps = {
     visible: boolean;
@@ -10,71 +16,82 @@ type UseModalAnimationReturn = {
     overlayOpacity: Animated.Value;
     slideAnim: Animated.Value;
     handleClose: () => void;
-    isWeb: boolean;
+    panHandlers: ReturnType<typeof PanResponder.create>['panHandlers'];
 };
 
-/**
- * Hook personalizado para manejar las animaciones de apertura y cierre de modales
- * 
- * @param visible - Estado de visibilidad del modal
- * @param onClose - Función para cerrar el modal (se ejecuta después de la animación)
- * @returns Valores animados y función de cierre con animación
- * 
- */
 export const useModalAnimation = ({
     visible,
     onClose,
 }: UseModalAnimationProps): UseModalAnimationReturn => {
-    const isWeb = Platform.OS === 'web';
-
-    // Animaciones separadas para overlay y contenido
     const overlayOpacity = useRef(new Animated.Value(0)).current;
     const slideAnim = useRef(new Animated.Value(300)).current;
 
-    // Animación de apertura
+    // Stable ref so panResponder always calls the latest handleClose
+    const handleCloseRef = useRef<() => void>(() => {});
+
     useEffect(() => {
-        if (visible && !isWeb) {
-            // Fade in del overlay (más lento)
+        if (visible) {
             Animated.timing(overlayOpacity, {
                 toValue: 1,
                 duration: 300,
-                useNativeDriver: true,
+                useNativeDriver: NATIVE_DRIVER,
             }).start();
-
-            // Slide up del contenido (más suave y lento)
             Animated.spring(slideAnim, {
                 toValue: 0,
                 tension: 50,
                 friction: 10,
-                useNativeDriver: true,
+                useNativeDriver: NATIVE_DRIVER,
             }).start();
+        } else {
+            // Reset so the next open starts from the correct initial values
+            overlayOpacity.setValue(0);
+            slideAnim.setValue(300);
         }
     }, [visible, overlayOpacity, slideAnim]);
 
-    // Función para manejar el cierre con animación
-    const handleClose = () => {
-        // Animar antes de cerrar
+    const handleClose = useCallback(() => {
         Animated.parallel([
             Animated.timing(overlayOpacity, {
                 toValue: 0,
                 duration: 250,
-                useNativeDriver: true,
+                useNativeDriver: NATIVE_DRIVER,
             }),
             Animated.timing(slideAnim, {
                 toValue: 300,
                 duration: 250,
-                useNativeDriver: true,
+                useNativeDriver: NATIVE_DRIVER,
             }),
-        ]).start(() => {
-            // Ejecutar onClose después de que terminen las animaciones
-            onClose();
-        });
-    };
+        ]).start(() => onClose());
+    }, [onClose, overlayOpacity, slideAnim]);
+
+    handleCloseRef.current = handleClose;
+
+    const panResponder = useMemo(() => PanResponder.create({
+        // Only capture downward vertical drags on the drag handle
+        onMoveShouldSetPanResponder: (_, { dy, dx }) =>
+            dy > 8 && Math.abs(dy) > Math.abs(dx) * 1.5,
+        onPanResponderMove: (_, { dy }) => {
+            if (dy > 0) slideAnim.setValue(dy);
+        },
+        onPanResponderRelease: (_, { dy, vy }) => {
+            if (dy > SWIPE_THRESHOLD || vy > SWIPE_VELOCITY) {
+                handleCloseRef.current();
+            } else {
+                // Snap back
+                Animated.spring(slideAnim, {
+                    toValue: 0,
+                    tension: 50,
+                    friction: 10,
+                    useNativeDriver: NATIVE_DRIVER,
+                }).start();
+            }
+        },
+    }), [slideAnim]);
 
     return {
         overlayOpacity,
         slideAnim,
         handleClose,
-        isWeb,
+        panHandlers: panResponder.panHandlers,
     };
 };

@@ -13,6 +13,7 @@ import {
     TouchableOpacity,
     View,
 } from 'react-native';
+import Toast from 'react-native-toast-message';
 import CustomInput from './CustomInput';
 import { MicrotextDark, TextRegular } from './CustomText';
 
@@ -109,7 +110,7 @@ const LocationSearchModal = ({
         try {
             const apiUrl = getApiBaseUrl();
             const res = await fetch(
-                `${apiUrl}/api/places/details?place_id=${prediction.place_id}&fields=geometry,formatted_address`
+                `${apiUrl}/api/places/details?place_id=${encodeURIComponent(prediction.place_id)}&fields=geometry,formatted_address`
             );
             const data = await res.json();
             if (data.result?.geometry) {
@@ -320,15 +321,30 @@ export const LocationSearchInput = ({
                     if (Platform.OS === 'web') {
                         const res = await fetch(`${getApiBaseUrl()}/api/places/reverse?lat=${coords.latitude}&lng=${coords.longitude}`);
                         const data = await res.json();
-                        resolvedAddress = data.address ?? 'Ubicación seleccionada';
+                        resolvedAddress = data.address ?? undefined;
                     } else {
                         const results = await Location.reverseGeocodeAsync(coords);
-                        resolvedAddress = formatMapAddress(results[0]) ?? 'Ubicación seleccionada';
+                        resolvedAddress = formatMapAddress(results[0]) ?? undefined;
                     }
                 } catch {
-                    resolvedAddress = 'Ubicación seleccionada';
+                    resolvedAddress = undefined;
                 }
             }
+
+            // No inventar una dirección "de éxito": si la geocodificación inversa
+            // falla, dejamos al usuario en el mapa para que ajuste el punto o
+            // busque manualmente, en lugar de guardar coordenadas sin dirección real.
+            if (!resolvedAddress) {
+                Toast.show({
+                    type: 'error',
+                    text1: 'No se pudo resolver la ubicación',
+                    text2: 'Ajusta el punto en el mapa o busca la dirección manualmente.',
+                });
+                setMapOpen(false);
+                setModalOpen(true);
+                return;
+            }
+
             onLocationSelect(resolvedAddress, coords);
             setMapOpen(false);
         },
@@ -370,7 +386,10 @@ export const LocationSearchInput = ({
                     visible={mapOpen}
                     initialLocation={currentCoordinates}
                     onLocationSelect={handleMapLocationSelected}
-                    onClose={() => setMapOpen(false)}
+                    onClose={() => {
+                        setMapOpen(false);
+                        setModalOpen(true);
+                    }}
                 />
             ) : (
                 <MapLocationPicker
@@ -381,7 +400,10 @@ export const LocationSearchInput = ({
                             : null
                     }
                     onLocationSelect={handleMapLocationSelected}
-                    onClose={() => setMapOpen(false)}
+                    onClose={() => {
+                        setMapOpen(false);
+                        setModalOpen(true);
+                    }}
                 />
             )}
         </View>

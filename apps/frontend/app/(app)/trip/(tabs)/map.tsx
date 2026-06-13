@@ -4,20 +4,37 @@ import { SkeletonBox } from '@/components/customElements/SkeletonBox';
 import { DayInfo, DaySelector } from '@/components/trip/DaySelector';
 import { MapComponent, PinState } from '@/components/trip/MapComponent';
 import { useTripContext } from '@/context/TripContext';
+import { useAddEventAsStop } from '@/hooks/useAddEventAsStop';
 import { useStops } from '@/hooks/useItinerary';
+import { useNearbyRouteEvents } from '@/hooks/useNearbyRouteEvents';
+import { useTripPermissions } from '@/hooks/useTripPermissions';
+import { TmEvent } from '@/services/eventService';
 import { Ionicons } from '@expo/vector-icons';
 import { Stop } from '@planmyroute/types';
 import { useEffect, useMemo, useState } from 'react';
-import { Linking, Platform, View } from 'react-native';
+import { ActivityIndicator, Linking, Platform, Pressable, View } from 'react-native';
+
+const EVENT_MARKER_PREFIX = 'event-';
 
 export default function MapScreen() {
     const { tripId, currentTrip } = useTripContext();
-    const { stops, isLoading: stopsLoading } = useStops(tripId as string, { enabled: !!tripId });
+    const currentTripId = tripId as string;
+    const { stops, isLoading: stopsLoading } = useStops(currentTripId, { enabled: !!tripId });
+    const { canAddStop } = useTripPermissions(currentTripId);
 
     const [selectedMapStop, setSelectedMapStop] = useState<Stop | null>(null);
+    const [selectedMapEvent, setSelectedMapEvent] = useState<TmEvent | null>(null);
+    const [eventsLayerVisible, setEventsLayerVisible] = useState(false);
     const [routeCoordinates, setRouteCoordinates] = useState<{ latitude: number; longitude: number }[]>([]);
     const [selectedDay, setSelectedDay] = useState<number | null>(null);
     const [localStops, setLocalStops] = useState<Stop[]>([]);
+
+    const { addingEventId, addEventAsStop } = useAddEventAsStop(currentTripId);
+    const { events: nearbyEvents, isLoading: loadingNearbyEvents } = useNearbyRouteEvents(
+        localStops,
+        (currentTrip as any)?.start_date,
+        { enabled: eventsLayerVisible },
+    );
 
     // Ordenar paradas
     useEffect(() => {
@@ -143,7 +160,7 @@ export default function MapScreen() {
 
     // Marcadores para el mapa
     foundNext = false; // reset antes de calcular markers
-    const markers = visibleStops
+    const stopMarkers = visibleStops
         .filter(s => s.coordinates?.latitude && s.coordinates?.longitude)
         .map((stop, index) => ({
             id: stop.id.toString(),
@@ -152,8 +169,21 @@ export default function MapScreen() {
             description: stop.address || '',
             number: index + 1,
             pinState: getPinState(stop),
-            onPress: () => setSelectedMapStop(stop),
         }));
+
+    const eventMarkers = eventsLayerVisible
+        ? (nearbyEvents ?? [])
+            .filter(e => e.venue?.coordinates?.lat && e.venue?.coordinates?.lng)
+            .map(e => ({
+                id: `${EVENT_MARKER_PREFIX}${e.id}`,
+                coordinate: { latitude: e.venue!.coordinates!.lat, longitude: e.venue!.coordinates!.lng },
+                title: e.name,
+                description: e.venue?.city ?? '',
+                segment: e.segment ?? undefined,
+            }))
+        : [];
+
+    const markers = [...stopMarkers, ...eventMarkers];
 
     const firstStop = visibleStops.find(s => s.coordinates?.latitude && s.coordinates?.longitude);
     const initialRegion = firstStop
@@ -205,10 +235,53 @@ export default function MapScreen() {
                     routeCoordinates={routeCoordinates}
                     visitedUpToIndex={visitedUpToIndex}
                     onMarkerPress={(id) => {
-                        const stop = visibleStops.find(s => s.id.toString() === id);
-                        if (stop) setSelectedMapStop(stop);
+                        if (id.startsWith(EVENT_MARKER_PREFIX)) {
+                            const eventId = id.slice(EVENT_MARKER_PREFIX.length);
+                            const event = (nearbyEvents ?? []).find(e => e.id === eventId) ?? null;
+                            setSelectedMapEvent(event);
+                            setSelectedMapStop(null);
+                        } else {
+                            const stop = visibleStops.find(s => s.id.toString() === id);
+                            if (stop) {
+                                setSelectedMapStop(stop);
+                                setSelectedMapEvent(null);
+                            }
+                        }
                     }}
                 />
+                {/* Toggle capa de eventos */}
+                <Pressable
+                    onPress={() => {
+                        setEventsLayerVisible(v => !v);
+                        setSelectedMapEvent(null);
+                    }}
+                    style={({ pressed }) => ({
+                        position: 'absolute',
+                        top: 12,
+                        right: 12,
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        gap: 6,
+                        paddingHorizontal: 12,
+                        paddingVertical: 8,
+                        borderRadius: 20,
+                        backgroundColor: eventsLayerVisible ? '#FFD54D' : '#FFFFFF',
+                        shadowColor: '#000',
+                        shadowOffset: { width: 0, height: 2 },
+                        shadowOpacity: pressed ? 0.15 : 0.1,
+                        shadowRadius: 4,
+                        elevation: 3,
+                        opacity: pressed ? 0.85 : 1,
+                    })}
+                >
+                    {loadingNearbyEvents
+                        ? <ActivityIndicator size="small" color={eventsLayerVisible ? '#202020' : '#999999'} />
+                        : <Ionicons name="ticket-outline" size={15} color={eventsLayerVisible ? '#202020' : '#999999'} />
+                    }
+                    <MicrotextDark style={{ color: eventsLayerVisible ? '#202020' : '#999999' }}>
+                        Eventos
+                    </MicrotextDark>
+                </Pressable>
             </View>
 
             {/* Panel inferior: parada seleccionada */}
@@ -263,6 +336,69 @@ export default function MapScreen() {
                         icon={<Ionicons name="navigate-outline" size={18} color="#FFD54D" />}
                         onPress={() => openGoogleMaps(selectedMapStop)}
                     />
+                </View>
+            )}
+
+            {/* Panel inferior: evento seleccionado */}
+            {selectedMapEvent && (
+                <View
+                    className="absolute bottom-0 left-0 right-0 bg-white rounded-t-3xl px-5 pt-4 pb-6"
+                    style={{ shadowColor: '#000', shadowOffset: { width: 0, height: -4 }, shadowOpacity: 0.08, shadowRadius: 12, elevation: 8 }}
+                >
+                    {/* Drag handle + cerrar */}
+                    <View className="flex-row items-center justify-between mb-3">
+                        <View className="w-10 h-1 bg-neutral/30 rounded-full flex-1" />
+                        <Pressable
+                            className="w-8 h-8 rounded-full bg-neutral/10 items-center justify-center ml-3"
+                            onPress={() => setSelectedMapEvent(null)}
+                        >
+                            <Ionicons name="close" size={16} color="#202020" />
+                        </Pressable>
+                    </View>
+
+                    <Title3Semibold className="mb-2 pr-10" numberOfLines={2}>
+                        {selectedMapEvent.name}
+                    </Title3Semibold>
+
+                    {(selectedMapEvent.date || selectedMapEvent.time) && (
+                        <View className="flex-row items-center gap-2 mb-2">
+                            <Ionicons name="calendar-outline" size={15} color="#999999" />
+                            <TextRegular className="text-neutral">
+                                {[selectedMapEvent.date, selectedMapEvent.time].filter(Boolean).join(' · ')}
+                            </TextRegular>
+                        </View>
+                    )}
+
+                    {selectedMapEvent.venue && (
+                        <View className="flex-row items-start gap-2 mb-2">
+                            <Ionicons name="location-outline" size={15} color="#999999" style={{ marginTop: 2 }} />
+                            <TextRegular className="flex-1 text-neutral">
+                                {[selectedMapEvent.venue.name, selectedMapEvent.venue.city].filter(Boolean).join(', ')}
+                            </TextRegular>
+                        </View>
+                    )}
+
+                    {selectedMapEvent.priceMin != null && (
+                        <View className="flex-row items-center gap-2 mb-3">
+                            <Ionicons name="pricetag-outline" size={15} color="#999999" />
+                            <TextRegular className="text-neutral">
+                                {`Desde ${selectedMapEvent.priceMin} ${selectedMapEvent.currency ?? '€'}`}
+                            </TextRegular>
+                        </View>
+                    )}
+
+                    {canAddStop && (
+                        <CustomButton
+                            title={addingEventId === selectedMapEvent.id ? 'Añadiendo…' : 'Añadir como parada'}
+                            variant="dark"
+                            size="large"
+                            icon={<Ionicons name="add-circle-outline" size={18} color="#FFD54D" />}
+                            onPress={async () => {
+                                await addEventAsStop(selectedMapEvent, (currentTrip as any)?.start_date);
+                                setSelectedMapEvent(null);
+                            }}
+                        />
+                    )}
                 </View>
             )}
         </View>

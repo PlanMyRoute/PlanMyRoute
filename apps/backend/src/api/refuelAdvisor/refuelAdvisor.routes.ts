@@ -4,12 +4,10 @@ import { suggestRefuel, applyRefuelSuggestions } from './refuelAdvisor.controlle
 
 const router = Router();
 
-router.use(verifyToken);
-
 // Analiza el itinerario y sugiere puntos de repostaje (cobra tokens)
-router.post('/trips/:tripId/suggest-refuel', suggestRefuel);
+router.post('/trips/:tripId/suggest-refuel', verifyToken, suggestRefuel);
 
 // Crea las paradas de repostaje elegidas por el usuario
-router.post('/trips/:tripId/apply-refuel', applyRefuelSuggestions);
+router.post('/trips/:tripId/apply-refuel', verifyToken, applyRefuelSuggestions);
 
 export default router;

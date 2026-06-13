@@ -1,13 +1,13 @@
 import { Router, Request, Response } from 'express';
+import { reverseGeocode, searchPlaces } from '../../utils/nominatimClient.js';
 
 const router = Router();
-
-// Nominatim usage policy requires a descriptive User-Agent with contact info
-const NOMINATIM_USER_AGENT = 'PlanMyRoute/1.0 (dev.planmyroute@gmail.com)';
 
 /**
  * GET /api/places/autocomplete
  * Proxy para Nominatim (OpenStreetMap) — sin API key, completamente gratis.
+ * Las llamadas salientes pasan por una cola con limitación de tasa (≤1 req/seg,
+ * política de Nominatim) y se cachean para reducir la presión sobre el servicio.
  * Query params: input (required), language (optional)
  */
 router.get('/autocomplete', async (req: Request, res: Response) => {
@@ -18,30 +18,7 @@ router.get('/autocomplete', async (req: Request, res: Response) => {
             return res.status(400).json({ error: 'El parámetro "input" es requerido' });
         }
 
-        const params = new URLSearchParams({
-            q: String(input),
-            format: 'json',
-            addressdetails: '1',
-            limit: '6',
-            'accept-language': String(language),
-        });
-
-        const response = await fetch(
-            `https://nominatim.openstreetmap.org/search?${params}`,
-            {
-                headers: {
-                    'User-Agent': NOMINATIM_USER_AGENT,
-                    'Accept-Language': String(language),
-                },
-            }
-        );
-
-        if (!response.ok) {
-            console.error('Nominatim autocomplete error:', response.status);
-            return res.status(response.status).json({ predictions: [] });
-        }
-
-        const results = await response.json() as any[];
+        const results = await searchPlaces(String(input), String(language));
 
         // Encode lat/lon/address into place_id so the /details endpoint
         // can return coordinates without a second Nominatim call.
@@ -109,6 +86,8 @@ router.get('/details', async (req: Request, res: Response) => {
 /**
  * GET /api/places/reverse?lat=&lng=
  * Reverse geocoding via Nominatim — devuelve dirección legible desde coordenadas GPS.
+ * Pasa por la misma cola con limitación de tasa y caché (por coordenadas
+ * redondeadas a ~4 decimales) que /autocomplete.
  */
 router.get('/reverse', async (req: Request, res: Response) => {
     try {
@@ -116,21 +95,14 @@ router.get('/reverse', async (req: Request, res: Response) => {
         if (!lat || !lng) {
             return res.status(400).json({ error: 'Parámetros lat y lng requeridos' });
         }
-        const params = new URLSearchParams({
-            lat: String(lat),
-            lon: String(lng),
-            format: 'json',
-            'accept-language': 'es',
-        });
-        const response = await fetch(
-            `https://nominatim.openstreetmap.org/reverse?${params}`,
-            { headers: { 'User-Agent': NOMINATIM_USER_AGENT } }
-        );
-        if (!response.ok) {
-            return res.status(response.status).json({ address: null });
+        const latNum = Number(lat);
+        const lngNum = Number(lng);
+        if (Number.isNaN(latNum) || Number.isNaN(lngNum)) {
+            return res.status(400).json({ error: 'Parámetros lat y lng deben ser numéricos' });
         }
-        const data = await response.json() as any;
-        res.json({ address: data.display_name ?? null });
+
+        const result = await reverseGeocode(latNum, lngNum);
+        res.json({ address: result?.display_name ?? null });
     } catch (error) {
         console.error('Error en /api/places/reverse:', error);
         res.status(500).json({ address: null });

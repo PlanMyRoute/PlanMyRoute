@@ -10,7 +10,7 @@ import '@/index.css';
 import { Ionicons } from '@expo/vector-icons';
 import { Interest, Trip } from '@planmyroute/types';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { Stack, useRouter } from 'expo-router';
+import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { ROUTES } from '@/constants/routes';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
@@ -31,7 +31,18 @@ type TravelerCounts = {
 
 export default function TripSettingsScreen() {
   const router = useRouter();
-  const { currentTrip, setCurrentTrip, tripId } = useTripContext();
+  const params = useLocalSearchParams<{ tripId?: string }>();
+  const { currentTrip, setCurrentTrip, tripId: contextTripId, setTripId } = useTripContext();
+
+  // La URL es la fuente de verdad: evita pantallas en blanco si el contexto
+  // todavía no se ha propagado al navegar (carrera en web) o si se recarga la página.
+  const tripId = params.tripId ?? contextTripId;
+
+  useEffect(() => {
+    if (params.tripId && params.tripId !== contextTripId) {
+      setTripId(params.tripId);
+    }
+  }, [params.tripId, contextTripId, setTripId]);
 
   const { data: tripData, loading: isTripLoading } = useTrips(tripId as string, { enabled: !currentTrip && !!tripId });
   const trip = (currentTrip ?? tripData) as Trip | null;

@@ -1,4 +1,5 @@
 import { TmEvent } from '@/services/eventService';
+import { ROUTES } from '@/constants/routes';
 import { useEvents } from '@/hooks/useEvents';
 import { MapComponent, MapRef } from '@/components/trip/MapComponent';
 import { Ionicons } from '@expo/vector-icons';
@@ -48,13 +49,7 @@ function EventCard({ event }: { event: TmEvent }) {
             className="mx-4 mb-4 rounded-2xl overflow-hidden bg-white shadow-sm"
             style={{ elevation: 2 }}
             activeOpacity={0.85}
-            onPress={() => router.push({
-                pathname: '/event/[id]' as any,
-                params: {
-                    id: event.id,
-                    ...(event.dates?.length > 1 && { dates: JSON.stringify(event.dates) }),
-                },
-            })}
+            onPress={() => router.push(ROUTES.event(event.id, event.dates))}
         >
             <View className="relative">
                 {event.image ? (
@@ -230,13 +225,7 @@ export default function EventsScreen() {
 
     const handleNavigateToEvent = useCallback((event: TmEvent) => {
         setSelectedEventId(null);
-        router.push({
-            pathname: '/event/[id]' as any,
-            params: {
-                id: event.id,
-                ...(event.dates?.length > 1 && { dates: JSON.stringify(event.dates) }),
-            },
-        });
+        router.push(ROUTES.event(event.id, event.dates));
     }, [router]);
 
     const markers = allEvents.map((event, index) => ({

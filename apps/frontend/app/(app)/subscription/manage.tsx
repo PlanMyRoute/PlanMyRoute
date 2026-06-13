@@ -199,8 +199,15 @@ export default function ManageSubscriptionScreen() {
 
     return (
         <SafeAreaView className="flex-1 bg-white">
-            {/* Header sin flecha duplicada */}
+            {/* Header */}
             <View className="flex-row items-center px-5 py-4 border-b border-neutral-100">
+                <TouchableOpacity
+                    className="mr-3 w-9 h-9 rounded-full bg-gray-100 items-center justify-center"
+                    onPress={() => router.back()}
+                    activeOpacity={0.7}
+                >
+                    <Ionicons name="chevron-back" size={20} color="#202020" />
+                </TouchableOpacity>
                 <Title2Semibold>Gestionar suscripción</Title2Semibold>
             </View>
 
