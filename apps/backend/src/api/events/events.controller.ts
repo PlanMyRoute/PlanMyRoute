@@ -22,7 +22,7 @@ export const getEventById = async (req: Request, res: Response): Promise<void> =
     try {
         const { id } = req.params;
         const event = await EventsService.getEventById(id);
-        if (!event) res.status(404).json({ error: 'Evento no encontrado' }); return;
+        if (!event) { res.status(404).json({ error: 'Evento no encontrado' }); return; }
         res.json(event);
     } catch (error) {
         const err = error as Error;
