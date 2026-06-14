@@ -1,6 +1,7 @@
 import CustomButton from '@/components/customElements/CustomButton';
 import { MicrotextDark, SubtitleSemibold } from '@/components/customElements/CustomText';
 import { Ionicons } from '@expo/vector-icons';
+import * as Location from 'expo-location';
 import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Modal, TouchableOpacity, View } from 'react-native';
 import type { MapPickerCoords } from './MapLocationPicker';
@@ -10,7 +11,7 @@ function getApiBaseUrl(): string {
         || (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000');
 }
 
-function buildPickerHtml(centerLat: number, centerLng: number, centerZoom: number): string {
+function buildPickerHtml(centerLat: number, centerLng: number, centerZoom: number, apiBaseUrl: string): string {
     return `<!DOCTYPE html>
 <html>
 <head>
@@ -42,6 +43,25 @@ function buildPickerHtml(centerLat: number, centerLng: number, centerZoom: numbe
     .result-item:last-child { border-bottom:none; }
     .result-item:active { background:#f5f5f5; }
     .leaflet-control-attribution { font-size:9px; }
+
+    /* ── User location dot ── */
+    .user-dot-wrapper {
+      width:40px; height:40px;
+      display:flex; align-items:center; justify-content:center; position:relative;
+    }
+    .user-dot-pulse {
+      position:absolute; width:40px; height:40px; border-radius:50%;
+      background:rgba(74,144,226,0.25); animation:pulse 2s ease-out infinite;
+    }
+    .user-dot {
+      width:14px; height:14px; background:#4A90E2;
+      border:3px solid #fff; border-radius:50%;
+      box-shadow:0 2px 6px rgba(74,144,226,0.5); position:relative; z-index:1;
+    }
+    @keyframes pulse {
+      0%  { transform:scale(0.3); opacity:1; }
+      100%{ transform:scale(1.5); opacity:0; }
+    }
   </style>
 </head>
 <body>
@@ -63,7 +83,33 @@ function buildPickerHtml(centerLat: number, centerLng: number, centerZoom: numbe
   }
 
   map.on('moveend', function() { notifyCenter(); });
-  map.whenReady(function() { notifyCenter(); });
+  map.whenReady(function() {
+    notifyCenter();
+    window.parent.postMessage(JSON.stringify({ type: 'mapReady' }), '*');
+  });
+
+  // Punto de ubicación del usuario — creado/movido por mensajes del padre
+  function updateUserDot(lat, lng) {
+    if (window._userDot) { window._userDot.setLatLng([lat, lng]); return; }
+    var icon = L.divIcon({
+      html: '<div class="user-dot-wrapper"><div class="user-dot-pulse"></div><div class="user-dot"></div></div>',
+      className: '', iconSize: [40, 40], iconAnchor: [20, 20],
+    });
+    window._userDot = L.marker([lat, lng], { icon: icon, zIndexOffset: -10 }).addTo(map);
+  }
+
+  window.addEventListener('message', function(event) {
+    try {
+      var msg = JSON.parse(event.data);
+      if (msg.type === 'updateUserLocation' && typeof msg.lat === 'number' && typeof msg.lng === 'number') {
+        updateUserDot(msg.lat, msg.lng);
+        if (msg.flyTo) map.flyTo([msg.lat, msg.lng], 14);
+      } else if (msg.type === 'flyToUserLocation' && window._userDot) {
+        var ll = window._userDot.getLatLng();
+        map.flyTo([ll.lat, ll.lng], 14);
+      }
+    } catch (e) {}
+  });
 
   var searchTimer = null;
   document.getElementById('search-input').addEventListener('input', function(e) {
@@ -79,11 +125,10 @@ function buildPickerHtml(centerLat: number, centerLng: number, centerZoom: numbe
   async function searchPlaces(query) {
     try {
       var resp = await fetch(
-        'https://nominatim.openstreetmap.org/search?q=' + encodeURIComponent(query) +
-        '&format=json&limit=6&addressdetails=0', { headers: { 'Accept-Language': 'es' } }
+        '${apiBaseUrl}/api/places/autocomplete?input=' + encodeURIComponent(query) + '&language=es'
       );
       var data = await resp.json();
-      renderResults(data);
+      renderResults(data.predictions || []);
     } catch(e) { document.getElementById('search-results').style.display = 'none'; }
   }
 
@@ -94,12 +139,15 @@ function buildPickerHtml(centerLat: number, centerLng: number, centerZoom: numbe
     results.forEach(function(r) {
       var div = document.createElement('div');
       div.className = 'result-item';
-      div.textContent = r.display_name;
-      div.title = r.display_name;
+      div.textContent = r.description;
+      div.title = r.description;
       div.addEventListener('mousedown', function(e) { e.preventDefault(); });
       div.addEventListener('click', function() {
-        map.flyTo([parseFloat(r.lat), parseFloat(r.lon)], 14);
-        document.getElementById('search-input').value = r.display_name;
+        try {
+          var decoded = JSON.parse(atob(r.place_id));
+          map.flyTo([parseFloat(decoded.lat), parseFloat(decoded.lng)], 14);
+        } catch(e) {}
+        document.getElementById('search-input').value = r.description;
         container.style.display = 'none';
       });
       container.appendChild(div);
@@ -125,7 +173,18 @@ export function MapLocationPickerWeb({ visible, initialLocation, onLocationSelec
     });
     const [resolvedAddress, setResolvedAddress] = useState<string | null>(null);
     const [geoLoading, setGeoLoading] = useState(false);
+    const [hasUserLocation, setHasUserLocation] = useState(false);
     const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const iframeRef = useRef<HTMLIFrameElement>(null);
+    const mapReadyRef = useRef(false);
+    const userCoordsRef = useRef<MapPickerCoords | null>(null);
+    const initialLocationRef = useRef(initialLocation);
+
+    useEffect(() => { initialLocationRef.current = initialLocation; }, [initialLocation]);
+
+    const sendToMap = (message: Record<string, unknown>) => {
+        iframeRef.current?.contentWindow?.postMessage(JSON.stringify(message), '*');
+    };
 
     useEffect(() => {
         if (!visible) return;
@@ -149,6 +208,16 @@ export function MapLocationPickerWeb({ visible, initialLocation, onLocationSelec
                             setGeoLoading(false);
                         }
                     }, 600);
+                } else if (data.type === 'mapReady') {
+                    mapReadyRef.current = true;
+                    if (userCoordsRef.current) {
+                        sendToMap({
+                            type: 'updateUserLocation',
+                            lat: userCoordsRef.current.latitude,
+                            lng: userCoordsRef.current.longitude,
+                            flyTo: !initialLocationRef.current,
+                        });
+                    }
                 }
             } catch {
                 // ignore non-JSON messages
@@ -162,9 +231,45 @@ export function MapLocationPickerWeb({ visible, initialLocation, onLocationSelec
         };
     }, [visible]);
 
+    // Solicitar GPS al abrir el picker — igual que hace el picker nativo —
+    // para pintar el punto de ubicación del usuario y permitir centrar el mapa en él.
+    useEffect(() => {
+        if (!visible) {
+            mapReadyRef.current = false;
+            userCoordsRef.current = null;
+            setHasUserLocation(false);
+            return;
+        }
+
+        (async () => {
+            try {
+                const { status } = await Location.requestForegroundPermissionsAsync();
+                if (status !== 'granted') return;
+                const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+                const gpsCoords: MapPickerCoords = { latitude: loc.coords.latitude, longitude: loc.coords.longitude };
+                userCoordsRef.current = gpsCoords;
+                setHasUserLocation(true);
+                if (mapReadyRef.current) {
+                    sendToMap({
+                        type: 'updateUserLocation',
+                        lat: gpsCoords.latitude,
+                        lng: gpsCoords.longitude,
+                        flyTo: !initialLocationRef.current,
+                    });
+                }
+            } catch {
+                // GPS no disponible — el mapa se queda en initialLocation o la posición por defecto
+            }
+        })();
+    }, [visible]);
+
     const handleConfirm = () => {
         onLocationSelect(coords, resolvedAddress ?? undefined);
         onClose();
+    };
+
+    const handleCenterOnUser = () => {
+        sendToMap({ type: 'flyToUserLocation' });
     };
 
     if (!visible) return null;
@@ -172,7 +277,7 @@ export function MapLocationPickerWeb({ visible, initialLocation, onLocationSelec
     const centerLat = initialLocation?.latitude ?? 40.4168;
     const centerLng = initialLocation?.longitude ?? -3.7038;
     const centerZoom = initialLocation ? 14 : 5;
-    const mapHtml = buildPickerHtml(centerLat, centerLng, centerZoom);
+    const mapHtml = buildPickerHtml(centerLat, centerLng, centerZoom, getApiBaseUrl());
 
     return (
         <Modal visible={visible} animationType="slide" presentationStyle="fullScreen" onRequestClose={onClose}>
@@ -193,10 +298,28 @@ export function MapLocationPickerWeb({ visible, initialLocation, onLocationSelec
                 {/* Map with fixed crosshair overlay */}
                 <View style={{ flex: 1, position: 'relative' }}>
                     <iframe
+                        ref={iframeRef}
                         srcDoc={mapHtml}
                         style={{ width: '100%', height: '100%', border: 'none' } as React.CSSProperties}
                         title="Map picker"
                     />
+                    {hasUserLocation && (
+                        <TouchableOpacity
+                            onPress={handleCenterOnUser}
+                            activeOpacity={0.8}
+                            style={{
+                                position: 'absolute', right: 16, bottom: 16,
+                                width: 44, height: 44, borderRadius: 22,
+                                backgroundColor: '#fff',
+                                shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
+                                shadowOpacity: 0.15, shadowRadius: 4,
+                                alignItems: 'center', justifyContent: 'center',
+                                zIndex: 1000,
+                            }}
+                        >
+                            <Ionicons name="navigate" size={22} color="#FFD54D" />
+                        </TouchableOpacity>
+                    )}
                     <View style={{
                         position: 'absolute',
                         left: '50%' as any,

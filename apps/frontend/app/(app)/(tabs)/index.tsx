@@ -9,8 +9,8 @@ import { useUser } from '@/hooks/users/useUsers';
 import { useActiveTrips } from '@/hooks/useTrips';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { useCallback } from 'react';
-import { ScrollView, TouchableOpacity, View } from 'react-native';
+import { useCallback, useState } from 'react';
+import { RefreshControl, ScrollView, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function HomeScreen() {
@@ -19,6 +19,7 @@ export default function HomeScreen() {
   const { data: organizedTrips, isLoading: tripsLoading, refetch: refetchTrips } = useActiveTrips();
   const { data: userData, isLoading: userLoading } = useUser(user!.id);
   const { needsCompletion } = useNeedsProfileCompletion();
+  const [refreshing, setRefreshing] = useState(false);
 
   // Refetch trips when screen is focused
   useFocusEffect(
@@ -26,6 +27,12 @@ export default function HomeScreen() {
       refetchTrips();
     }, [refetchTrips])
   );
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await refetchTrips();
+    setRefreshing(false);
+  };
 
   const hasTrips = (organizedTrips?.going.length ?? 0) > 0 ||
     (organizedTrips?.planning.length ?? 0) > 0;
@@ -93,7 +100,13 @@ export default function HomeScreen() {
 
   return (
     <View className="flex-1 bg-white">
-      <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
+      <ScrollView
+        className="flex-1"
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#FFD54D']} />
+        }
+      >
         <View className="px-6 pt-4">
           {/* Saludo personalizado */}
           <View className="mb-6">

@@ -70,10 +70,10 @@ export default function RegisterScreen() {
       return;
     }
 
-    // 1.5. Validar username (mínimo 3 caracteres, solo alfanuméricos y guiones bajos)
-    const usernameRegex = /^[a-zA-Z0-9_]{3,20}$/;
+    // 1.5. Validar username (mínimo 3 caracteres, alfanuméricos, guiones y guiones bajos)
+    const usernameRegex = /^[a-zA-Z0-9_-]{3,20}$/;
     if (!usernameRegex.test(username)) {
-      showAlert('Username inválido', 'El username debe tener entre 3 y 20 caracteres y solo puede contener letras, números y guiones bajos.');
+      showAlert('Username inválido', 'El username debe tener entre 3 y 20 caracteres y solo puede contener letras, números, guiones y guiones bajos.');
       return;
     }
 

@@ -1,9 +1,10 @@
+import { ModalSheet } from '@/components/modals/ModalSheet';
 import { SubscriptionService } from '@/services/subscriptionService';
 import { TokenService } from '@/services/tokenService';
 import { TOKEN_PACKAGES } from '@planmyroute/types';
 import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
-import { Alert, Linking, Modal, Platform, ScrollView, TouchableOpacity, View } from 'react-native';
+import { Alert, Linking, Platform, ScrollView, TouchableOpacity, View } from 'react-native';
 import CustomButton from '../customElements/CustomButton';
 import { MicrotextDark, TextRegular, Title2Semibold } from '../customElements/CustomText';
 import { useAuth } from '@/context/AuthContext';
@@ -90,13 +91,13 @@ export const PlansModal = ({ visible, onClose }: PlansModalProps) => {
     };
 
     return (
-        <Modal animationType="slide" transparent visible={visible} onRequestClose={onClose}>
-            <View className="flex-1 bg-black/50 justify-end">
-                <View className="bg-white rounded-t-3xl p-6 pb-10" style={{ maxHeight: '90%' }}>
+        <ModalSheet visible={visible} onClose={onClose} contentStyle={{ maxHeight: '90%' }}>
+            {(handleClose) => (
+                <View className="p-6 pb-10">
                     {/* Header */}
                     <View className="flex-row justify-between items-center mb-6">
                         <Title2Semibold className="text-xl">Premium y tokens</Title2Semibold>
-                        <TouchableOpacity onPress={onClose} className="p-2 bg-neutral-100 rounded-full">
+                        <TouchableOpacity onPress={handleClose} className="p-2 bg-neutral-100 rounded-full">
                             <Ionicons name="close" size={20} color="#666" />
                         </TouchableOpacity>
                     </View>
@@ -169,7 +170,7 @@ export const PlansModal = ({ visible, onClose }: PlansModalProps) => {
                         </MicrotextDark>
                     </ScrollView>
                 </View>
-            </View>
-        </Modal>
+            )}
+        </ModalSheet>
     );
 };

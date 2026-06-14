@@ -7,7 +7,8 @@ import { StopGuideItem } from '@/components/trip/StopGuideItem';
 import { TripStatusBanner } from '@/components/trip/TripStatusBadge';
 import { ROUTES } from '@/constants/routes';
 import { useTripContext } from '@/context/TripContext';
-import { useCreateActivityStop, useDeleteStop, useStops } from '@/hooks/useItinerary';
+import { useAddEventAsStop } from '@/hooks/useAddEventAsStop';
+import { useDeleteStop, useStops } from '@/hooks/useItinerary';
 import { useNearbyRouteEvents } from '@/hooks/useNearbyRouteEvents';
 import useTrips from '@/hooks/useTrips';
 import { useTripPermissions } from '@/hooks/useTripPermissions';
@@ -19,25 +20,6 @@ import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Image, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-
-function segmentToCategory(segment: string | null): string {
-    switch (segment) {
-        case 'Music':          return 'concierto';
-        case 'Sports':         return 'deportes';
-        case 'Arts & Theatre': return 'teatro';
-        default:               return 'experiencia_local';
-    }
-}
-
-function eventDayInTrip(eventDate: string | null, tripStartDate: string): number {
-    if (!eventDate) return 1;
-    const start = new Date(tripStartDate);
-    const evDate = new Date(eventDate + 'T00:00:00');
-    start.setHours(0, 0, 0, 0);
-    evDate.setHours(0, 0, 0, 0);
-    const diff = Math.round((evDate.getTime() - start.getTime()) / 86400000);
-    return Math.max(1, diff + 1);
-}
 
 export default function StopsScreen() {
     const router = useRouter();
@@ -74,9 +56,8 @@ export default function StopsScreen() {
     const [selectedDay, setSelectedDay] = useState<number | null>(null);
     const [deleteConfirm, setDeleteConfirm] = useState<{ id: number; name: string } | null>(null);
     const [eventsSearchEnabled, setEventsSearchEnabled] = useState(false);
-    const [addingEventId, setAddingEventId] = useState<string | null>(null);
 
-    const createActivityStop = useCreateActivityStop(currentTripId);
+    const { addingEventId, addEventAsStop } = useAddEventAsStop(currentTripId);
     const { events: nearbyEvents, isLoading: loadingNearby } = useNearbyRouteEvents(
         localStops,
         (currentTrip as any)?.start_date,
@@ -226,34 +207,9 @@ export default function StopsScreen() {
         return localStops[localStops.length - 1] ?? null;
     }, [localStops, currentTrip?.status]);
 
-    const handleAddEventAsStop = useCallback(async (event: TmEvent) => {
-        if (!currentTrip || addingEventId) return;
-        const startDate = (currentTrip as any).start_date;
-        if (!startDate) return;
-        setAddingEventId(event.id);
-        const day = eventDayInTrip(event.date, startDate);
-        const address = [event.venue?.address, event.venue?.city, event.venue?.country].filter(Boolean).join(', ');
-        try {
-            await createActivityStop.mutateAsync({
-                stopData: {
-                    name: event.name,
-                    address: address || null,
-                    description: event.segment ? `${event.segment}${event.genre ? ` · ${event.genre}` : ''}` : null,
-                    type: 'intermedia',
-                    day,
-                } as any,
-                activityData: {
-                    category: segmentToCategory(event.segment) as any,
-                    entry_price: event.priceMin ?? null,
-                    booking_required: true,
-                    estimated_duration_minutes: 180,
-                    url: event.url ?? null,
-                } as any,
-            });
-        } finally {
-            setAddingEventId(null);
-        }
-    }, [currentTrip, addingEventId, createActivityStop]);
+    const handleAddEventAsStop = useCallback((event: TmEvent) => {
+        addEventAsStop(event, (currentTrip as any)?.start_date);
+    }, [addEventAsStop, currentTrip]);
 
     const handleDeleteStop = useCallback((stopId: number, stopName: string) => {
         setDeleteConfirm({ id: stopId, name: stopName });

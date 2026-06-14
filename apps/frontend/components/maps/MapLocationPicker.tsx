@@ -28,6 +28,10 @@ const DEFAULT_LNG = -3.7038;
 const DEFAULT_ZOOM = 5;
 const LOCATION_ZOOM = 14;
 
+function getApiBaseUrl(): string {
+    return process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
+}
+
 export function formatMapAddress(r: Location.LocationGeocodedAddress | null): string | null {
     if (!r) return null;
     const parts: string[] = [];
@@ -39,7 +43,7 @@ export function formatMapAddress(r: Location.LocationGeocodedAddress | null): st
     return parts.join(', ') || null;
 }
 
-function buildMapHtml(centerLat: number, centerLng: number, centerZoom: number): string {
+function buildMapHtml(centerLat: number, centerLng: number, centerZoom: number, apiBaseUrl: string): string {
     return `<!DOCTYPE html>
 <html>
 <head>
@@ -163,11 +167,10 @@ function buildMapHtml(centerLat: number, centerLng: number, centerZoom: number):
   async function searchPlaces(query) {
     try {
       var resp = await fetch(
-        'https://nominatim.openstreetmap.org/search?q=' + encodeURIComponent(query) +
-        '&format=json&limit=6&addressdetails=0', { headers:{ 'Accept-Language':'es' } }
+        '${apiBaseUrl}/api/places/autocomplete?input=' + encodeURIComponent(query) + '&language=es'
       );
       var data = await resp.json();
-      renderResults(data);
+      renderResults(data.predictions || []);
     } catch(e) { document.getElementById('search-results').style.display='none'; }
   }
 
@@ -178,12 +181,15 @@ function buildMapHtml(centerLat: number, centerLng: number, centerZoom: number):
     results.forEach(function(r) {
       var div = document.createElement('div');
       div.className = 'result-item';
-      div.textContent = r.display_name;
-      div.title = r.display_name;
+      div.textContent = r.description;
+      div.title = r.description;
       div.addEventListener('mousedown', function(e) { e.preventDefault(); });
       div.addEventListener('click', function() {
-        map.flyTo([parseFloat(r.lat), parseFloat(r.lon)], 14);
-        document.getElementById('search-input').value = r.display_name;
+        try {
+          var decoded = JSON.parse(atob(r.place_id));
+          map.flyTo([parseFloat(decoded.lat), parseFloat(decoded.lng)], 14);
+        } catch(e) {}
+        document.getElementById('search-input').value = r.description;
         container.style.display = 'none';
       });
       container.appendChild(div);
@@ -195,13 +201,7 @@ function buildMapHtml(centerLat: number, centerLng: number, centerZoom: number):
 </html>`;
 }
 
-/**
- * Full-screen Cabify-style map picker.
- * - Fixed crosshair pin at map center (drag map to move pin).
- * - Auto-requests GPS on open and flies to user location.
- * - Blue pulsing dot for user's real position.
- * - Reverse-geocodes selected center and shows address in bottom bar.
- */
+
 export const MapLocationPicker = ({
     visible,
     initialLocation,
@@ -270,7 +270,7 @@ export const MapLocationPicker = ({
     const centerLat = initialLocation?.latitude ?? DEFAULT_LAT;
     const centerLng = initialLocation?.longitude ?? DEFAULT_LNG;
     const centerZoom = initialLocation ? LOCATION_ZOOM : DEFAULT_ZOOM;
-    const htmlContent = buildMapHtml(centerLat, centerLng, centerZoom);
+    const htmlContent = buildMapHtml(centerLat, centerLng, centerZoom, getApiBaseUrl());
 
     const handleLoadEnd = () => {
         setIsLoading(false);
@@ -301,9 +301,12 @@ export const MapLocationPicker = ({
                 reverseDebounceRef.current = setTimeout(async () => {
                     try {
                         const results = await Location.reverseGeocodeAsync(coords);
-                        setResolvedAddress(formatMapAddress(results[0]) ?? 'Ubicación seleccionada');
+                        // null (no inventar dirección) si no se pudo resolver — el panel
+                        // inferior mostrará el placeholder "Mueve el mapa..." en su lugar,
+                        // y handleMapLocationSelected del input padre tratará esto como fallo.
+                        setResolvedAddress(formatMapAddress(results[0]) ?? null);
                     } catch {
-                        setResolvedAddress('Ubicación seleccionada');
+                        setResolvedAddress(null);
                     } finally {
                         setGeoLoading(false);
                     }

@@ -15,6 +15,8 @@ export const ROUTES = {
   tabsHome: '/(app)/(tabs)/' as Href,
   tabsCreateTrip: '/(app)/(tabs)/createTrip' as Href,
   tabsEventsMap: '/(app)/(tabs)/events' as Href,
+  event: (eventId: string, dates?: string[]) =>
+    `/event/${eventId}${dates && dates.length > 1 ? `?dates=${encodeURIComponent(JSON.stringify(dates))}` : ''}` as Href,
   tabsFeed: '/(app)/(tabs)/feed' as Href,
   tabsProfile: '/(app)/(tabs)/profile' as Href,
 

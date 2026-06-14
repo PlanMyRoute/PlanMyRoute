@@ -1,8 +1,8 @@
+import { ModalSheet } from '@/components/modals/ModalSheet';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
 import {
     ActivityIndicator,
-    Modal,
     StyleSheet,
     Text,
     TextInput,
@@ -54,14 +54,9 @@ export const ReviewModal: React.FC<ReviewModalProps> = ({
     };
 
     return (
-        <Modal
-            visible={visible}
-            animationType="slide"
-            transparent
-            onRequestClose={onClose}
-        >
-            <View style={styles.overlay}>
-                <View style={styles.container}>
+        <ModalSheet visible={visible} onClose={onClose} contentStyle={{ maxHeight: '90%' }}>
+            {(handleClose) => (
+            <View style={styles.container}>
                     {/* Header */}
                     <View style={styles.header}>
                         <View style={styles.headerContent}>
@@ -70,7 +65,7 @@ export const ReviewModal: React.FC<ReviewModalProps> = ({
                             </Text>
                             <Text style={styles.subtitle}>{tripName}</Text>
                         </View>
-                        <TouchableOpacity onPress={onClose} style={styles.closeButton}>
+                        <TouchableOpacity onPress={handleClose} style={styles.closeButton}>
                             <Ionicons name="close-circle" size={32} color="#6B7280" />
                         </TouchableOpacity>
                     </View>
@@ -182,28 +177,14 @@ export const ReviewModal: React.FC<ReviewModalProps> = ({
                         </TouchableOpacity>
                     </View>
                 </View>
-            </View>
-        </Modal>
+            )}
+        </ModalSheet>
     );
 };
 
 const styles = StyleSheet.create({
-    overlay: {
-        flex: 1,
-        backgroundColor: 'rgba(0,0,0,0.6)',
-        justifyContent: 'flex-end',
-    },
     container: {
-        backgroundColor: 'white',
-        borderTopLeftRadius: 32,
-        borderTopRightRadius: 32,
-        maxHeight: '90%',
         flexDirection: 'column',
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: -4 },
-        shadowOpacity: 0.1,
-        shadowRadius: 12,
-        elevation: 8,
     },
     header: {
         flexDirection: 'row',

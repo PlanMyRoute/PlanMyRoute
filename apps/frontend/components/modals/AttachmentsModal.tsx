@@ -1,5 +1,7 @@
+import { useModalAnimation } from '@/hooks/useModalAnimation';
 import React, { useState } from 'react';
 import {
+    Animated,
     Modal,
     View,
     Text,
@@ -93,6 +95,7 @@ const ImageViewer: React.FC<ImageViewerProps> = ({ visible, imageUrl, fileName, 
 };
 
 export const AttachmentsModal: React.FC<AttachmentsModalProps> = ({ visible, stop, onClose }) => {
+    const { overlayOpacity, slideAnim, handleClose } = useModalAnimation({ visible, onClose });
     const { data: attachments, isLoading } = useStopAttachments(stop ? String(stop.id) : undefined);
     const deleteAttachment = useDeleteAttachment(stop ? String(stop.id) : '');
 
@@ -263,9 +266,12 @@ export const AttachmentsModal: React.FC<AttachmentsModalProps> = ({ visible, sto
 
     return (
         <>
-            <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
-                <View className="flex-1 bg-black/50">
-                    <View className="flex-1 mt-20 bg-white rounded-t-3xl">
+            <Modal visible={visible} animationType="none" transparent onRequestClose={handleClose}>
+                <Animated.View className="flex-1 bg-black/50" style={{ opacity: overlayOpacity }}>
+                    <Animated.View
+                        className="flex-1 mt-20 bg-white rounded-t-3xl"
+                        style={{ transform: [{ translateY: slideAnim }] }}
+                    >
                         {/* Header */}
                         <View className="flex-row items-center justify-between p-5 border-b border-gray-200">
                             <View className="flex-1">
@@ -276,7 +282,7 @@ export const AttachmentsModal: React.FC<AttachmentsModalProps> = ({ visible, sto
                                     </Text>
                                 )}
                             </View>
-                            <TouchableOpacity onPress={onClose} className="ml-3">
+                            <TouchableOpacity onPress={handleClose} className="ml-3">
                                 <Ionicons name="close-circle" size={32} color="#6B7280" />
                             </TouchableOpacity>
                         </View>
@@ -304,8 +310,8 @@ export const AttachmentsModal: React.FC<AttachmentsModalProps> = ({ visible, sto
                                 />
                             )}
                         </View>
-                    </View>
-                </View>
+                    </Animated.View>
+                </Animated.View>
             </Modal>
 
             {/* Visor de imágenes */}

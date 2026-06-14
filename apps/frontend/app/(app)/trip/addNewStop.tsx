@@ -1,11 +1,11 @@
 import { useAlert } from '@/context/AlertContext';
 import CustomDateTimePicker from '@/components/customElements/CustomDateTimePicker';
 import { LocationSearchInput } from '@/components/customElements/LocationSearchInput';
-import { TimePickerInput } from '@/components/modals/TimePickerInput';
 import { AccommodationStopForm, ActivityStopForm, RefuelStopForm } from '@/components/newStopForms';
 import { FileInfo } from '@/components/trip/FilePicker';
 import { useTripContext } from '@/context/TripContext';
 import { useCreateAccommodationStop, useCreateActivityStop, useCreateRefuelStop, useStops, useUpdateAccommodationStop, useUpdateActivityStop, useUpdateRefuelStop, useUpdateStop } from '@/hooks/useItinerary';
+import { API_URL } from '@/lib/apiClient';
 import { supabase } from '@/lib/supabase';
 import { ItineraryService } from '@/services/itineraryService';
 import { Ionicons } from '@expo/vector-icons';
@@ -114,6 +114,7 @@ export default function AddNewStopScreen() {
         if (currentTrip?.start_date) return new Date(currentTrip.start_date);
         return new Date();
     });
+    const [showTimePicker, setShowTimePicker] = useState(false);
 
     const isEditing = Boolean(formData.stopData?.id);
 
@@ -384,10 +385,14 @@ export default function AddNewStopScreen() {
 
     const geocodeStop = async (address: string): Promise<{ latitude: number; longitude: number } | undefined> => {
         try {
-            const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}&limit=1`, { headers: { 'User-Agent': 'PlanMyRoute/1.0' } });
+            const response = await fetch(`${API_URL}/api/places/autocomplete?input=${encodeURIComponent(address)}&language=es`);
             if (response.ok) {
                 const data = await response.json();
-                if (data.length > 0) return { latitude: parseFloat(data[0].lat), longitude: parseFloat(data[0].lon) };
+                const prediction = data.predictions?.[0];
+                if (prediction?.place_id) {
+                    const decoded = JSON.parse(atob(prediction.place_id));
+                    return { latitude: parseFloat(decoded.lat), longitude: parseFloat(decoded.lng) };
+                }
             }
         } catch { }
         return undefined;
@@ -584,12 +589,18 @@ export default function AddNewStopScreen() {
                             label={formData.stopData.type === 'origen' ? 'Hora de partida' : 'Hora estimada de llegada'}
                             hint={formData.stopData.type === 'intermedia' ? '💡 La hora determina el orden de las paradas intermedias' : undefined}
                         >
-                            <TimePickerInput
-                                value={formData.stopData.estimated_arrival || ''}
-                                onChangeTime={(time) => updateStopField('estimated_arrival', time)}
-                                placeholder="Seleccionar hora"
-                                iconName="time"
-                            />
+                            <TouchableOpacity
+                                onPress={() => setShowTimePicker(true)}
+                                className="flex-row items-center bg-gray-50 border border-neutral-gray/20 rounded-2xl px-4 py-3.5"
+                            >
+                                <Ionicons name="time-outline" size={18} color="#999999" />
+                                <View className="ml-3 flex-1">
+                                    <Text className="text-sm text-dark-black font-medium">
+                                        {formData.stopData.estimated_arrival || 'Seleccionar hora'}
+                                    </Text>
+                                </View>
+                                <Ionicons name="chevron-forward" size={16} color="#999999" />
+                            </TouchableOpacity>
                         </Field>
 
                         {/* Alerta de restricción */}
@@ -726,6 +737,28 @@ export default function AddNewStopScreen() {
                 }}
                 onCancel={() => setShowDatePicker(false)}
                 minimumDate={currentTrip?.start_date ? new Date(currentTrip.start_date) : undefined}
+            />
+
+            <CustomDateTimePicker
+                value={(() => {
+                    const time = formData.stopData.estimated_arrival;
+                    const date = new Date();
+                    if (time) {
+                        const [hours, minutes] = time.split(':').map(Number);
+                        date.setHours(hours || 0, minutes || 0, 0, 0);
+                    } else {
+                        date.setHours(12, 0, 0, 0);
+                    }
+                    return date;
+                })()}
+                mode="time"
+                isVisible={showTimePicker}
+                onConfirm={(date) => {
+                    setShowTimePicker(false);
+                    const timeString = `${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
+                    updateStopField('estimated_arrival', timeString);
+                }}
+                onCancel={() => setShowTimePicker(false)}
             />
         </SafeAreaView>
     );

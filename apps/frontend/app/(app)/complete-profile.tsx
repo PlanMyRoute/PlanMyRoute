@@ -117,12 +117,12 @@ export default function CompleteProfileScreen() {
       return;
     }
 
-    // Validar formato de username (3-20 caracteres, solo alfanuméricos y guiones bajos)
-    const usernameRegex = /^[a-zA-Z0-9_]{3,20}$/;
+    // Validar formato de username (3-20 caracteres, alfanuméricos, guiones y guiones bajos)
+    const usernameRegex = /^[a-zA-Z0-9_-]{3,20}$/;
     if (!usernameRegex.test(username)) {
       showAlert(
         'Username inválido',
-        'El username debe tener entre 3 y 20 caracteres y solo puede contener letras, números y guiones bajos.'
+        'El username debe tener entre 3 y 20 caracteres y solo puede contener letras, números, guiones y guiones bajos.'
       );
       return;
     }

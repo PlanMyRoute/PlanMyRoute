@@ -7,6 +7,7 @@ import {
     validateItineraryResponse,
     ITINERARY_GENERATOR_MODEL
 } from "./prompts/itineraryGenerator.js";
+import { logAiGeneration, AiGenerationOutcome } from "../../services/aiGenerationLogger.js";
 
 type Coord = { lat: number; lng: number };
 
@@ -259,14 +260,51 @@ export async function createTripFromAI(itineraryAI: any, userId: string, origina
     return await ItineraryService.getTripItinerary(tripId);
 }
 
-export async function requestItineraryToLLM(tripInput: any, userPreferences: any, vehicles: any[]) {
+export async function requestItineraryToLLM(
+    tripInput: any,
+    userPreferences: any,
+    vehicles: any[],
+    telemetry?: { tripId?: number; userId?: string; totalDays?: number }
+) {
     const model = genAI.getGenerativeModel({ model: ITINERARY_GENERATOR_MODEL });
     const prompt = buildItineraryPrompt(tripInput, userPreferences, vehicles);
 
+    // Telemetría para el Cap. 6 del TFG (latencia, coste por tokens, tasa
+    // y tipología de respuestas inválidas/"alucinadas"). Fire-and-forget:
+    // nunca debe alterar el resultado de la generación si falla el registro.
+    const startedAt = Date.now();
+    let usage: { promptTokenCount?: number; candidatesTokenCount?: number; totalTokenCount?: number } | undefined;
+    const recordOutcome = (
+        outcome: AiGenerationOutcome,
+        extra?: { errorMessage?: string; qualityFlags?: Record<string, unknown> }
+    ) => {
+        logAiGeneration({
+            tripId: telemetry?.tripId,
+            userId: telemetry?.userId,
+            model: ITINERARY_GENERATOR_MODEL,
+            latencyMs: Date.now() - startedAt,
+            promptTokens: usage?.promptTokenCount,
+            completionTokens: usage?.candidatesTokenCount,
+            totalTokens: usage?.totalTokenCount,
+            outcome,
+            qualityFlags: extra?.qualityFlags ?? null,
+            errorMessage: extra?.errorMessage ?? null,
+        }).catch(() => {});
+    };
+
+    let raw: string;
     try {
         const result = await model.generateContent(prompt);
-        const raw = result.response.text();
+        usage = result.response.usageMetadata;
+        raw = result.response.text();
+    } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : String(err);
+        recordOutcome('api_error', { errorMessage });
+        console.error("Error llamando a Gemini:", err);
+        throw new Error("No se pudo obtener un itinerario válido de la IA. Por favor, intenta de nuevo.");
+    }
 
+    try {
         // Limpiar posibles marcadores de código markdown
         let cleanedRaw = raw.trim();
         if (cleanedRaw.startsWith('```json')) {
@@ -284,11 +322,18 @@ export async function requestItineraryToLLM(tripInput: any, userPreferences: any
         const end = cleanedRaw.lastIndexOf("}");
 
         if (start === -1 || end === -1) {
+            recordOutcome('json_parse_error', { errorMessage: 'La respuesta no contiene ningún objeto JSON delimitado por { }' });
             throw new Error("La IA no devolvió un JSON válido");
         }
 
         const jsonStr = cleanedRaw.substring(start, end + 1);
-        const itinerary = JSON.parse(jsonStr);
+        let itinerary: any;
+        try {
+            itinerary = JSON.parse(jsonStr);
+        } catch (parseErr) {
+            recordOutcome('json_parse_error', { errorMessage: parseErr instanceof Error ? parseErr.message : String(parseErr) });
+            throw new Error("La IA no devolvió un JSON válido");
+        }
 
         console.log('\n📑 Respuesta de la IA (JSON parseado):');
         console.log(JSON.stringify(itinerary, null, 2));
@@ -297,9 +342,23 @@ export async function requestItineraryToLLM(tripInput: any, userPreferences: any
         if (!validateItineraryResponse(itinerary)) {
             console.error('❌ Validación fallida. Campos recibidos:', Object.keys(itinerary));
             console.error('Estructura esperada: name, description, accomodationstop[], activitystop[]');
+            recordOutcome('validation_failed', { errorMessage: `Campos recibidos: ${Object.keys(itinerary).join(', ')}` });
             throw new Error("La respuesta de la IA no contiene todos los campos requeridos o tiene un formato inválido");
         }
 
+        // La respuesta pasa la validación estructural, pero puede contener
+        // anomalías de contenido (p. ej. días que no existen en el viaje).
+        // Se registran como quality_flags: son "alucinaciones" de datos, no
+        // de formato, y alimentan el análisis de la sección 6.3.
+        let qualityFlags: Record<string, unknown> | undefined;
+        if (telemetry?.totalDays !== undefined) {
+            const droppedDays = getUniqueDaysFromAI(itinerary).filter(d => d > telemetry.totalDays!);
+            if (droppedDays.length > 0) {
+                qualityFlags = { days_out_of_range: droppedDays };
+            }
+        }
+
+        recordOutcome('success', { qualityFlags });
         return itinerary;
 
     } catch (err) {

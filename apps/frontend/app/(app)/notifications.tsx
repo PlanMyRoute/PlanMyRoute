@@ -7,6 +7,7 @@ import { useAuth } from '@/context/AuthContext';
 import useNotifications, { useDeleteNotification } from '@/hooks/useNotifications';
 import { Ionicons } from '@expo/vector-icons';
 import { Notification } from '@planmyroute/types';
+import { useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { ActivityIndicator, FlatList, Modal, RefreshControl, TouchableOpacity, View } from 'react-native';
 import Swipeable from 'react-native-gesture-handler/Swipeable';
@@ -21,6 +22,7 @@ interface GroupedNotifications {
 }
 
 export default function NotificationsScreen() {
+    const router = useRouter();
     const { user } = useAuth();
     const userId = user?.id;
 
@@ -180,7 +182,15 @@ export default function NotificationsScreen() {
         <SafeAreaView edges={['bottom']} className="flex-1 bg-white">
             {/* Header */}
             <View className="px-6 pt-4 pb-6">
-
+                <View className="flex-row items-center">
+                    <TouchableOpacity
+                        className="w-9 h-9 rounded-full bg-gray-100 items-center justify-center"
+                        onPress={() => router.back()}
+                        activeOpacity={0.7}
+                    >
+                        <Ionicons name="chevron-back" size={20} color="#202020" />
+                    </TouchableOpacity>
+                </View>
 
                 {/* Search Bar */}
                 <View className="flex-row items-center gap-3 mt-4">

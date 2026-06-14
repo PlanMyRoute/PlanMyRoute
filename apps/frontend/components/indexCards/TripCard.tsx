@@ -262,7 +262,7 @@ export const TripCard = ({ trip }: TripCardProps) => {
         </View>
       )}
 
-      <View style={{ position: 'relative' }}>
+      <View style={{ position: 'relative', zIndex: 999 }}>
         <Pressable
           className="rounded-3xl overflow-hidden"
           style={({ pressed }) =>

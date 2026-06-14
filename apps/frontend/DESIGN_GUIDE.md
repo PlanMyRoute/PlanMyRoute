@@ -257,6 +257,72 @@ Para alertas inline dentro de la pantalla (no modales):
 
 **Nunca colores amber (`#FEF3C7`, `#F59E0B`, `#92400E`) en banners.** El banner de perfil en `index.tsx:103` debe actualizarse.
 
+### 3.7 ModalSheet — bottom sheets animados
+
+```typescript
+import { ModalSheet } from '@/components/modals/ModalSheet';
+```
+
+**Regla absoluta: nunca `<Modal animationType="slide">` para bottom sheets.** Usar siempre `ModalSheet`, que funciona correctamente en web y nativo con animación consistente.
+
+#### Anatomía
+
+`ModalSheet` gestiona internamente:
+- **Overlay oscuro** con fade-in 300ms / fade-out 250ms
+- **Slide-up** del sheet con `Animated.spring` (tension: 50, friction: 10)
+- **Gesto swipe-down** en el drag handle para cerrar (umbral: 120px o velocidad > 0.5)
+- **Backdrop tap** para cerrar
+- **KeyboardAvoidingView** para inputs dentro del sheet
+- **`useNativeDriver: false` en web**, `true` en nativo — sin guards manuales
+
+#### API
+
+```tsx
+<ModalSheet
+  visible={visible}
+  onClose={onClose}
+  minHeight={400}               // opcional, default 400
+  contentStyle={{ maxHeight: '80%' }}  // opcional, p.ej. para sheets altos
+>
+  {(handleClose) => (
+    /* El render prop expone handleClose para botones X y "Cancelar"
+       que necesitan animar el cierre. No usar onClose directamente. */
+    <View className="pt-2 pb-8 px-6">
+      <View className="flex-row justify-between items-center mb-6">
+        <Title2Semibold>Título del sheet</Title2Semibold>
+        <TouchableOpacity onPress={handleClose}>
+          <Ionicons name="close" size={24} color="#202020" />
+        </TouchableOpacity>
+      </View>
+      {/* contenido */}
+      <CustomButton title="Cancelar" variant="outline" onPress={handleClose} />
+    </View>
+  )}
+</ModalSheet>
+```
+
+#### Cuándo NO usar `ModalSheet`
+
+| Caso | Alternativa |
+|---|---|
+| Modal de pantalla completa (sin slide-up, cubre toda la pantalla) | `<Modal animationType="fade">` directo |
+| Visor de imágenes a pantalla completa | `<Modal animationType="fade">` con `StatusBar hidden` |
+| Alertas con botones de confirmación | `CustomAlert` vía `useAlert()` |
+
+#### `useModalAnimation` (uso avanzado)
+
+Si necesitas animar un contenedor que no encaja en el patrón de bottom sheet (ej. `AttachmentsModal` con `FlatList` a altura completa), usa el hook directamente:
+
+```tsx
+const { overlayOpacity, slideAnim, handleClose, panHandlers } = useModalAnimation({ visible, onClose });
+// overlayOpacity → opacity del overlay (Animated.View)
+// slideAnim      → translateY del sheet (Animated.View)
+// handleClose    → cierra con animación, luego llama onClose
+// panHandlers    → aplica al drag handle para swipe-down
+```
+
+Timings: fade-in 300ms, fade-out 250ms. Spring: tension 50, friction 10.
+
 ---
 
 ## 4. Patrones de pantalla
