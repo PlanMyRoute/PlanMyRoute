@@ -14,9 +14,9 @@ describe('TripService', () => {
     const token = 'fake-jwt-token';
     
     // 2. Simular respuesta exitosa del backend
-    fetchMock.mockResponseOnce(JSON.stringify({ 
-        trip: { id: 'trip-999', ...mockTrip } 
-    }));
+    fetchMock.mockResponseOnce(JSON.stringify({
+        trip: { id: 'trip-999', ...mockTrip }
+    }), { headers: { 'content-type': 'application/json' } });
 
     // 3. Ejecutar la función
     const result = await TripService.createTrip(mockTrip, userId, false, token);
@@ -27,10 +27,9 @@ describe('TripService', () => {
     const [url, options] = fetchMock.mock.calls[0];
     expect(url).toBe(`${API_URL}/api/travelers/${userId}/trip`);
     expect(options?.method).toBe('POST');
-    expect(options?.headers).toEqual({
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`
-    });
+    const headers = options?.headers as Headers;
+    expect(headers.get('Content-Type')).toBe('application/json');
+    expect(headers.get('Authorization')).toBe(`Bearer ${token}`);
     expect(result.trip.name).toBe('Viaje a París');
   });
 

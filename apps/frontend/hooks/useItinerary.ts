@@ -1,10 +1,39 @@
 import { useAuth } from '@/context/AuthContext';
 import { Accommodation, Activity, Refuel, Route, Stop } from '@planmyroute/types';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { QueryClient, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiFetch } from '../lib/apiClient';
 import { GeocodingService, ItineraryService } from '../services/itineraryService';
 
 const TRIP_STALE_TIME = 30_000;
+
+/**
+ * Delay tras el cual se re-invalidan las paradas para recoger el enriquecimiento
+ * en background del backend (foto + precio de Google Places), que se completa
+ * ~1-2 s después de crear la parada.
+ */
+const ENRICHMENT_REFETCH_DELAY_MS = 2500;
+
+/**
+ * Invalida las queries de paradas/itinerario inmediatamente y de nuevo tras
+ * ENRICHMENT_REFETCH_DELAY_MS, para reflejar foto/precio que el backend rellena
+ * de forma asíncrona después de crear una parada.
+ */
+function invalidateStopQueries(
+    queryClient: QueryClient,
+    tripId: string,
+    extraKeys: readonly (readonly unknown[])[] = [],
+) {
+    const run = () => {
+        queryClient.invalidateQueries({ queryKey: ['itinerary', tripId] });
+        queryClient.invalidateQueries({ queryKey: ['stops', tripId] });
+        queryClient.invalidateQueries({ queryKey: ['trip', tripId, 'stops'] });
+        for (const key of extraKeys) {
+            queryClient.invalidateQueries({ queryKey: key });
+        }
+    };
+    run();
+    setTimeout(run, ENRICHMENT_REFETCH_DELAY_MS);
+}
 
 // =============== TYPES ===============
 
@@ -127,12 +156,7 @@ export function useCreateStop(tripId: string, options?: { token?: string }) {
         mutationFn: async (stopData: Partial<Stop>) => {
             return await ItineraryService.createStop(tripId, stopData, finalToken || undefined);
         },
-        onSuccess: () => {
-            // Invalidar y refetch del itinerario y paradas
-            queryClient.invalidateQueries({ queryKey: ['itinerary', tripId] });
-            queryClient.invalidateQueries({ queryKey: ['stops', tripId] });
-            queryClient.invalidateQueries({ queryKey: ['trip', tripId, 'stops'] });
-        },
+        onSuccess: () => invalidateStopQueries(queryClient, tripId),
     });
 }
 
@@ -148,12 +172,8 @@ export function useCreateActivityStop(tripId: string, options?: { token?: string
         mutationFn: async (data: CreateActivityStopData) => {
             return await ItineraryService.createActivityStop(tripId, data, finalToken || undefined);
         },
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['itinerary', tripId] });
-            queryClient.invalidateQueries({ queryKey: ['stops', tripId] });
-            queryClient.invalidateQueries({ queryKey: ['trip', tripId, 'stops'] });
-            queryClient.invalidateQueries({ queryKey: ['activityCostByTrip', tripId] });
-        },
+        onSuccess: () =>
+            invalidateStopQueries(queryClient, tripId, [['activityCostByTrip', tripId]]),
     });
 }
 
@@ -169,12 +189,8 @@ export function useCreateAccommodationStop(tripId: string, options?: { token?: s
         mutationFn: async (data: CreateAccommodationStopData) => {
             return await ItineraryService.createAccommodationStop(tripId, data, finalToken || undefined);
         },
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['itinerary', tripId] });
-            queryClient.invalidateQueries({ queryKey: ['stops', tripId] });
-            queryClient.invalidateQueries({ queryKey: ['trip', tripId, 'stops'] });
-            queryClient.invalidateQueries({ queryKey: ['accommodationCostByTrip', tripId] });
-        },
+        onSuccess: () =>
+            invalidateStopQueries(queryClient, tripId, [['accommodationCostByTrip', tripId]]),
     });
 }
 
@@ -190,14 +206,11 @@ export function useCreateRefuelStop(tripId: string, options?: { token?: string }
         mutationFn: async (data: CreateRefuelStopData) => {
             return await ItineraryService.createRefuelStop(tripId, data, finalToken || undefined);
         },
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['itinerary', tripId] });
-            queryClient.invalidateQueries({ queryKey: ['stops', tripId] });
-            queryClient.invalidateQueries({ queryKey: ['trip', tripId, 'stops'] });
-            queryClient.invalidateQueries({ queryKey: ['refuelCostByTrip', tripId] });
-            // También invalida el costo de refuel del usuario
-            queryClient.invalidateQueries({ queryKey: ['refuelCostByUser'] });
-        },
+        onSuccess: () =>
+            invalidateStopQueries(queryClient, tripId, [
+                ['refuelCostByTrip', tripId],
+                ['refuelCostByUser'],
+            ]),
     });
 }
 

@@ -117,13 +117,14 @@ export default function LoginScreen() {
 
         {/* --- HEADER --- */}
         <View className="items-center mb-8">
-          <Text className="text-3xl text-[#1D1D1B]">
+          <Text className="text-3xl text-[#202020]">
             Bienvenid@ a
           </Text>
-          <Text className="text-4xl font-bold text-[#1D1D1B] mb-6 text-center">
+          <Text className="text-4xl font-bold text-[#202020] mb-6 text-center">
             PlanMyRoute
           </Text>
           <Image
+            accessible={false}
             source={carLogoImage}
             className="mb-4"
             style={{ width: 192, height: 112 }}
@@ -133,15 +134,16 @@ export default function LoginScreen() {
 
         {/* --- FORMULARIO --- */}
         <View className="w-full">
-          <Text className="text-2xl font-bold text-[#1D1D1B] mb-6">
+          <Text className="text-2xl font-bold text-[#202020] mb-6">
             Inicia Sesión
           </Text>
 
           {/* Email */}
-          <Text className="text-base font-semibold text-[#1D1D1B] mb-2 ml-2">
+          <Text className="text-base font-semibold text-[#202020] mb-2 ml-2">
             Email
           </Text>
           <TextInput
+            accessibilityLabel="Email"
             className="bg-white rounded-full h-14 px-6 text-base mb-4 shadow-sm text-black"
             placeholder="planmyroute@gmail.com"
             placeholderTextColor="#9ca3af"
@@ -154,11 +156,12 @@ export default function LoginScreen() {
           />
 
           {/* Contraseña */}
-          <Text className="text-base font-semibold text-[#1D1D1B] mb-2 ml-2">
+          <Text className="text-base font-semibold text-[#202020] mb-2 ml-2">
             Contraseña
           </Text>
           <View className="flex-row items-center bg-white rounded-full h-14 px-6 mb-2 shadow-sm">
             <TextInput
+              accessibilityLabel="Contraseña"
               className="flex-1 text-base text-black h-full"
               placeholder="••••••••"
               placeholderTextColor="#9ca3af"
@@ -170,7 +173,7 @@ export default function LoginScreen() {
               returnKeyType="done"
               onSubmitEditing={handleLogin}
             />
-            <Pressable onPress={() => setShowPassword(!showPassword)} className="p-1">
+            <Pressable accessibilityLabel="Mostrar u ocultar contraseña" onPress={() => setShowPassword(!showPassword)} className="p-1">
               <Ionicons
                 name={showPassword ? 'eye' : 'eye-off'}
                 size={22}
@@ -184,12 +187,12 @@ export default function LoginScreen() {
             onPress={() => router.push(ROUTES.forgotPassword)}
             className="self-end mb-2"
           >
-            <Text className="text-[#1D1D1B] text-sm underline">¿Olvidaste tu contraseña?</Text>
+            <Text className="text-[#202020] text-sm underline">¿Olvidaste tu contraseña?</Text>
           </Pressable>
 
           {/* Botón Principal */}
           <TouchableOpacity
-            className="bg-[#232323] rounded-full h-14 justify-center items-center mb-4 mt-6 shadow-md"
+            className="bg-[#202020] rounded-full h-14 justify-center items-center mb-4 mt-6 shadow-md"
             onPress={handleLogin}
             activeOpacity={0.8}
             disabled={isLoggingIn}
@@ -204,7 +207,7 @@ export default function LoginScreen() {
           </TouchableOpacity>
 
           {/* Separador */}
-          <Text className="text-center text-xl font-bold text-[#1D1D1B] mb-4">
+          <Text className="text-center text-xl font-bold text-[#202020] mb-4">
             o
           </Text>
 
@@ -215,24 +218,24 @@ export default function LoginScreen() {
             activeOpacity={0.8}
           >
             <Ionicons name="logo-google" size={20} color="black" style={{ marginRight: 10 }} />
-            <Text className="text-[#1D1D1B] text-lg font-bold">
+            <Text className="text-[#202020] text-lg font-bold">
               Continuar con Google
             </Text>
           </TouchableOpacity>
 
           {/* Botón Invitado */}
           <TouchableOpacity
-            className="bg-transparent border border-[#1D1D1B] rounded-full h-14 flex-row justify-center items-center mb-8"
+            className="bg-transparent border border-[#202020] rounded-full h-14 flex-row justify-center items-center mb-8"
             onPress={handleGuestLogin}
             activeOpacity={0.7}
             disabled={isGuestLoading}
           >
             {isGuestLoading ? (
-              <ActivityIndicator color="#1D1D1B" />
+              <ActivityIndicator color="#202020" />
             ) : (
               <>
-                <Ionicons name="person-outline" size={20} color="#1D1D1B" style={{ marginRight: 10 }} />
-                <Text className="text-[#1D1D1B] text-lg font-bold">
+                <Ionicons name="person-outline" size={20} color="#202020" style={{ marginRight: 10 }} />
+                <Text className="text-[#202020] text-lg font-bold">
                   Continuar como invitado
                 </Text>
               </>
@@ -241,11 +244,11 @@ export default function LoginScreen() {
 
           {/* Footer Links */}
           <View className="flex-row justify-center mb-6">
-            <Text className="text-[#1D1D1B]">
+            <Text className="text-[#202020]">
               ¿No tienes cuenta?{' '}
             </Text>
             <Pressable onPress={() => router.push(ROUTES.register)}>
-              <Text className="text-[#1D1D1B] font-bold underline">
+              <Text className="text-[#202020] font-bold underline">
                 Regístrate
               </Text>
             </Pressable>

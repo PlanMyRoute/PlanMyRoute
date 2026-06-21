@@ -1,5 +1,5 @@
-import { ApiError, apiFetch } from '@/constants/api';
-import { Trip, Stop, CollaboratorRole } from '@planmyroute/types';
+import { ApiError, apiFetch } from "@/constants/api";
+import { Trip, Stop, CollaboratorRole } from "@planmyroute/types";
 
 export type CreateTripResponse = {
   trip: Trip;
@@ -7,7 +7,14 @@ export type CreateTripResponse = {
 };
 
 export type TravelerWithUser = {
-  user: { id: string; name?: string | null; username?: string | null; img?: string | null; lastname?: string | null; email?: string | null };
+  user: {
+    id: string;
+    name?: string | null;
+    username?: string | null;
+    img?: string | null;
+    lastname?: string | null;
+    email?: string | null;
+  };
   role: CollaboratorRole;
 };
 
@@ -20,7 +27,7 @@ export class PremiumLimitError extends Error {
 
   constructor(message: string, body: Record<string, unknown>) {
     super(message);
-    this.name = 'PremiumLimitError';
+    this.name = "PremiumLimitError";
     this.status = 403;
     this.requiresPremium = true;
     this.usedCount = body.usedCount;
@@ -34,15 +41,16 @@ export class PremiumLimitError extends Error {
  */
 export class InsufficientTokensError extends Error {
   status = 402;
-  code = 'INSUFFICIENT_TOKENS' as const;
+  code = "INSUFFICIENT_TOKENS" as const;
   required?: number;
   balance?: number;
 
   constructor(message: string, body: Record<string, unknown>) {
     super(message);
-    this.name = 'InsufficientTokensError';
-    this.required = typeof body.required === 'number' ? body.required : undefined;
-    this.balance = typeof body.balance === 'number' ? body.balance : undefined;
+    this.name = "InsufficientTokensError";
+    this.required =
+      typeof body.required === "number" ? body.required : undefined;
+    this.balance = typeof body.balance === "number" ? body.balance : undefined;
   }
 }
 
@@ -53,7 +61,7 @@ type FetchOptions = {
 };
 
 function buildQuery(q?: Record<string, string | number>) {
-  if (!q) return '';
+  if (!q) return "";
   const params = new URLSearchParams();
   Object.entries(q).forEach(([k, v]) => params.append(k, String(v)));
   return `?${params.toString()}`;
@@ -71,7 +79,7 @@ export class TripService {
         signal: opts?.signal,
       });
     } catch (error) {
-      console.error('Error in getTrips:', error);
+      console.error("Error in getTrips:", error);
       throw error;
     }
   }
@@ -79,14 +87,20 @@ export class TripService {
   /**
    * Obtiene todos los viajes de un usuario específico
    */
-  static async getUserTrips(userId: string, opts?: FetchOptions): Promise<Trip[]> {
+  static async getUserTrips(
+    userId: string,
+    opts?: FetchOptions,
+  ): Promise<Trip[]> {
     try {
-      return await apiFetch<Trip[]>(`/api/travelers/${userId}/trips${buildQuery(opts?.query)}`, {
-        token: opts?.token,
-        signal: opts?.signal,
-      });
+      return await apiFetch<Trip[]>(
+        `/api/travelers/${userId}/trips${buildQuery(opts?.query)}`,
+        {
+          token: opts?.token,
+          signal: opts?.signal,
+        },
+      );
     } catch (error) {
-      console.error('Error in getUserTrips:', error);
+      console.error("Error in getUserTrips:", error);
       throw error;
     }
   }
@@ -101,7 +115,7 @@ export class TripService {
         signal: opts?.signal,
       });
     } catch (error) {
-      console.error('Error in getTripById:', error);
+      console.error("Error in getTripById:", error);
       throw error;
     }
   }
@@ -113,42 +127,58 @@ export class TripService {
     trip: Partial<Trip>,
     userId: string,
     iaTrip: boolean,
-    token?: string
+    token?: string,
   ): Promise<CreateTripResponse> {
     try {
       let result: CreateTripResponse;
       if (iaTrip) {
         trip.description = ""; // IA will generate description
-        result = await apiFetch<CreateTripResponse>(`/api/automatic-trips/${userId}/generate-trip`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
+        result = await apiFetch<CreateTripResponse>(
+          `/api/automatic-trips/${userId}/generate-trip`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            token,
+            body: JSON.stringify(trip),
           },
-          token,
-          body: JSON.stringify(trip),
-        });
+        );
       } else {
-        result = await apiFetch<CreateTripResponse>(`/api/travelers/${userId}/trip`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
+        result = await apiFetch<CreateTripResponse>(
+          `/api/travelers/${userId}/trip`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            token,
+            body: JSON.stringify(trip),
           },
-          token,
-          body: JSON.stringify(trip),
-        });
+        );
       }
       return result;
     } catch (error) {
-      if (error instanceof ApiError && error.body && typeof error.body === 'object') {
+      if (
+        error instanceof ApiError &&
+        error.body &&
+        typeof error.body === "object"
+      ) {
         const body = error.body as Record<string, unknown>;
-        if (error.status === 402 || body.code === 'INSUFFICIENT_TOKENS') {
-          throw new InsufficientTokensError(String(body.error ?? 'No tienes tokens suficientes.'), body);
+        if (error.status === 402 || body.code === "INSUFFICIENT_TOKENS") {
+          throw new InsufficientTokensError(
+            String(body.error ?? "No tienes tokens suficientes."),
+            body,
+          );
         }
         if (error.status === 403) {
-          throw new PremiumLimitError(String(body.error ?? error.message ?? 'Límite alcanzado'), body);
+          throw new PremiumLimitError(
+            String(body.error ?? error.message ?? "Límite alcanzado"),
+            body,
+          );
         }
       }
-      console.error('Error in createTrip:', error);
+      console.error("Error in createTrip:", error);
       throw error;
     }
   }
@@ -156,18 +186,23 @@ export class TripService {
   /**
    * Actualiza un viaje existente
    */
-  static async updateTrip(id: string, trip: Partial<Trip>, userId: string, token?: string): Promise<Trip> {
+  static async updateTrip(
+    id: string,
+    trip: Partial<Trip>,
+    userId: string,
+    token?: string,
+  ): Promise<Trip> {
     try {
       return await apiFetch<Trip>(`/api/travelers/${userId}/trip/${id}`, {
-        method: 'PATCH',
+        method: "PATCH",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         token,
         body: JSON.stringify(trip),
       });
     } catch (error) {
-      console.error('Error in updateTrip:', error);
+      console.error("Error in updateTrip:", error);
       throw error;
     }
   }
@@ -175,39 +210,52 @@ export class TripService {
   /**
    * Elimina un viaje
    */
-  static async deleteTrip(id: string, userId: string, token?: string): Promise<void> {
+  static async deleteTrip(
+    id: string,
+    userId: string,
+    token?: string,
+  ): Promise<void> {
     try {
       await apiFetch<void>(`/api/travelers/${userId}/trip/${id}`, {
-        method: 'DELETE',
+        method: "DELETE",
         token,
       });
     } catch (error) {
-      console.error('Error in deleteTrip:', error);
+      console.error("Error in deleteTrip:", error);
       throw error;
     }
   }
 
-  static async getNumberOfStops(tripId: string, opts?: FetchOptions): Promise<Stop[]> {
+  static async getNumberOfStops(
+    tripId: string,
+    opts?: FetchOptions,
+  ): Promise<Stop[]> {
     try {
       return await apiFetch<Stop[]>(`/api/itinerary/trip/${tripId}/stops`, {
         token: opts?.token,
         signal: opts?.signal,
       });
     } catch (error) {
-      console.error('Error in getNumberOfStops:', error);
+      console.error("Error in getNumberOfStops:", error);
       throw error;
     }
   }
 
   // =============== TRAVELERS CONTROLLERS ===============
-  static async getTravelersInTrip(tripId: string, opts?: FetchOptions): Promise<TravelerWithUser[]> {
+  static async getTravelersInTrip(
+    tripId: string,
+    opts?: FetchOptions,
+  ): Promise<TravelerWithUser[]> {
     try {
-      return await apiFetch<TravelerWithUser[]>(`/api/travelers/trip/${tripId}`, {
-        token: opts?.token,
-        signal: opts?.signal,
-      });
+      return await apiFetch<TravelerWithUser[]>(
+        `/api/travelers/trip/${tripId}`,
+        {
+          token: opts?.token,
+          signal: opts?.signal,
+        },
+      );
     } catch (error) {
-      console.error('Error in getTravelersInTrip:', error);
+      console.error("Error in getTravelersInTrip:", error);
       throw error;
     }
   }
@@ -215,13 +263,17 @@ export class TripService {
   /**
    * Obtiene el rol del usuario en un viaje específico
    */
-  static async getUserRoleInTrip(userId: string, tripId: string, opts?: FetchOptions): Promise<'owner' | 'editor' | 'viewer' | null> {
+  static async getUserRoleInTrip(
+    userId: string,
+    tripId: string,
+    opts?: FetchOptions,
+  ): Promise<"owner" | "editor" | "viewer" | null> {
     try {
       const travelers = await this.getTravelersInTrip(tripId, opts);
       const traveler = travelers.find((t) => t.user.id === userId);
       return traveler ? traveler.role : null;
     } catch (error) {
-      console.error('Error in getUserRoleInTrip:', error);
+      console.error("Error in getUserRoleInTrip:", error);
       return null;
     }
   }
@@ -230,9 +282,12 @@ export class TripService {
    * Obtiene el nivel de acceso completo del usuario en un viaje
    * Incluye rol, estado del viaje, y permisos granulares
    */
-  static async getTripAccessLevel(tripId: string, opts?: FetchOptions): Promise<{
-    role: 'owner' | 'editor' | 'viewer' | 'guest';
-    tripStatus: 'planning' | 'going' | 'completed';
+  static async getTripAccessLevel(
+    tripId: string,
+    opts?: FetchOptions,
+  ): Promise<{
+    role: "owner" | "editor" | "viewer" | "guest";
+    tripStatus: "planning" | "going" | "completed";
     isGuest: boolean;
     isCompleted: boolean;
     permissions: {
@@ -246,8 +301,8 @@ export class TripService {
   }> {
     try {
       return await apiFetch<{
-        role: 'owner' | 'editor' | 'viewer' | 'guest';
-        tripStatus: 'planning' | 'going' | 'completed';
+        role: "owner" | "editor" | "viewer" | "guest";
+        tripStatus: "planning" | "going" | "completed";
         isGuest: boolean;
         isCompleted: boolean;
         permissions: {
@@ -263,7 +318,7 @@ export class TripService {
         signal: opts?.signal,
       });
     } catch (error) {
-      console.error('Error in getTripAccessLevel:', error);
+      console.error("Error in getTripAccessLevel:", error);
       throw error;
     }
   }
@@ -271,14 +326,18 @@ export class TripService {
   /**
    * Elimina a un usuario de un viaje (salir del viaje)
    */
-  static async leaveTrip(userId: string, tripId: string, token?: string): Promise<void> {
+  static async leaveTrip(
+    userId: string,
+    tripId: string,
+    token?: string,
+  ): Promise<void> {
     try {
       await apiFetch<void>(`/api/travelers/${userId}/trip/${tripId}/leave`, {
-        method: 'DELETE',
+        method: "DELETE",
         token,
       });
     } catch (error) {
-      console.error('Error in leaveTrip:', error);
+      console.error("Error in leaveTrip:", error);
       throw error;
     }
   }
@@ -291,19 +350,22 @@ export class TripService {
     targetUserId: string,
     tripId: string,
     role: CollaboratorRole,
-    token?: string
+    token?: string,
   ): Promise<void> {
     try {
-      await apiFetch<void>(`/api/travelers/${targetUserId}/trip/${tripId}/role`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
+      await apiFetch<void>(
+        `/api/travelers/${targetUserId}/trip/${tripId}/role`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          token,
+          body: JSON.stringify({ role, actorUserId }),
         },
-        token,
-        body: JSON.stringify({ role, actorUserId }),
-      });
+      );
     } catch (error) {
-      console.error('Error in changeUserRole:', error);
+      console.error("Error in changeUserRole:", error);
       throw error;
     }
   }
@@ -311,14 +373,22 @@ export class TripService {
   /**
    * Expulsa a un usuario de un viaje (solo para owners)
    */
-  static async kickUser(actorUserId: string, targetUserId: string, tripId: string, token?: string): Promise<void> {
+  static async kickUser(
+    actorUserId: string,
+    targetUserId: string,
+    tripId: string,
+    token?: string,
+  ): Promise<void> {
     try {
-      await apiFetch<void>(`/api/travelers/${targetUserId}/trip/${tripId}/kick?actorUserId=${actorUserId}`, {
-        method: 'DELETE',
-        token,
-      });
+      await apiFetch<void>(
+        `/api/travelers/${targetUserId}/trip/${tripId}/kick?actorUserId=${actorUserId}`,
+        {
+          method: "DELETE",
+          token,
+        },
+      );
     } catch (error) {
-      console.error('Error in kickUser:', error);
+      console.error("Error in kickUser:", error);
       throw error;
     }
   }
@@ -328,14 +398,17 @@ export class TripService {
   /**
    * Obtiene los vehículos asociados a un viaje
    */
-  static async getVehiclesInTrip(tripId: string, opts?: FetchOptions): Promise<any[]> {
+  static async getVehiclesInTrip(
+    tripId: string,
+    opts?: FetchOptions,
+  ): Promise<any[]> {
     try {
       return await apiFetch<any[]>(`/api/trip/${tripId}/vehicles`, {
         token: opts?.token,
         signal: opts?.signal,
       });
     } catch (error) {
-      console.error('Error in getVehiclesInTrip:', error);
+      console.error("Error in getVehiclesInTrip:", error);
       throw error;
     }
   }
@@ -347,159 +420,19 @@ export class TripService {
     userId: string,
     tripId: string,
     vehicleId: string,
-    token?: string
+    token?: string,
   ): Promise<void> {
     try {
-      await apiFetch<void>(`/api/travelers/${userId}/trip/${tripId}/vehicle/${vehicleId}`, {
-        method: 'DELETE',
-        token,
-      });
+      await apiFetch<void>(
+        `/api/travelers/${userId}/trip/${tripId}/vehicle/${vehicleId}`,
+        {
+          method: "DELETE",
+          token,
+        },
+      );
     } catch (error) {
-      console.error('Error in removeVehicleFromTrip:', error);
+      console.error("Error in removeVehicleFromTrip:", error);
       throw error;
     }
   }
 }
-
-
-
-/**
- * Servicio para gestionar rutas y geocodificación
- */
-// Local shape for stops used in route calculation. The authoritative Stop type
-// may live elsewhere; keep this tolerant until stops types are added to Shared.
-type StopLike = {
-  order?: number;
-  location?: { latitude: number; longitude: number };
-};
-
-export class RouteService {
-  /**
-   * Calcula la ruta entre múltiples paradas usando OSRM
-   */
-  static async calculateRoute(stops: StopLike[]): Promise<{ latitude: number; longitude: number }[]> {
-    // If stops don't have location/order, we can't calculate a route.
-    const validStops = (stops || []).filter(s => s?.location && typeof s.location.latitude === 'number' && typeof s.location.longitude === 'number');
-    if (validStops.length < 2) return [];
-
-    try {
-      const sortedStops = [...validStops].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
-      const coordinates = sortedStops
-        .map(stop => `${stop.location!.longitude},${stop.location!.latitude}`)
-        .join(';');
-
-      const response = await fetch(
-        `https://router.project-osrm.org/route/v1/driving/${coordinates}?overview=full&geometries=geojson`
-      );
-
-      if (!response.ok) throw new Error('Error calculating route');
-
-      const data = await response.json();
-
-      if (data.routes && data.routes[0]) {
-        return data.routes[0].geometry.coordinates.map((coord: number[]) => ({
-          latitude: coord[1],
-          longitude: coord[0],
-        }));
-      }
-
-      return [];
-    } catch (error) {
-      console.error('Error in calculateRoute:', error);
-      throw error;
-    }
-  }
-
-  /**
-   * Geocodifica una dirección usando Nominatim (OpenStreetMap)
-   */
-  static async geocodeAddress(address: string): Promise<{
-    latitude: number;
-    longitude: number;
-    displayName: string;
-  } | null> {
-    try {
-      const response = await fetch(
-        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}&limit=1`,
-        {
-          headers: {
-            'User-Agent': 'PlanMyRoute/1.0',
-          },
-        }
-      );
-
-      if (!response.ok) throw new Error('Error geocoding address');
-
-      const data = await response.json();
-
-      if (data.length === 0) return null;
-
-      return {
-        latitude: parseFloat(data[0].lat),
-        longitude: parseFloat(data[0].lon),
-        displayName: data[0].display_name,
-      };
-    } catch (error) {
-      console.error('Error in geocodeAddress:', error);
-      throw error;
-    }
-  }
-
-  /**
-   * Geocodifica inversamente unas coordenadas (obtiene la dirección)
-   */
-  static async reverseGeocode(latitude: number, longitude: number): Promise<string | null> {
-    try {
-      const response = await fetch(
-        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`,
-        {
-          headers: {
-            'User-Agent': 'PlanMyRoute/1.0',
-          },
-        }
-      );
-
-      if (!response.ok) throw new Error('Error reverse geocoding');
-
-      const data = await response.json();
-
-      return data.display_name || null;
-    } catch (error) {
-      console.error('Error in reverseGeocode:', error);
-      throw error;
-    }
-  }
-
-  /**
-   * Calcula la distancia y duración entre dos puntos
-   */
-  static async getDistanceAndDuration(
-    origin: { latitude: number; longitude: number },
-    destination: { latitude: number; longitude: number }
-  ): Promise<{ distance: number; duration: number } | null> {
-    try {
-      const coordinates = `${origin.longitude},${origin.latitude};${destination.longitude},${destination.latitude}`;
-
-      const response = await fetch(
-        `https://router.project-osrm.org/route/v1/driving/${coordinates}?overview=false`
-      );
-
-      if (!response.ok) throw new Error('Error getting distance and duration');
-
-      const data = await response.json();
-
-      if (data.routes && data.routes[0]) {
-        return {
-          distance: data.routes[0].distance, // en metros
-          duration: data.routes[0].duration, // en segundos
-        };
-      }
-
-      return null;
-    } catch (error) {
-      console.error('Error in getDistanceAndDuration:', error);
-      throw error;
-    }
-  }
-}
-

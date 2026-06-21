@@ -73,6 +73,7 @@ interface MenuItem {
 function TripActionSheet({ visible, onClose, items }: { visible: boolean; onClose: () => void; items: MenuItem[] }) {
     return (
         <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+            <View style={{ flex: 1 }} accessibilityViewIsModal>
             <TouchableOpacity
                 className="flex-1 bg-black/40"
                 activeOpacity={1}
@@ -103,6 +104,7 @@ function TripActionSheet({ visible, onClose, items }: { visible: boolean; onClos
                 <View className="mt-4">
                     <CustomButton title="Cancelar" variant="outline" size="large" onPress={onClose} />
                 </View>
+            </View>
             </View>
         </Modal>
     );
@@ -157,7 +159,7 @@ export default function TripTabsLayout() {
                 id: 'travelers',
                 label: 'Viajeros',
                 icon: 'people-outline',
-                onPress: () => router.push(ROUTES.tripTravelers(tripId)),
+                onPress: () => router.push(ROUTES.tripTravelers(tripId!)),
             },
             {
                 id: 'vehicles',
@@ -172,7 +174,7 @@ export default function TripTabsLayout() {
                 id: 'edit',
                 label: 'Editar viaje',
                 icon: 'create-outline',
-                onPress: () => router.push(ROUTES.tripEdit(tripId)),
+                onPress: () => router.push(ROUTES.tripEdit(tripId!)),
             });
         }
 

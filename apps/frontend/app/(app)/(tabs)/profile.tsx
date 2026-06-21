@@ -4,7 +4,7 @@ import { useAuth } from '@/context/AuthContext';
 import { useNeedsProfileCompletion } from '@/hooks/users/useNeedsProfileCompletion';
 import { useRouter } from 'expo-router';
 import { useEffect } from 'react';
-import { ActivityIndicator, View } from 'react-native';
+import { LoadingView } from '@/components/customElements/LoadingView';
 
 export default function ProfileScreen() {
   const { user } = useAuth();
@@ -18,11 +18,7 @@ export default function ProfileScreen() {
   }, [needsCompletion, router]);
 
   if (!user?.id || isLoading || needsCompletion) {
-    return (
-      <View className="flex-1 bg-white items-center justify-center">
-        <ActivityIndicator size="large" color="#FFD54D" />
-      </View>
-    );
+    return <LoadingView />;
   }
 
   return <UserProfile userId={user.id} isOwnProfile={true} />;

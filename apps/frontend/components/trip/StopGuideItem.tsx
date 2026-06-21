@@ -1,4 +1,5 @@
 import { MicrotextDark, TextRegular, Title3Semibold } from '@/components/customElements/CustomText';
+import { SkeletonBox } from '@/components/customElements/SkeletonBox';
 import { Ionicons } from '@expo/vector-icons';
 import { Stop } from '@planmyroute/types';
 import { Image, Linking, Platform, TouchableOpacity, View } from 'react-native';
@@ -8,6 +9,7 @@ interface StopGuideItemProps {
     stopNumber: number;
     isLast: boolean;
     canEdit: boolean;
+    isEnriching?: boolean;
     legDistanceKm?: string;
     legDurationStr?: string;
     onEdit: (stop: Stop) => void;
@@ -42,11 +44,14 @@ export function StopGuideItem({
     stopNumber,
     isLast,
     canEdit,
+    isEnriching,
     legDistanceKm,
     legDurationStr,
     onEdit,
     onDelete,
 }: StopGuideItemProps) {
+    const hasPhoto = !!(stop as any).photo_url || !!(stop as any).cover_image_url;
+    const showSkeleton = isEnriching && !hasPhoto;
     const imageUrl = (stop as any).photo_url || (stop as any).cover_image_url || PLACEHOLDER;
 
     return (
@@ -135,11 +140,15 @@ export function StopGuideItem({
                         </View>
 
                         {/* Thumbnail */}
-                        <Image
-                            source={{ uri: imageUrl }}
-                            style={{ width: 80, height: 80, borderRadius: 12 }}
-                            resizeMode="cover"
-                        />
+                        {showSkeleton ? (
+                            <SkeletonBox width={80} height={80} borderRadius={12} />
+                        ) : (
+                            <Image
+                                source={{ uri: imageUrl }}
+                                style={{ width: 80, height: 80, borderRadius: 12 }}
+                                resizeMode="cover"
+                            />
+                        )}
                     </View>
                 </View>
             </View>

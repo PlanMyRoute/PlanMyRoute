@@ -106,11 +106,13 @@ export async function chargeGeneration(
     userId: string,
     isPremium: boolean,
     circular: boolean,
-    reference: TokenReference = null
+    reference: TokenReference = null,
+    enableRefuel = false,
 ): Promise<{ balance: number; charged: number }> {
     const base = getActionCost('GENERATE_TRIP', isPremium);
-    const addon = circular ? getActionCost('ADDON_ROUNDTRIP', isPremium) : 0;
-    const total = base + addon;
+    const roundtripAddon = circular ? getActionCost('ADDON_ROUNDTRIP', isPremium) : 0;
+    const refuelAddon = enableRefuel ? getActionCost('ADDON_REFUEL', isPremium) : 0;
+    const total = base + roundtripAddon + refuelAddon;
 
     const balance = await getBalance(userId);
     if (balance < total) {
@@ -118,13 +120,23 @@ export async function chargeGeneration(
     }
 
     let newBalance = await spend(userId, 'GENERATE_TRIP', isPremium, reference);
+    let chargedSoFar = base;
 
-    if (addon > 0) {
+    if (roundtripAddon > 0) {
         try {
             newBalance = await spend(userId, 'ADDON_ROUNDTRIP', isPremium, reference);
+            chargedSoFar += roundtripAddon;
         } catch (err) {
-            // Rollback de la base si el addon no se pudo cobrar (carrera concurrente).
-            await grant(userId, 'REFUND', base, { ...(reference ?? {}), reason: 'roundtrip_charge_failed' }).catch(() => {});
+            await grant(userId, 'REFUND', chargedSoFar, { ...(reference ?? {}), reason: 'roundtrip_charge_failed' }).catch(() => {});
+            throw err;
+        }
+    }
+
+    if (refuelAddon > 0) {
+        try {
+            newBalance = await spend(userId, 'ADDON_REFUEL', isPremium, reference);
+        } catch (err) {
+            await grant(userId, 'REFUND', chargedSoFar, { ...(reference ?? {}), reason: 'refuel_charge_failed' }).catch(() => {});
             throw err;
         }
     }

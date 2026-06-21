@@ -1,8 +1,9 @@
-import { TextRegular, Title2Semibold, Title3Bold } from '@/components/customElements/CustomText';
+import { EmptyState } from '@/components/customElements/EmptyState';
+import { LoadingView } from '@/components/customElements/LoadingView';
+import { Title3Bold } from '@/components/customElements/CustomText';
 import { UserSearchInput } from '@/components/customElements/UserSearchInput';
 import { FeedReviewCard } from '@/components/FeedReviewCard';
 import { useSocialReviewsFeed } from '@/hooks/useReviews';
-import { Ionicons } from '@expo/vector-icons';
 import type { User } from '@planmyroute/types';
 import { useRouter } from 'expo-router';
 import { ROUTES } from '@/constants/routes';
@@ -11,7 +12,6 @@ import {
     ActivityIndicator,
     FlatList,
     RefreshControl,
-    TouchableOpacity,
     View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -58,38 +58,29 @@ export default function FeedScreen() {
     };
 
     const renderEmpty = () => (
-        <View className="flex-1 items-center justify-center px-6 py-12">
-            <View className="w-24 h-24 bg-gray-100 rounded-full items-center justify-center mb-4">
-                <Ionicons name="people-outline" size={48} color="#9CA3AF" />
-            </View>
-            <Title2Semibold className="text-gray-800 mb-2 text-center">
-                Tu feed está vacío
-            </Title2Semibold>
-            <TextRegular className="text-gray-500 text-center">
-                Sigue a otros viajeros para ver sus reseñas aquí
-            </TextRegular>
-        </View>
+        <EmptyState
+            icon="people-outline"
+            iconSize={48}
+            iconColor="#9CA3AF"
+            iconBackgroundColor="#F3F4F6"
+            iconBackgroundSize={96}
+            title="Tu feed está vacío"
+            message="Sigue a otros viajeros para ver sus reseñas aquí"
+        />
     );
 
     const renderError = () => (
-        <View className="flex-1 items-center justify-center px-6 py-12">
-            <View className="w-24 h-24 bg-red-100 rounded-full items-center justify-center mb-4">
-                <Ionicons name="warning-outline" size={48} color="#EF4444" />
-            </View>
-            <Title2Semibold className="text-gray-800 mb-2 text-center">
-                Error al cargar el feed
-            </Title2Semibold>
-            <TextRegular className="text-gray-500 text-center mb-4">
-                No pudimos cargar el contenido. Intenta de nuevo.
-            </TextRegular>
-            <TouchableOpacity
-                onPress={() => refetch()}
-                className="bg-yellow-400 px-6 py-3 rounded-full"
-                activeOpacity={0.7}
-            >
-                <TextRegular className="text-white">Reintentar</TextRegular>
-            </TouchableOpacity>
-        </View>
+        <EmptyState
+            icon="warning-outline"
+            iconSize={48}
+            iconColor="#EF4444"
+            iconBackgroundColor="#FEE2E2"
+            iconBackgroundSize={96}
+            title="Error al cargar el feed"
+            message="No pudimos cargar el contenido. Intenta de nuevo."
+            actionLabel="Reintentar"
+            onAction={() => refetch()}
+        />
     );
 
     const renderFooter = () => {
@@ -103,13 +94,7 @@ export default function FeedScreen() {
     };
 
     if (isLoading) {
-        return (
-            <SafeAreaView className="flex-1 bg-white" edges={["top"]}>
-                <View className="flex-1 items-center justify-center">
-                    <ActivityIndicator size="large" color="#FFD54D" />
-                </View>
-            </SafeAreaView>
-        );
+        return <LoadingView safeArea />;
     }
 
     if (isError) {

@@ -1,26 +1,29 @@
-import CustomButton from '@/components/customElements/CustomButton';
-import { MicrotextDark, SubtitleSemibold } from '@/components/customElements/CustomText';
-import { Ionicons } from '@expo/vector-icons';
-import * as Location from 'expo-location';
-import { useEffect, useRef, useState } from 'react';
+import CustomButton from "@/components/customElements/CustomButton";
 import {
-    ActivityIndicator,
-    Modal,
-    Platform,
-    TouchableOpacity,
-    View,
-} from 'react-native';
-import WebView, { WebViewMessageEvent } from 'react-native-webview';
+  MicrotextDark,
+  SubtitleSemibold,
+} from "@/components/customElements/CustomText";
+import { Ionicons } from "@expo/vector-icons";
+import * as Location from "expo-location";
+import { useEffect, useRef, useState } from "react";
+import {
+  ActivityIndicator,
+  Modal,
+  Platform,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import WebView, { WebViewMessageEvent } from "react-native-webview";
 
 export type MapPickerCoords = { latitude: number; longitude: number };
 
 type MapLocationPickerProps = {
-    visible: boolean;
-    /** Coordinates of the already-selected address — map will start centered here */
-    initialLocation?: MapPickerCoords | null;
-    /** Called with selected coords and optional reverse-geocoded address */
-    onLocationSelect: (coords: MapPickerCoords, address?: string) => void;
-    onClose: () => void;
+  visible: boolean;
+  /** Coordinates of the already-selected address — map will start centered here */
+  initialLocation?: MapPickerCoords | null;
+  /** Called with selected coords and optional reverse-geocoded address */
+  onLocationSelect: (coords: MapPickerCoords, address?: string) => void;
+  onClose: () => void;
 };
 
 const DEFAULT_LAT = 40.4168;
@@ -29,22 +32,30 @@ const DEFAULT_ZOOM = 5;
 const LOCATION_ZOOM = 14;
 
 function getApiBaseUrl(): string {
-    return process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
+  return process.env.EXPO_PUBLIC_API_URL || "http://localhost:3000";
 }
 
-export function formatMapAddress(r: Location.LocationGeocodedAddress | null): string | null {
-    if (!r) return null;
-    const parts: string[] = [];
-    if (r.street) parts.push(r.streetNumber ? `${r.street} ${r.streetNumber}` : r.street);
-    if (r.city) parts.push(r.city);
-    else if (r.district) parts.push(r.district);
-    if (r.postalCode) parts.push(r.postalCode);
-    if (r.region && !r.city) parts.push(r.region);
-    return parts.join(', ') || null;
+export function formatMapAddress(
+  r: Location.LocationGeocodedAddress | null,
+): string | null {
+  if (!r) return null;
+  const parts: string[] = [];
+  if (r.street)
+    parts.push(r.streetNumber ? `${r.street} ${r.streetNumber}` : r.street);
+  if (r.city) parts.push(r.city);
+  else if (r.district) parts.push(r.district);
+  if (r.postalCode) parts.push(r.postalCode);
+  if (r.region && !r.city) parts.push(r.region);
+  return parts.join(", ") || null;
 }
 
-function buildMapHtml(centerLat: number, centerLng: number, centerZoom: number, apiBaseUrl: string): string {
-    return `<!DOCTYPE html>
+function buildMapHtml(
+  centerLat: number,
+  centerLng: number,
+  centerZoom: number,
+  apiBaseUrl: string,
+): string {
+  return `<!DOCTYPE html>
 <html>
 <head>
   <meta charset="utf-8"/>
@@ -201,222 +212,292 @@ function buildMapHtml(centerLat: number, centerLng: number, centerZoom: number, 
 </html>`;
 }
 
-
 export const MapLocationPicker = ({
-    visible,
-    initialLocation,
-    onLocationSelect,
-    onClose,
+  visible,
+  initialLocation,
+  onLocationSelect,
+  onClose,
 }: MapLocationPickerProps) => {
-    const [selectedCoords, setSelectedCoords] = useState<MapPickerCoords | null>(null);
-    const [resolvedAddress, setResolvedAddress] = useState<string | null>(null);
-    const [geoLoading, setGeoLoading] = useState(false);
-    const [isLoading, setIsLoading] = useState(true);
+  const [selectedCoords, setSelectedCoords] = useState<MapPickerCoords | null>(
+    null,
+  );
+  const [resolvedAddress, setResolvedAddress] = useState<string | null>(null);
+  const [geoLoading, setGeoLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
-    const webViewRef = useRef<WebView>(null);
-    const webViewReadyRef = useRef(false);
-    const pendingFlyToRef = useRef<MapPickerCoords | null>(null);
-    const userCoordsRef = useRef<MapPickerCoords | null>(null);
-    const reverseDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-    const initialLocationRef = useRef(initialLocation);
+  const webViewRef = useRef<WebView>(null);
+  const webViewReadyRef = useRef(false);
+  const pendingFlyToRef = useRef<MapPickerCoords | null>(null);
+  const userCoordsRef = useRef<MapPickerCoords | null>(null);
+  const reverseDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const initialLocationRef = useRef(initialLocation);
 
-    useEffect(() => { initialLocationRef.current = initialLocation; }, [initialLocation]);
+  useEffect(() => {
+    initialLocationRef.current = initialLocation;
+  }, [initialLocation]);
 
-    // Auto-request GPS when picker opens
-    useEffect(() => {
-        if (!visible) {
-            webViewReadyRef.current = false;
-            if (reverseDebounceRef.current) clearTimeout(reverseDebounceRef.current);
-            return;
+  // Auto-request GPS when picker opens
+  useEffect(() => {
+    if (!visible) {
+      webViewReadyRef.current = false;
+      if (reverseDebounceRef.current) clearTimeout(reverseDebounceRef.current);
+      return;
+    }
+    // Reset on each open
+    setResolvedAddress(null);
+    setIsLoading(true);
+    setSelectedCoords(initialLocationRef.current ?? null);
+    userCoordsRef.current = null;
+    pendingFlyToRef.current = null;
+    webViewReadyRef.current = false;
+
+    (async () => {
+      try {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status !== "granted") return;
+        const loc = await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.Balanced,
+        });
+        const gpsCoords: MapPickerCoords = {
+          latitude: loc.coords.latitude,
+          longitude: loc.coords.longitude,
+        };
+        userCoordsRef.current = gpsCoords;
+        const shouldFly = !initialLocationRef.current;
+
+        if (webViewReadyRef.current) {
+          let script = `updateUserDot(${gpsCoords.latitude}, ${gpsCoords.longitude});`;
+          if (shouldFly) {
+            script =
+              `map.flyTo([${gpsCoords.latitude}, ${gpsCoords.longitude}], ${LOCATION_ZOOM}); ` +
+              script;
+          }
+          webViewRef.current?.injectJavaScript(script + " true;");
+        } else if (shouldFly) {
+          pendingFlyToRef.current = gpsCoords;
         }
-        // Reset on each open
-        setResolvedAddress(null);
-        setIsLoading(true);
-        setSelectedCoords(initialLocationRef.current ?? null);
-        userCoordsRef.current = null;
-        pendingFlyToRef.current = null;
-        webViewReadyRef.current = false;
+      } catch {
+        // GPS unavailable — map stays at initialLocation or DEFAULT
+      }
+    })();
+  }, [visible]);
 
-        (async () => {
-            try {
-                const { status } = await Location.requestForegroundPermissionsAsync();
-                if (status !== 'granted') return;
-                const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-                const gpsCoords: MapPickerCoords = {
-                    latitude: loc.coords.latitude,
-                    longitude: loc.coords.longitude,
-                };
-                userCoordsRef.current = gpsCoords;
-                const shouldFly = !initialLocationRef.current;
+  // Must be after hooks, before early return
+  if (Platform.OS === "web") return null;
 
-                if (webViewReadyRef.current) {
-                    let script = `updateUserDot(${gpsCoords.latitude}, ${gpsCoords.longitude});`;
-                    if (shouldFly) {
-                        script = `map.flyTo([${gpsCoords.latitude}, ${gpsCoords.longitude}], ${LOCATION_ZOOM}); ` + script;
-                    }
-                    webViewRef.current?.injectJavaScript(script + ' true;');
-                } else if (shouldFly) {
-                    pendingFlyToRef.current = gpsCoords;
-                }
-            } catch {
-                // GPS unavailable — map stays at initialLocation or DEFAULT
-            }
-        })();
-    }, [visible]);
+  const centerLat = initialLocation?.latitude ?? DEFAULT_LAT;
+  const centerLng = initialLocation?.longitude ?? DEFAULT_LNG;
+  const centerZoom = initialLocation ? LOCATION_ZOOM : DEFAULT_ZOOM;
+  const htmlContent = buildMapHtml(
+    centerLat,
+    centerLng,
+    centerZoom,
+    getApiBaseUrl(),
+  );
 
-    // Must be after hooks, before early return
-    if (Platform.OS === 'web') return null;
+  const handleLoadEnd = () => {
+    setIsLoading(false);
+    webViewReadyRef.current = true;
+    const u = userCoordsRef.current;
+    if (!u) return;
+    const f = pendingFlyToRef.current;
+    if (f) {
+      pendingFlyToRef.current = null;
+      webViewRef.current?.injectJavaScript(
+        `map.flyTo([${f.latitude}, ${f.longitude}], ${LOCATION_ZOOM}); updateUserDot(${u.latitude}, ${u.longitude}); true;`,
+      );
+    } else {
+      webViewRef.current?.injectJavaScript(
+        `updateUserDot(${u.latitude}, ${u.longitude}); true;`,
+      );
+    }
+  };
 
-    const centerLat = initialLocation?.latitude ?? DEFAULT_LAT;
-    const centerLng = initialLocation?.longitude ?? DEFAULT_LNG;
-    const centerZoom = initialLocation ? LOCATION_ZOOM : DEFAULT_ZOOM;
-    const htmlContent = buildMapHtml(centerLat, centerLng, centerZoom, getApiBaseUrl());
+  const handleMessage = (event: WebViewMessageEvent) => {
+    try {
+      const msg = JSON.parse(event.nativeEvent.data);
+      if (
+        msg.type === "mapMoved" &&
+        typeof msg.lat === "number" &&
+        typeof msg.lng === "number"
+      ) {
+        const coords: MapPickerCoords = {
+          latitude: msg.lat,
+          longitude: msg.lng,
+        };
+        setSelectedCoords(coords);
+        if (reverseDebounceRef.current)
+          clearTimeout(reverseDebounceRef.current);
+        setGeoLoading(true);
+        reverseDebounceRef.current = setTimeout(async () => {
+          try {
+            const results = await Location.reverseGeocodeAsync(coords);
+            // null (no inventar dirección) si no se pudo resolver — el panel
+            // inferior mostrará el placeholder "Mueve el mapa..." en su lugar,
+            // y handleMapLocationSelected del input padre tratará esto como fallo.
+            setResolvedAddress(formatMapAddress(results[0]) ?? null);
+          } catch {
+            setResolvedAddress(null);
+          } finally {
+            setGeoLoading(false);
+          }
+        }, 600);
+      }
+    } catch {
+      // ignore
+    }
+  };
 
-    const handleLoadEnd = () => {
-        setIsLoading(false);
-        webViewReadyRef.current = true;
-        const u = userCoordsRef.current;
-        if (!u) return;
-        const f = pendingFlyToRef.current;
-        if (f) {
-            pendingFlyToRef.current = null;
-            webViewRef.current?.injectJavaScript(
-                `map.flyTo([${f.latitude}, ${f.longitude}], ${LOCATION_ZOOM}); updateUserDot(${u.latitude}, ${u.longitude}); true;`
-            );
-        } else {
-            webViewRef.current?.injectJavaScript(
-                `updateUserDot(${u.latitude}, ${u.longitude}); true;`
-            );
-        }
-    };
+  const handleConfirm = () => {
+    if (selectedCoords) {
+      onLocationSelect(selectedCoords, resolvedAddress ?? undefined);
+      onClose();
+    }
+  };
 
-    const handleMessage = (event: WebViewMessageEvent) => {
-        try {
-            const msg = JSON.parse(event.nativeEvent.data);
-            if (msg.type === 'mapMoved' && typeof msg.lat === 'number' && typeof msg.lng === 'number') {
-                const coords: MapPickerCoords = { latitude: msg.lat, longitude: msg.lng };
-                setSelectedCoords(coords);
-                if (reverseDebounceRef.current) clearTimeout(reverseDebounceRef.current);
-                setGeoLoading(true);
-                reverseDebounceRef.current = setTimeout(async () => {
-                    try {
-                        const results = await Location.reverseGeocodeAsync(coords);
-                        // null (no inventar dirección) si no se pudo resolver — el panel
-                        // inferior mostrará el placeholder "Mueve el mapa..." en su lugar,
-                        // y handleMapLocationSelected del input padre tratará esto como fallo.
-                        setResolvedAddress(formatMapAddress(results[0]) ?? null);
-                    } catch {
-                        setResolvedAddress(null);
-                    } finally {
-                        setGeoLoading(false);
-                    }
-                }, 600);
-            }
-        } catch {
-            // ignore
-        }
-    };
-
-    const handleConfirm = () => {
-        if (selectedCoords) {
-            onLocationSelect(selectedCoords, resolvedAddress ?? undefined);
-            onClose();
-        }
-    };
-
-    return (
-        <Modal
-            visible={visible}
-            animationType="slide"
-            presentationStyle="fullScreen"
-            onRequestClose={onClose}
+  return (
+    <Modal
+      visible={visible}
+      animationType="slide"
+      presentationStyle="fullScreen"
+      onRequestClose={onClose}
+    >
+      <View
+        style={{ flex: 1, backgroundColor: "#fff" }}
+        accessibilityViewIsModal
+      >
+        {/* Header */}
+        <View
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "space-between",
+            paddingHorizontal: 16,
+            paddingTop: 52,
+            paddingBottom: 12,
+            borderBottomWidth: 1,
+            borderBottomColor: "rgba(153,153,153,0.15)",
+            backgroundColor: "#fff",
+          }}
         >
-            <View style={{ flex: 1, backgroundColor: '#fff' }}>
-                {/* Header */}
-                <View style={{
-                    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-                    paddingHorizontal: 16, paddingTop: 52, paddingBottom: 12,
-                    borderBottomWidth: 1, borderBottomColor: 'rgba(153,153,153,0.15)',
-                    backgroundColor: '#fff',
-                }}>
-                    <TouchableOpacity onPress={onClose} activeOpacity={0.7} style={{ padding: 4 }}>
-                        <Ionicons name="close" size={24} color="#202020" />
-                    </TouchableOpacity>
-                    <SubtitleSemibold>Elige en el mapa</SubtitleSemibold>
-                    <View style={{ width: 32 }} />
-                </View>
+          <TouchableOpacity
+            onPress={onClose}
+            activeOpacity={0.7}
+            style={{ padding: 4 }}
+          >
+            <Ionicons name="close" size={24} color="#202020" />
+          </TouchableOpacity>
+          <SubtitleSemibold>Elige en el mapa</SubtitleSemibold>
+          <View style={{ width: 32 }} />
+        </View>
 
-                {/* Map */}
-                <View style={{ flex: 1 }}>
-                    {isLoading && (
-                        <View style={{
-                            position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
-                            backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center', zIndex: 10,
-                        }}>
-                            <ActivityIndicator size="large" color="#FFD54D" />
-                            <MicrotextDark className="text-neutral-gray mt-3">Cargando mapa...</MicrotextDark>
-                        </View>
-                    )}
-                    <WebView
-                        ref={webViewRef}
-                        style={{ flex: 1 }}
-                        source={{ html: htmlContent }}
-                        onLoadEnd={handleLoadEnd}
-                        onMessage={handleMessage}
-                        scrollEnabled={false}
-                        bounces={false}
-                        geolocationEnabled
-                        javaScriptEnabled
-                        domStorageEnabled
-                    />
-                    {/* My location FAB */}
-                    <TouchableOpacity
-                        onPress={() => {
-                            const u = userCoordsRef.current;
-                            if (u) {
-                                webViewRef.current?.injectJavaScript(
-                                    `map.flyTo([${u.latitude}, ${u.longitude}], ${LOCATION_ZOOM}); true;`
-                                );
-                            }
-                        }}
-                        style={{
-                            position: 'absolute', right: 16, bottom: 16,
-                            width: 44, height: 44, borderRadius: 22,
-                            backgroundColor: '#fff', elevation: 4,
-                            shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
-                            shadowOpacity: 0.15, shadowRadius: 4,
-                            alignItems: 'center', justifyContent: 'center',
-                        }}
-                        activeOpacity={0.8}
-                    >
-                        <Ionicons name="navigate" size={22} color="#FFD54D" />
-                    </TouchableOpacity>
-                </View>
-
-                {/* Bottom panel */}
-                <View style={{
-                    paddingHorizontal: 24, paddingTop: 12, paddingBottom: 24,
-                    backgroundColor: '#fff',
-                    borderTopWidth: 1, borderTopColor: 'rgba(153,153,153,0.1)',
-                    gap: 10,
-                }}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 20 }}>
-                        {geoLoading
-                            ? <ActivityIndicator size="small" color="#FFD54D" />
-                            : <Ionicons name="location" size={16} color="#FFD54D" />
-                        }
-                        <MicrotextDark style={{ flex: 1, color: geoLoading ? '#999999' : '#202020' }}>
-                            {geoLoading ? 'Localizando...' : (resolvedAddress ?? 'Mueve el mapa para seleccionar')}
-                        </MicrotextDark>
-                    </View>
-                    <CustomButton
-                        variant="primary"
-                        title="Confirmar ubicación"
-                        onPress={handleConfirm}
-                        disabled={!selectedCoords}
-                    />
-                </View>
+        {/* Map */}
+        <View style={{ flex: 1 }}>
+          {isLoading && (
+            <View
+              style={{
+                position: "absolute",
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                backgroundColor: "#fff",
+                alignItems: "center",
+                justifyContent: "center",
+                zIndex: 10,
+              }}
+            >
+              <ActivityIndicator size="large" color="#FFD54D" />
+              <MicrotextDark className="text-neutral-gray mt-3">
+                Cargando mapa...
+              </MicrotextDark>
             </View>
-        </Modal>
-    );
+          )}
+          <WebView
+            ref={webViewRef}
+            style={{ flex: 1 }}
+            source={{ html: htmlContent }}
+            onLoadEnd={handleLoadEnd}
+            onMessage={handleMessage}
+            scrollEnabled={false}
+            bounces={false}
+            geolocationEnabled
+            javaScriptEnabled
+            domStorageEnabled
+          />
+          {/* My location FAB */}
+          <TouchableOpacity
+            onPress={() => {
+              const u = userCoordsRef.current;
+              if (u) {
+                webViewRef.current?.injectJavaScript(
+                  `map.flyTo([${u.latitude}, ${u.longitude}], ${LOCATION_ZOOM}); true;`,
+                );
+              }
+            }}
+            style={{
+              position: "absolute",
+              right: 16,
+              bottom: 16,
+              width: 44,
+              height: 44,
+              borderRadius: 22,
+              backgroundColor: "#fff",
+              elevation: 4,
+              shadowColor: "#000",
+              shadowOffset: { width: 0, height: 2 },
+              shadowOpacity: 0.15,
+              shadowRadius: 4,
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="navigate" size={22} color="#FFD54D" />
+          </TouchableOpacity>
+        </View>
+
+        {/* Bottom panel */}
+        <View
+          style={{
+            paddingHorizontal: 24,
+            paddingTop: 12,
+            paddingBottom: 24,
+            backgroundColor: "#fff",
+            borderTopWidth: 1,
+            borderTopColor: "rgba(153,153,153,0.1)",
+            gap: 10,
+          }}
+        >
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 8,
+              minHeight: 20,
+            }}
+          >
+            {geoLoading ? (
+              <ActivityIndicator size="small" color="#FFD54D" />
+            ) : (
+              <Ionicons name="location" size={16} color="#FFD54D" />
+            )}
+            <MicrotextDark
+              style={{ flex: 1, color: geoLoading ? "#999999" : "#202020" }}
+            >
+              {geoLoading
+                ? "Localizando..."
+                : (resolvedAddress ?? "Mueve el mapa para seleccionar")}
+            </MicrotextDark>
+          </View>
+          <CustomButton
+            variant="primary"
+            title="Confirmar ubicación"
+            onPress={handleConfirm}
+            disabled={!selectedCoords}
+          />
+        </View>
+      </View>
+    </Modal>
+  );
 };

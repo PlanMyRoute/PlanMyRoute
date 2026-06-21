@@ -23,4 +23,9 @@ router.patch(`${BASE_PATH}/:vehicleId`, verifyToken, requireSameUser, VehicleCon
 // Eliminar un vehículo
 router.delete(`${BASE_PATH}/:vehicleId`, verifyToken, requireSameUser, VehicleController.deleteVehicle);
 
+// CarQuery proxy (authenticated but not user-scoped)
+router.get('/carquery/makes', verifyToken, VehicleController.getCarQueryMakes);
+router.get('/carquery/models', verifyToken, VehicleController.getCarQueryModels);
+router.get('/carquery/specs', verifyToken, VehicleController.getCarQuerySpecs);
+
 export default router;

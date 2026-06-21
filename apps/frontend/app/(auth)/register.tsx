@@ -103,10 +103,8 @@ export default function RegisterScreen() {
     // 5. Intentar registro
     setIsSubmitting(true);
     try {
-      console.log('🔵 Iniciando registro...');
       const result = await signUp(email, password, username);
-      console.log('🔵 Registro exitoso, redirigiendo a verify-email...');
-      console.log('🔵 Email:', email);
+
 
       router.replace(ROUTES.verifyEmail(email));
     } catch (e) {
@@ -149,17 +147,18 @@ export default function RegisterScreen() {
         automaticallyAdjustKeyboardInsets={Platform.OS === 'ios'}
       >
         <View className="items-center mb-6">
-          <Text className="text-3xl text-[#1D1D1B]">Bienvenid@ a</Text>
-          <Text className="text-4xl font-bold text-[#1D1D1B] mb-4 text-center">PlanMyRoute</Text>
-          <Image source={carLogoImage} className="mb-4" style={{ width: 192, height: 112 }} resizeMode="contain" />
+          <Text className="text-3xl text-[#202020]">Bienvenid@ a</Text>
+          <Text className="text-4xl font-bold text-[#202020] mb-4 text-center">PlanMyRoute</Text>
+          <Image accessible={false} source={carLogoImage} className="mb-4" style={{ width: 192, height: 112 }} resizeMode="contain" />
         </View>
 
         <View className="w-full">
-          <Text className="text-2xl font-bold text-[#1D1D1B] mb-6">Regístrate</Text>
+          <Text className="text-2xl font-bold text-[#202020] mb-6">Regístrate</Text>
 
           {/* Username */}
-          <Text className="text-base font-semibold text-[#1D1D1B] mb-2 ml-2">Username</Text>
+          <Text className="text-base font-semibold text-[#202020] mb-2 ml-2">Username</Text>
           <TextInput
+            accessibilityLabel="Username"
             className="bg-white rounded-full h-14 px-6 text-base mb-4 shadow-sm text-black"
             placeholder="usuario123"
             placeholderTextColor="#9ca3af"
@@ -171,8 +170,9 @@ export default function RegisterScreen() {
           />
 
           {/* Email */}
-          <Text className="text-base font-semibold text-[#1D1D1B] mb-2 ml-2">Email</Text>
+          <Text className="text-base font-semibold text-[#202020] mb-2 ml-2">Email</Text>
           <TextInput
+            accessibilityLabel="Email"
             className="bg-white rounded-full h-14 px-6 text-base mb-4 shadow-sm text-black"
             placeholder="planmyroute@gmail.com"
             placeholderTextColor="#9ca3af"
@@ -185,9 +185,10 @@ export default function RegisterScreen() {
           />
 
           {/* Contraseña */}
-          <Text className="text-base font-semibold text-[#1D1D1B] mb-2 ml-2">Contraseña</Text>
+          <Text className="text-base font-semibold text-[#202020] mb-2 ml-2">Contraseña</Text>
           <View className="flex-row items-center bg-white rounded-full h-14 px-6 mb-2 shadow-sm">
             <TextInput
+              accessibilityLabel="Contraseña"
               className="flex-1 text-base text-black h-full"
               placeholder="••••••••"
               placeholderTextColor="#9ca3af"
@@ -199,7 +200,7 @@ export default function RegisterScreen() {
               returnKeyType="next"
               onFocus={scrollToBottom}
             />
-            <Pressable onPress={() => setShowPassword(!showPassword)} className="p-1">
+            <Pressable accessibilityLabel="Mostrar u ocultar contraseña" onPress={() => setShowPassword(!showPassword)} className="p-1">
               <Ionicons name={showPassword ? 'eye' : 'eye-off'} size={22} color="#666" />
             </Pressable>
           </View>
@@ -231,9 +232,10 @@ export default function RegisterScreen() {
           )}
 
           {/* Confirmar Contraseña */}
-          <Text className="text-base font-semibold text-[#1D1D1B] mb-2 ml-2">Confirmar Contraseña</Text>
+          <Text className="text-base font-semibold text-[#202020] mb-2 ml-2">Confirmar Contraseña</Text>
           <View className="flex-row items-center bg-white rounded-full h-14 px-6 mb-4 shadow-sm">
             <TextInput
+              accessibilityLabel="Confirmar Contraseña"
               className="flex-1 text-base text-black h-full"
               placeholder="••••••••"
               placeholderTextColor="#9ca3af"
@@ -246,13 +248,13 @@ export default function RegisterScreen() {
               onSubmitEditing={handleRegister}
               onFocus={scrollToBottom}
             />
-            <Pressable onPress={() => setShowConfirmPassword(!showConfirmPassword)} className="p-1">
+            <Pressable accessibilityLabel="Mostrar u ocultar confirmación de contraseña" onPress={() => setShowConfirmPassword(!showConfirmPassword)} className="p-1">
               <Ionicons name={showConfirmPassword ? 'eye' : 'eye-off'} size={22} color="#666" />
             </Pressable>
           </View>
 
           <TouchableOpacity
-            className="bg-[#232323] rounded-full h-14 justify-center items-center mb-4 mt-6 shadow-md"
+            className="bg-[#202020] rounded-full h-14 justify-center items-center mb-4 mt-6 shadow-md"
             onPress={handleRegister}
             activeOpacity={0.8}
             disabled={isSubmitting}
@@ -265,9 +267,9 @@ export default function RegisterScreen() {
           </TouchableOpacity>
 
           <View className="flex-row justify-center mb-6 mt-6">
-            <Text className="text-[#1D1D1B]">¿Ya tienes una cuenta? </Text>
+            <Text className="text-[#202020]">¿Ya tienes una cuenta? </Text>
             <Pressable onPress={() => router.push(ROUTES.login)}>
-              <Text className="text-[#1D1D1B] font-bold underline">Inicia sesión</Text>
+              <Text className="text-[#202020] font-bold underline">Inicia sesión</Text>
             </Pressable>
           </View>
         </View>

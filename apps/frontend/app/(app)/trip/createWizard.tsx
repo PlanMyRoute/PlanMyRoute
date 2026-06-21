@@ -1,6 +1,7 @@
 import { BalancedBudgetIcon, BalancedIcon, ExploreIcon, LuxuryIcon, SaverIcon, SedentaryIcon } from '@/components/assets/Icons';
 import CustomAlert from '@/components/customElements/CustomAlert';
 import CustomButton from '@/components/customElements/CustomButton';
+import CustomCalendar, { TripDateRange } from '@/components/customElements/CustomCalendar';
 import CustomInput from '@/components/customElements/CustomInput';
 import { MicrotextDark, SubtitleSemibold, TextRegular, Title1 } from '@/components/customElements/CustomText';
 import DateTimePickerWeb from '@/components/customElements/DateTimePickerWeb';
@@ -14,13 +15,15 @@ import { ROUTES } from '@/constants/routes';
 import { useAuth } from '@/context/AuthContext';
 import { useSubscription } from '@/context/SubscriptionContext';
 import { useCreateTripWizard } from '@/hooks/trip/useCreateTripWizard';
+import useTrips from '@/hooks/useTrips';
 import { loadDraftAsync } from '@/hooks/trip/useWizardDraft';
+import { toISODate } from '@/utils/formatDate';
 import { getActionCost } from '@planmyroute/types';
 import '@/index.css';
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
     Platform,
     ScrollView,
@@ -61,6 +64,19 @@ export default function CreateWizardScreen() {
     const { isPremium } = useSubscription();
     const { user } = useAuth();
 
+    // Fetch user's existing trips for calendar overlap detection
+    const { data: allTrips } = useTrips();
+    const existingTripRanges = useMemo((): TripDateRange[] => {
+        if (!Array.isArray(allTrips)) return [];
+        return allTrips
+            .filter((t: any) => t.start_date && t.end_date)
+            .map((t: any) => ({
+                startDate: t.start_date!.slice(0, 10),
+                endDate: t.end_date!.slice(0, 10),
+                name: t.name || 'Viaje',
+            }));
+    }, [allTrips]);
+
     // Restore draft when user taps "Continuar" from the draft banner
     const { continueDraft } = useLocalSearchParams<{ tripName: string; isAi: string; continueDraft?: string }>();
     useEffect(() => {
@@ -87,6 +103,8 @@ export default function CreateWizardScreen() {
         initialStep: 1,
     });
 
+    const refuelTokenCost = getActionCost('ADDON_REFUEL', isPremium);
+
     const {
         step, totalSteps,
         isAiTrip,
@@ -97,6 +115,7 @@ export default function CreateWizardScreen() {
         travelersList,
         vehicles, vehiclesLoading, selectedVehicles, toggleVehicle, maxVehicles,
         handleAddVehicle, handleEditVehicle, handleDeleteVehicle,
+        enableAutoRefuel, setEnableAutoRefuel,
         preferences,
         budget,
         intermediateStops,
@@ -347,52 +366,28 @@ export default function CreateWizardScreen() {
                                 />
                             </View>
 
-                            {/* Fechas */}
+                            {/* Fechas — Calendario de rango */}
                             <View>
-                                <SubtitleSemibold className="mb-3">Fechas *</SubtitleSemibold>
-                                <View className="flex-row gap-3">
-                                    {Platform.OS === 'web' ? (
-                                        <>
-                                            <DateTimePickerWeb
-                                                value={basics.startDate}
-                                                mode="date"
-                                                onChange={(date) => {
-                                                    basics.setStartDate(date);
-                                                    if (basics.endDate && date && basics.endDate < date) basics.setEndDate(null);
-                                                }}
-                                                minimumDate={new Date()}
-                                                label="Salida *"
-                                                containerClassName="flex-1"
-                                            />
-                                            <DateTimePickerWeb
-                                                value={basics.endDate}
-                                                mode="date"
-                                                onChange={(date) => basics.setEndDate(date)}
-                                                minimumDate={basics.startDate || new Date()}
-                                                label="Llegada *"
-                                                containerClassName="flex-1"
-                                            />
-                                        </>
-                                    ) : (
-                                        <>
-                                            <CustomInput
-                                                label="Salida *"
-                                                placeholder="DD/MM/AA"
-                                                value={basics.startDate ? basics.formatDate(basics.startDate) : ''}
-                                                onPress={() => basics.setShowStartPicker(true)}
-                                                containerClassName="flex-1"
-                                                editable={false}
-                                            />
-                                            <CustomInput
-                                                label="Llegada *"
-                                                placeholder="DD/MM/AA"
-                                                value={basics.endDate ? basics.formatDate(basics.endDate) : ''}
-                                                onPress={() => basics.setShowEndPicker(true)}
-                                                containerClassName="flex-1"
-                                                editable={false}
-                                            />
-                                        </>
-                                    )}
+                                <SubtitleSemibold className="mb-1">Fechas *</SubtitleSemibold>
+                                <MicrotextDark className="text-neutral-gray mb-2">
+                                    {!basics.startDate
+                                        ? 'Toca el día de salida'
+                                        : !basics.endDate
+                                            ? 'Ahora toca el día de llegada'
+                                            : `${basics.formatDate(basics.startDate)} → ${basics.formatDate(basics.endDate)}`
+                                    }
+                                </MicrotextDark>
+                                <View className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+                                    <CustomCalendar
+                                        startDate={basics.startDate}
+                                        endDate={basics.endDate}
+                                        onRangeSelect={(start, end) => {
+                                            basics.setStartDate(start);
+                                            basics.setEndDate(end);
+                                        }}
+                                        minDate={new Date()}
+                                        existingTrips={existingTripRanges}
+                                    />
                                 </View>
                             </View>
 
@@ -515,6 +510,27 @@ export default function CreateWizardScreen() {
                     {/* --- PASO 3: Vehículo --- */}
                     {step === 3 && (
                         <View className="gap-4">
+                            {/* Alerta ecológica: demasiados vehículos para los viajeros */}
+                            {(() => {
+                                const totalTravelers = travelers.travelerCounts.adults + travelers.travelerCounts.children + travelers.travelerCounts.infants + travelers.travelerCounts.elders;
+                                const estimatedSeats = selectedVehicles.length * 5;
+                                if (selectedVehicles.length > 1 && estimatedSeats > totalTravelers * 2) {
+                                    return (
+                                        <View className="bg-green-50 border border-green-200 rounded-2xl p-4 flex-row items-start gap-3">
+                                            <Ionicons name="leaf-outline" size={20} color="#16A34A" style={{ marginTop: 2 }} />
+                                            <View className="flex-1">
+                                                <TextRegular className="text-green-800 font-semibold text-sm">
+                                                    Sois {totalTravelers} viajeros con {selectedVehicles.length} vehículos
+                                                </TextRegular>
+                                                <MicrotextDark className="text-green-700 mt-0.5">
+                                                    Podríais ir en menos coches y reducir costes y emisiones.
+                                                </MicrotextDark>
+                                            </View>
+                                        </View>
+                                    );
+                                }
+                                return null;
+                            })()}
                             <VehiclesSection
                                 vehicles={vehicles}
                                 loading={vehiclesLoading}
@@ -526,6 +542,70 @@ export default function CreateWizardScreen() {
                                 selectedVehicles={selectedVehicles}
                                 isCreatingTrip={true}
                             />
+
+                            {/* Refuel toggle — only for AI trips */}
+                            {isAiTrip && (
+                                <View className="flex-row items-center justify-between px-4 py-3 bg-white border border-neutral-gray/20 rounded-2xl">
+                                    <View className="flex-1 mr-4">
+                                        <View className="flex-row items-center gap-2 mb-0.5">
+                                            <SubtitleSemibold>Planificador de repostaje</SubtitleSemibold>
+                                            {isPremium ? (
+                                                <View className="bg-primary-yellow/20 px-2 py-0.5 rounded-full">
+                                                    <MicrotextDark className="text-xs font-bold">GRATIS</MicrotextDark>
+                                                </View>
+                                            ) : refuelTokenCost > 0 ? (
+                                                <View className="bg-primary-yellow/20 px-2 py-0.5 rounded-full">
+                                                    <MicrotextDark className="text-xs font-bold">+{refuelTokenCost}</MicrotextDark>
+                                                </View>
+                                            ) : null}
+                                        </View>
+                                        <MicrotextDark className="text-neutral-gray">
+                                            La IA añadirá paradas de repostaje optimizadas en tu ruta
+                                        </MicrotextDark>
+                                    </View>
+                                    <Switch
+                                        value={enableAutoRefuel}
+                                        onValueChange={setEnableAutoRefuel}
+                                        trackColor={{ false: '#E0E0E0', true: '#FFD54D' }}
+                                        thumbColor={enableAutoRefuel ? '#202020' : '#FFFFFF'}
+                                    />
+                                </View>
+                            )}
+
+                            {/* Missing vehicle data warning for refuel */}
+                            {isAiTrip && enableAutoRefuel && selectedVehicles.length > 0 && (() => {
+                                const incomplete = selectedVehicles.filter(
+                                    (v) => !v.type_fuel || !v.avg_consumption || !v.fuel_tank_capacity
+                                );
+                                if (incomplete.length === 0) return null;
+                                return (
+                                    <View className="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex-row items-start gap-3">
+                                        <Ionicons name="warning-outline" size={20} color="#D97706" style={{ marginTop: 2 }} />
+                                        <View className="flex-1">
+                                            <TextRegular className="text-amber-800 font-semibold text-sm">
+                                                Datos de vehículo incompletos
+                                            </TextRegular>
+                                            <MicrotextDark className="text-amber-700 mt-0.5">
+                                                {incomplete.map((v) => v.brand ? `${v.brand} ${v.model || ''}`.trim() : 'Vehículo').join(', ')}
+                                                {' '}no tiene{incomplete.length === 1 ? '' : 'n'} tipo de combustible, consumo o capacidad del depósito. El planificador de repostaje podría no funcionar correctamente.
+                                            </MicrotextDark>
+                                        </View>
+                                    </View>
+                                );
+                            })()}
+
+                            {/* Missing vehicle warning when refuel enabled but no vehicle selected */}
+                            {isAiTrip && enableAutoRefuel && selectedVehicles.length === 0 && (
+                                <View className="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex-row items-start gap-3">
+                                    <Ionicons name="car-outline" size={20} color="#D97706" style={{ marginTop: 2 }} />
+                                    <View className="flex-1">
+                                        <MicrotextDark className="text-amber-700">
+                                            Selecciona al menos un vehículo para que el planificador de repostaje funcione.
+                                        </MicrotextDark>
+                                    </View>
+                                </View>
+                            )}
+
                             {travelers.invitedUsers.length > 0 && (
                                 <View>
                                     <SubtitleSemibold className="mb-3">Vehículos de viajeros invitados</SubtitleSemibold>
@@ -604,9 +684,9 @@ export default function CreateWizardScreen() {
                                 <SubtitleSemibold className="mb-4">Tu perfil de gasto</SubtitleSemibold>
                                 <View className="flex-row gap-3">
                                     {[
-                                        { key: 'saver' as const, label: 'Ahorrador', description: 'Cada céntimo cuenta', icon: SaverIcon },
-                                        { key: 'balanced' as const, label: 'Equilibrado', description: 'Ni muy muy, ni tan tan', icon: BalancedBudgetIcon },
-                                        { key: 'luxury' as const, label: 'Derrochador', description: 'El dinero no es problema', icon: LuxuryIcon },
+                                        { key: 'saver' as const, label: 'Ahorrador', description: 'Hostels, transporte público, comida local', icon: SaverIcon },
+                                        { key: 'balanced' as const, label: 'Equilibrado', description: 'Hoteles 3★, restaurantes variados', icon: BalancedBudgetIcon },
+                                        { key: 'luxury' as const, label: 'Derrochador', description: 'Hoteles premium, restaurantes top', icon: LuxuryIcon },
                                     ].map(({ key, label, description, icon: Icon }) => (
                                         <View key={key} className="flex-1">
                                             <TouchableOpacity
@@ -668,6 +748,7 @@ export default function CreateWizardScreen() {
                                             keyboardType="numeric"
                                             placeholder="50"
                                             inputClassName="text-center text-base font-semibold"
+                                            rightElement={<TextRegular className="text-neutral-gray pr-3">€</TextRegular>}
                                         />
                                         <MicrotextDark className="text-neutral-gray mt-1">Mínimo</MicrotextDark>
                                     </View>
@@ -679,6 +760,7 @@ export default function CreateWizardScreen() {
                                             keyboardType="numeric"
                                             placeholder="1000"
                                             inputClassName="text-center text-base font-semibold"
+                                            rightElement={<TextRegular className="text-neutral-gray pr-3">€</TextRegular>}
                                         />
                                         <MicrotextDark className="text-neutral-gray mt-1">Máximo</MicrotextDark>
                                     </View>
@@ -724,28 +806,7 @@ export default function CreateWizardScreen() {
                 </View>
             </View>
 
-            {/* DatePickers (native) */}
-            {basics.showStartPicker && (
-                <DateTimePicker
-                    value={basics.startDate || new Date()}
-                    mode="date"
-                    display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                    minimumDate={new Date()}
-                    onChange={(_, date) => {
-                        basics.setShowStartPicker(false);
-                        if (date) { basics.setStartDate(date); if (basics.endDate && basics.endDate < date) basics.setEndDate(null); }
-                    }}
-                />
-            )}
-            {basics.showEndPicker && (
-                <DateTimePicker
-                    value={basics.endDate || basics.startDate || new Date()}
-                    mode="date"
-                    display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                    minimumDate={basics.startDate || new Date()}
-                    onChange={(_, date) => { basics.setShowEndPicker(false); if (date) basics.setEndDate(date); }}
-                />
-            )}
+            {/* TimePickers (native) */}
             {basics.showStartTimePicker && (
                 <DateTimePicker
                     value={basics.startTime || new Date()}

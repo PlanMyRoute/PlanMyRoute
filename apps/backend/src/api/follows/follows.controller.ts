@@ -1,105 +1,252 @@
 // src/api/follows/follows.controller.ts
-import { Request, Response } from 'express';
-import * as FollowService from './follows.service.js';
+import { Request, Response } from "express";
+import * as FollowService from "./follows.service.js";
 
 /**
  * Follow a user
  * POST /api/follows/:userId/follow/:followingId
  */
-export const followUser = async (req: Request, res: Response): Promise<void> => {
-    const { userId, followingId } = req.params;
+export const followUser = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {
+  const { userId, followingId } = req.params as Record<string, string>;
 
-    try {
-        const follow = await FollowService.followUser(userId, followingId);
-        res.status(201).json(follow);
-    } catch (error) {
-        const err = error as Error;
-        if (err.message.includes('Ya sigues')) {
-            res.status(409).json({ error: err.message }); return;
-        }
-        if (err.message.includes('No puedes seguirte')) {
-            res.status(400).json({ error: err.message }); return;
-        }
-        res.status(500).json({ error: err.message });
+  try {
+    const follow = await FollowService.followUser(userId, followingId);
+    res.status(201).json(follow);
+  } catch (error) {
+    const err = error as Error;
+    if (err.message.includes("No se encontró")) {
+      res.status(404).json({ error: err.message });
+      return;
     }
+    if (
+      err.message.includes("no tiene permiso") ||
+      err.message.includes("Solo el propietario")
+    ) {
+      res.status(403).json({ error: err.message });
+      return;
+    }
+    if (
+      err.message.includes("Ya sigues") ||
+      err.message.includes("ya sigues")
+    ) {
+      res.status(409).json({ error: err.message });
+      return;
+    }
+    if (err.message.includes("No puedes seguirte")) {
+      res.status(400).json({ error: err.message });
+      return;
+    }
+    res.status(500).json({ error: err.message });
+  }
 };
 
 /**
  * Unfollow a user
  * DELETE /api/follows/:userId/unfollow/:followingId
  */
-export const unfollowUser = async (req: Request, res: Response): Promise<void> => {
-    const { userId, followingId } = req.params;
+export const unfollowUser = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {
+  const { userId, followingId } = req.params as Record<string, string>;
 
-    try {
-        await FollowService.unfollowUser(userId, followingId);
-        res.status(200).json({ message: 'Usuario dejado de seguir correctamente' });
-    } catch (error) {
-        const err = error as Error;
-        res.status(500).json({ error: err.message });
+  try {
+    await FollowService.unfollowUser(userId, followingId);
+    res.status(200).json({ message: "Usuario dejado de seguir correctamente" });
+  } catch (error) {
+    const err = error as Error;
+    if (err.message.includes("No se encontró")) {
+      res.status(404).json({ error: err.message });
+      return;
     }
+    if (
+      err.message.includes("no tiene permiso") ||
+      err.message.includes("Solo el propietario")
+    ) {
+      res.status(403).json({ error: err.message });
+      return;
+    }
+    if (
+      err.message.includes("Ya sigues") ||
+      err.message.includes("ya sigues")
+    ) {
+      res.status(409).json({ error: err.message });
+      return;
+    }
+    if (err.message.includes("No puedes seguirte")) {
+      res.status(400).json({ error: err.message });
+      return;
+    }
+    res.status(500).json({ error: err.message });
+  }
 };
 
 /**
  * Check if user follows another user
  * GET /api/follows/:userId/is-following/:followingId
  */
-export const checkIfFollowing = async (req: Request, res: Response): Promise<void> => {
-    const { userId, followingId } = req.params;
+export const checkIfFollowing = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {
+  const { userId, followingId } = req.params as Record<string, string>;
 
-    try {
-        const isFollowing = await FollowService.checkIfFollowing(userId, followingId);
-        res.json({ isFollowing });
-    } catch (error) {
-        const err = error as Error;
-        res.status(500).json({ error: err.message });
+  try {
+    const isFollowing = await FollowService.checkIfFollowing(
+      userId,
+      followingId,
+    );
+    res.json({ isFollowing });
+  } catch (error) {
+    const err = error as Error;
+    if (err.message.includes("No se encontró")) {
+      res.status(404).json({ error: err.message });
+      return;
     }
+    if (
+      err.message.includes("no tiene permiso") ||
+      err.message.includes("Solo el propietario")
+    ) {
+      res.status(403).json({ error: err.message });
+      return;
+    }
+    if (
+      err.message.includes("Ya sigues") ||
+      err.message.includes("ya sigues")
+    ) {
+      res.status(409).json({ error: err.message });
+      return;
+    }
+    if (err.message.includes("No puedes seguirte")) {
+      res.status(400).json({ error: err.message });
+      return;
+    }
+    res.status(500).json({ error: err.message });
+  }
 };
 
 /**
  * Get followers of a user
  * GET /api/follows/:userId/followers
  */
-export const getFollowers = async (req: Request, res: Response): Promise<void> => {
-    const { userId } = req.params;
+export const getFollowers = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {
+  const { userId } = req.params as Record<string, string>;
 
-    try {
-        const followers = await FollowService.getFollowers(userId);
-        res.json(followers);
-    } catch (error) {
-        const err = error as Error;
-        res.status(500).json({ error: err.message });
+  try {
+    const followers = await FollowService.getFollowers(userId);
+    res.json(followers);
+  } catch (error) {
+    const err = error as Error;
+    if (err.message.includes("No se encontró")) {
+      res.status(404).json({ error: err.message });
+      return;
     }
+    if (
+      err.message.includes("no tiene permiso") ||
+      err.message.includes("Solo el propietario")
+    ) {
+      res.status(403).json({ error: err.message });
+      return;
+    }
+    if (
+      err.message.includes("Ya sigues") ||
+      err.message.includes("ya sigues")
+    ) {
+      res.status(409).json({ error: err.message });
+      return;
+    }
+    if (err.message.includes("No puedes seguirte")) {
+      res.status(400).json({ error: err.message });
+      return;
+    }
+    res.status(500).json({ error: err.message });
+  }
 };
 
 /**
  * Get users that a user is following
  * GET /api/follows/:userId/following
  */
-export const getFollowing = async (req: Request, res: Response): Promise<void> => {
-    const { userId } = req.params;
+export const getFollowing = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {
+  const { userId } = req.params as Record<string, string>;
 
-    try {
-        const following = await FollowService.getFollowing(userId);
-        res.json(following);
-    } catch (error) {
-        const err = error as Error;
-        res.status(500).json({ error: err.message });
+  try {
+    const following = await FollowService.getFollowing(userId);
+    res.json(following);
+  } catch (error) {
+    const err = error as Error;
+    if (err.message.includes("No se encontró")) {
+      res.status(404).json({ error: err.message });
+      return;
     }
+    if (
+      err.message.includes("no tiene permiso") ||
+      err.message.includes("Solo el propietario")
+    ) {
+      res.status(403).json({ error: err.message });
+      return;
+    }
+    if (
+      err.message.includes("Ya sigues") ||
+      err.message.includes("ya sigues")
+    ) {
+      res.status(409).json({ error: err.message });
+      return;
+    }
+    if (err.message.includes("No puedes seguirte")) {
+      res.status(400).json({ error: err.message });
+      return;
+    }
+    res.status(500).json({ error: err.message });
+  }
 };
 
 /**
  * Get follow statistics for a user
  * GET /api/follows/:userId/stats
  */
-export const getFollowStats = async (req: Request, res: Response): Promise<void> => {
-    const { userId } = req.params;
+export const getFollowStats = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {
+  const { userId } = req.params as Record<string, string>;
 
-    try {
-        const stats = await FollowService.getFollowStats(userId);
-        res.json(stats);
-    } catch (error) {
-        const err = error as Error;
-        res.status(500).json({ error: err.message });
+  try {
+    const stats = await FollowService.getFollowStats(userId);
+    res.json(stats);
+  } catch (error) {
+    const err = error as Error;
+    if (err.message.includes("No se encontró")) {
+      res.status(404).json({ error: err.message });
+      return;
     }
+    if (
+      err.message.includes("no tiene permiso") ||
+      err.message.includes("Solo el propietario")
+    ) {
+      res.status(403).json({ error: err.message });
+      return;
+    }
+    if (
+      err.message.includes("Ya sigues") ||
+      err.message.includes("ya sigues")
+    ) {
+      res.status(409).json({ error: err.message });
+      return;
+    }
+    if (err.message.includes("No puedes seguirte")) {
+      res.status(400).json({ error: err.message });
+      return;
+    }
+    res.status(500).json({ error: err.message });
+  }
 };

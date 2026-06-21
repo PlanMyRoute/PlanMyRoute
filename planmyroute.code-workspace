@@ -15,7 +15,7 @@
     {
       "name": "shared",
       "path": "packages/types"
-    }
+    },
   ],
   "settings": {
     "terminal.integrated.defaultProfile.windows": "PowerShell",

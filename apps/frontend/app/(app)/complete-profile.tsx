@@ -1,3 +1,4 @@
+import { LoadingView } from '@/components/customElements/LoadingView';
 import { ROUTES } from '@/constants/routes';
 import { useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
@@ -48,19 +49,13 @@ export default function CompleteProfileScreen() {
   // Cargar perfil una sola vez al montar
   useEffect(() => {
     const loadProfile = async () => {
-      console.log('🔄 [CompleteProfile] Iniciando carga de perfil...');
-      console.log('User ID:', user?.id);
-      console.log('User metadata:', user?.user_metadata);
-
       if (!user?.id) {
-        console.log('⚠️ No hay usuario autenticado');
         setIsLoading(false);
         return;
       }
 
       // Timeout de seguridad de 5 segundos
       const timeoutId = setTimeout(() => {
-        console.log('⏱️ Timeout de carga alcanzado, usando datos de auth');
         if (user?.user_metadata) {
           setName(user.user_metadata.name || user.user_metadata.full_name || '');
           setLastname(user.user_metadata.surname || '');
@@ -71,12 +66,10 @@ export default function CompleteProfileScreen() {
       }, 5000);
 
       try {
-        console.log('🔍 Verificando si usuario existe en BD...');
         const profile = await UserService.getUserProfile(user.id, { token: token || undefined });
         clearTimeout(timeoutId);
 
         if (profile?.user) {
-          console.log('✅ Perfil encontrado, pre-llenando datos');
           setName(profile.user.name || '');
           setLastname(profile.user.lastname || '');
           setUsername(profile.user.username || '');
@@ -84,7 +77,6 @@ export default function CompleteProfileScreen() {
         }
       } catch (error) {
         clearTimeout(timeoutId);
-        console.log('⚠️ No hay perfil en BD, usando datos de auth', error);
         // Usuario no existe, usar datos de Google Auth
         if (user?.user_metadata) {
           const fullName = user.user_metadata.full_name || '';
@@ -96,7 +88,6 @@ export default function CompleteProfileScreen() {
         setUserExists(false);
       } finally {
         setIsLoading(false);
-        console.log('✅ [CompleteProfile] Carga finalizada');
       }
     };
 
@@ -104,8 +95,6 @@ export default function CompleteProfileScreen() {
   }, [user?.id]);
 
   const handleSaveProfile = async () => {
-    console.log('=== handleSaveProfile ===');
-
     // Validaciones
     if (!username.trim()) {
       showAlert('Campo requerido', 'El nombre de usuario es obligatorio.');
@@ -128,7 +117,6 @@ export default function CompleteProfileScreen() {
     }
 
     if (!user) {
-      console.log('No hay usuario, abortando');
       return;
     }
 
@@ -140,8 +128,6 @@ export default function CompleteProfileScreen() {
         username: username.trim(),
       };
 
-      console.log('Guardando perfil con:', profileData);
-
       let result;
 
       // Verificar nuevamente si el usuario existe (pudo ser creado por el trigger)
@@ -150,15 +136,12 @@ export default function CompleteProfileScreen() {
         const checkProfile = await UserService.getUserProfile(user.id, {});
         if (checkProfile?.user) {
           finalUserExists = true;
-          console.log('✅ Usuario ya existe (creado por trigger), actualizando...');
         }
       } catch (e) {
         finalUserExists = false;
-        console.log('⚠️ Usuario no existe, creando...');
       }
 
       if (!finalUserExists) {
-        console.log('📝 Creando usuario...');
         result = await UserService.createUser({
           id: user.id,
           email: user.email!,
@@ -167,11 +150,8 @@ export default function CompleteProfileScreen() {
           timezone: 'UTC',
           auto_trip_status_update: false,
         }, token || undefined);
-        console.log('✅ Usuario creado:', result);
       } else {
-        console.log('🔄 Actualizando usuario existente...');
         result = await UserService.updateUser(user.id, profileData, token || undefined);
-        console.log('✅ Usuario actualizado:', result);
       }
 
       await queryClient.invalidateQueries({ queryKey: ['user', user.id] });
@@ -194,12 +174,7 @@ export default function CompleteProfileScreen() {
   };
 
   if (isLoading) {
-    return (
-      <View className="flex-1 justify-center items-center bg-primary">
-        <ActivityIndicator size="large" color="#232323" />
-        <Text className="mt-4 text-base text-[#1D1D1B]">Cargando perfil...</Text>
-      </View>
-    );
+    return <LoadingView color="#202020" message="Cargando perfil..." />;
   }
 
   return (
@@ -220,8 +195,8 @@ export default function CompleteProfileScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View className="items-center mb-6">
-          <Image source={carLogoImage} style={{ width: 120, height: 70 }} resizeMode="contain" />
-          <Text className="text-3xl font-bold text-[#1D1D1B] mt-4">¡Último paso!</Text>
+          <Image accessible={false} source={carLogoImage} style={{ width: 120, height: 70 }} resizeMode="contain" />
+          <Text className="text-3xl font-bold text-[#202020] mt-4">¡Último paso!</Text>
           <Text className="text-base text-[#666] text-center mt-2 px-4">
             Completa tu perfil para empezar a planificar tus viajes
           </Text>
@@ -229,7 +204,7 @@ export default function CompleteProfileScreen() {
 
         <View className="w-full">
           {/* Username */}
-          <Text className="text-base font-semibold text-[#1D1D1B] mb-2 ml-2">
+          <Text className="text-base font-semibold text-[#202020] mb-2 ml-2">
             Username <Text className="text-red-500">*</Text>
           </Text>
           <TextInput
@@ -242,7 +217,7 @@ export default function CompleteProfileScreen() {
           />
 
           {/* Nombre */}
-          <Text className="text-base font-semibold text-[#1D1D1B] mb-2 ml-2">
+          <Text className="text-base font-semibold text-[#202020] mb-2 ml-2">
             Nombre <Text className="text-red-500">*</Text>
           </Text>
           <TextInput
@@ -254,7 +229,7 @@ export default function CompleteProfileScreen() {
           />
 
           {/* Apellido */}
-          <Text className="text-base font-semibold text-[#1D1D1B] mb-2 ml-2">Apellido</Text>
+          <Text className="text-base font-semibold text-[#202020] mb-2 ml-2">Apellido</Text>
           <TextInput
             className="bg-white rounded-full h-14 px-6 text-base mb-6 shadow-sm text-black"
             placeholder="Pérez"
@@ -264,7 +239,7 @@ export default function CompleteProfileScreen() {
           />
 
           <TouchableOpacity
-            className="bg-[#232323] rounded-full h-14 justify-center items-center shadow-md"
+            className="bg-[#202020] rounded-full h-14 justify-center items-center shadow-md"
             onPress={handleSaveProfile}
             activeOpacity={0.8}
             disabled={isSaving}

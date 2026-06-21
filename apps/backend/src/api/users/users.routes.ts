@@ -32,7 +32,7 @@ router.get(`${BASE_PATH}/:id/usage`, verifyToken, requireSameUser, UserControlle
 
 // Rutas genéricas con :id (requieren autenticación y que sea el mismo usuario)
 router.get(`${BASE_PATH}/:id`, verifyToken, requireSameUser, UserController.getUserById);
-router.post(`${BASE_PATH}`, optionalAuth, UserController.createUser); // Permitir crear con token opcional
+router.post(`${BASE_PATH}`, verifyToken, UserController.createUser); // Requiere token: solo puedes crear tu propio perfil
 router.patch(`${BASE_PATH}/:id`, verifyToken, requireSameUser, UserController.updateUser);
 router.delete(`${BASE_PATH}/:id`, verifyToken, requireSameUser, UserController.deleteUser);
 

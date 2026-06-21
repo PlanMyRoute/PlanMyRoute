@@ -45,3 +45,6 @@ schema.sql
 
 #TFG
 tfg/
+
+#OpenCode
+AGENTS.md

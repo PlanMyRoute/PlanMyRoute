@@ -1,12 +1,14 @@
 import { MicrotextDark, SubtitleSemibold, TextRegular } from '@/components/customElements/CustomText';
+import { EmptyState } from '@/components/customElements/EmptyState';
+import { LoadingView } from '@/components/customElements/LoadingView';
 import { VehicleCard } from '@/components/profile/VehicleCard';
 import { useAuth } from '@/context/AuthContext';
 import { useTripContext } from '@/context/TripContext';
 import { useTripPermissions } from '@/hooks/useTripPermissions';
 import { useTripVehicles } from '@/hooks/useTripVehicles';
-import { Vehicle } from '@/services/VehicleService';
+import { Vehicle } from '@/services/vehicleService';
 import { Ionicons } from '@expo/vector-icons';
-import { ActivityIndicator, ScrollView, View } from 'react-native';
+import { ScrollView, View } from 'react-native';
 
 export default function VehiclesScreen() {
     const { tripId } = useTripContext();
@@ -18,43 +20,35 @@ export default function VehiclesScreen() {
 
     if (!tripId) {
         return (
-            <View className="flex-1 p-4 justify-center items-center bg-white">
-                <Ionicons name="alert-circle-outline" size={64} color="#999999" />
-                <TextRegular className="text-neutral-gray mt-4 text-center">
-                    No se ha seleccionado ningún viaje
-                </TextRegular>
-            </View>
+            <EmptyState
+                icon="alert-circle-outline"
+                title="No se ha seleccionado ningún viaje"
+            />
         );
     }
 
     if (loading) {
-        return (
-            <View className="flex-1 justify-center items-center bg-white">
-                <ActivityIndicator size="large" color="#FFD54D" />
-                <TextRegular className="text-neutral-gray mt-4">Cargando vehículos…</TextRegular>
-            </View>
-        );
+        return <LoadingView message="Cargando vehículos…" />;
     }
 
     if (error) {
         return (
-            <View className="flex-1 p-4 justify-center items-center bg-white">
-                <Ionicons name="alert-circle-outline" size={64} color="#EF4444" />
-                <TextRegular className="text-red-500 mt-4">Error al cargar los vehículos</TextRegular>
-                <MicrotextDark className="text-neutral-gray mt-2 text-center">{error}</MicrotextDark>
-            </View>
+            <EmptyState
+                icon="alert-circle-outline"
+                title="Error al cargar los vehículos"
+                message={error}
+                iconColor="#EF4444"
+            />
         );
     }
 
     if (!vehicles || vehicles.length === 0) {
         return (
-            <View className="flex-1 p-4 justify-center items-center bg-white">
-                <Ionicons name="car-outline" size={64} color="#999999" />
-                <TextRegular className="text-neutral-gray mt-4">No hay vehículos en este viaje</TextRegular>
-                <MicrotextDark className="text-neutral-gray mt-2 text-center px-8">
-                    Los vehículos se agregan al crear el viaje
-                </MicrotextDark>
-            </View>
+            <EmptyState
+                icon="car-outline"
+                title="No hay vehículos en este viaje"
+                message="Los vehículos se agregan al crear el viaje"
+            />
         );
     }
 

@@ -1,16 +1,16 @@
-import Ionicons from '@expo/vector-icons/Ionicons';
-import { Modal, View } from 'react-native';
-import CustomButton from './CustomButton';
-import { SubtitleSemibold, TextRegular } from './CustomText';
+import Ionicons from "@expo/vector-icons/Ionicons";
+import { Modal, View } from "react-native";
+import CustomButton from "./CustomButton";
+import { SubtitleSemibold, TextRegular } from "./CustomText";
 
 // Tipos de alerta según severidad
-export type AlertType = 'error' | 'warning' | 'success' | 'info' | 'question';
+export type AlertType = "error" | "warning" | "success" | "info" | "question";
 
 // Acción de botón
 export interface AlertAction {
   text: string;
   onPress: () => void;
-  variant?: 'primary' | 'outline' | 'dark' | 'danger' | 'yellow';
+  variant?: "primary" | "outline" | "dark" | "danger" | "yellow";
 }
 
 // Props del componente
@@ -29,13 +29,12 @@ export default function CustomAlert({
   visible,
   title,
   message,
-  type = 'error',
+  type = "error",
   actions,
   onClose,
   onDismiss,
-  blocking = false
+  blocking = false,
 }: CustomAlertProps) {
-
   const handleClose = () => {
     if (onClose) onClose();
     if (onDismiss) onDismiss();
@@ -50,24 +49,24 @@ export default function CustomAlert({
   // Configuración de iconos y colores según el tipo
   const alertConfig = {
     error: {
-      iconName: 'close-circle' as keyof typeof Ionicons.glyphMap,
-      iconColor: '#EF4444',
+      iconName: "close-circle" as keyof typeof Ionicons.glyphMap,
+      iconColor: "#EF4444",
     },
     warning: {
-      iconName: 'warning' as keyof typeof Ionicons.glyphMap,
-      iconColor: '#FFD54D',
+      iconName: "warning" as keyof typeof Ionicons.glyphMap,
+      iconColor: "#FFD54D",
     },
     success: {
-      iconName: 'checkmark-circle' as keyof typeof Ionicons.glyphMap,
-      iconColor: '#202020',
+      iconName: "checkmark-circle" as keyof typeof Ionicons.glyphMap,
+      iconColor: "#202020",
     },
     info: {
-      iconName: 'information-circle' as keyof typeof Ionicons.glyphMap,
-      iconColor: '#FFD54D',
+      iconName: "information-circle" as keyof typeof Ionicons.glyphMap,
+      iconColor: "#FFD54D",
     },
     question: {
-      iconName: 'help-circle' as keyof typeof Ionicons.glyphMap,
-      iconColor: '#FFD54D',
+      iconName: "help-circle" as keyof typeof Ionicons.glyphMap,
+      iconColor: "#FFD54D",
     },
   };
 
@@ -76,10 +75,10 @@ export default function CustomAlert({
   // Acciones por defecto si no se proporcionan
   const defaultActions: AlertAction[] = [
     {
-      text: 'Cerrar',
+      text: "Cerrar",
       onPress: handleClose,
-      variant: 'dark'
-    }
+      variant: "dark",
+    },
   ];
 
   const finalActions = actions && actions.length > 0 ? actions : defaultActions;
@@ -93,6 +92,7 @@ export default function CustomAlert({
     >
       {/* Backdrop - clickeable para cerrar si no es blocking */}
       <View
+        accessibilityViewIsModal
         className="flex-1 justify-center items-center bg-black/50 px-6"
         onStartShouldSetResponder={() => true}
         onResponderRelease={handleBackdropPress}
@@ -134,19 +134,20 @@ export default function CustomAlert({
           </TextRegular>
 
           {/* Botones de acción - en fila si hay 2 o menos */}
-          <View className={`w-full ${finalActions.length <= 2 ? 'flex-row gap-3' : 'gap-3'}`}>
+          <View
+            className={`w-full ${finalActions.length <= 2 ? "flex-row gap-3" : "gap-3"}`}
+          >
             {finalActions.map((action, index) => (
               <CustomButton
                 key={index}
                 title={action.text}
-                variant={action.variant || 'dark'}
+                variant={action.variant || "dark"}
                 size="medium"
                 onPress={action.onPress}
-                className={finalActions.length <= 2 ? 'flex-1' : ''}
+                className={finalActions.length <= 2 ? "flex-1" : ""}
               />
             ))}
           </View>
-
         </View>
       </View>
     </Modal>

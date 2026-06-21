@@ -2,57 +2,96 @@ import { MicrotextDark } from '@/components/customElements/CustomText';
 import { Interest } from '@planmyroute/types';
 import { TouchableOpacity, View } from 'react-native';
 
-export const INTEREST_CATEGORIES: Interest[] = [
+export type ExtendedInterest = Interest | 'shopping' | 'sports' | 'photography' | 'romantic' | 'religious' | 'history';
+
+export const INTEREST_CATEGORIES: ExtendedInterest[] = [
     'nature',
     'cultural',
+    'history',
     'leisure',
     'gastronomic',
     'nightlife',
     'welfare',
     'adventure',
+    'sports',
     'beach',
     'family',
+    'shopping',
+    'photography',
+    'romantic',
+    'religious',
 ];
 
-export const INTEREST_LABELS: Record<Interest, string> = {
+export const INTEREST_LABELS: Record<ExtendedInterest, string> = {
     nature: 'Naturaleza',
     cultural: 'Cultura',
+    history: 'Historia',
     leisure: 'Ocio',
     gastronomic: 'Gastronomía',
     nightlife: 'Vida nocturna',
     welfare: 'Bienestar',
     adventure: 'Aventura',
+    sports: 'Deportes',
     beach: 'Playa',
     family: 'Familia',
+    shopping: 'Compras',
+    photography: 'Fotografía',
+    romantic: 'Romántico',
+    religious: 'Religioso',
 };
 
+export const DB_INTERESTS: ReadonlySet<string> = new Set<Interest>([
+    'nature', 'cultural', 'leisure', 'gastronomic', 'nightlife',
+    'welfare', 'adventure', 'beach', 'family',
+]);
+
+export function splitInterests(selected: ExtendedInterest[]): {
+    dbInterests: Interest[];
+    promptKeywords: string[];
+} {
+    const dbInterests: Interest[] = [];
+    const promptKeywords: string[] = [];
+    for (const i of selected) {
+        if (DB_INTERESTS.has(i)) {
+            dbInterests.push(i as Interest);
+        } else {
+            promptKeywords.push(INTEREST_LABELS[i]);
+        }
+    }
+    return { dbInterests, promptKeywords };
+}
+
 interface InterestSelectorProps {
-    selectedInterests: Interest[];
-    onInterestsChange: (interests: Interest[]) => void;
-    multiple?: boolean; // Si es true, permite seleccionar múltiples; si es false, solo uno
+    selectedInterests: ExtendedInterest[];
+    onInterestsChange: (interests: ExtendedInterest[]) => void;
+    multiple?: boolean;
+    extended?: boolean;
 }
 
 export const InterestSelector = ({
     selectedInterests,
     onInterestsChange,
     multiple = true,
+    extended = true,
 }: InterestSelectorProps) => {
-    const toggleInterest = (interest: Interest) => {
+    const categories = extended
+        ? INTEREST_CATEGORIES
+        : INTEREST_CATEGORIES.filter((i) => DB_INTERESTS.has(i));
+
+    const toggleInterest = (interest: ExtendedInterest) => {
         if (multiple) {
-            // Modo múltiple: agregar/quitar de la lista
             const newInterests = selectedInterests.includes(interest)
                 ? selectedInterests.filter((i) => i !== interest)
                 : [...selectedInterests, interest];
             onInterestsChange(newInterests);
         } else {
-            // Modo único: reemplazar la selección
             onInterestsChange([interest]);
         }
     };
 
     return (
         <View className="flex-row flex-wrap gap-2 justify-center">
-            {INTEREST_CATEGORIES.map((interest) => {
+            {categories.map((interest) => {
                 const isSelected = selectedInterests.includes(interest);
                 return (
                     <TouchableOpacity

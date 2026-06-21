@@ -1,6 +1,9 @@
 import { TmEvent } from '@/services/eventService';
 import { ROUTES } from '@/constants/routes';
 import { useEvents } from '@/hooks/useEvents';
+import { formatShortDate } from '@/utils/formatDate';
+import { EmptyState } from '@/components/customElements/EmptyState';
+import { LoadingView } from '@/components/customElements/LoadingView';
 import { MapComponent, MapRef } from '@/components/trip/MapComponent';
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
@@ -27,11 +30,6 @@ const COUNTRY_OPTIONS = [
     { code: 'FR', label: 'Francia' },
 ];
 
-function formatDate(date: string | null) {
-    if (!date) return '';
-    const d = new Date(date + 'T00:00:00');
-    return d.toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' });
-}
 
 function formatPrice(min: number | null, max: number | null, currency: string | null) {
     if (min == null) return 'Precio a consultar';
@@ -90,7 +88,7 @@ function EventCard({ event }: { event: TmEvent }) {
                     ) : event.date ? (
                         <View className="flex-row items-center gap-x-1">
                             <Ionicons name="calendar-outline" size={14} color="#555" />
-                            <Text className="text-gray-600 text-sm">{formatDate(event.date)}</Text>
+                            <Text className="text-gray-600 text-sm">{formatShortDate(event.date)}</Text>
                         </View>
                     ) : null}
                     {event.venue?.city && (
@@ -155,7 +153,7 @@ function EventMapPreview({ event, onClose, onNavigate }: {
                     {(event.dates?.length > 1 ? (
                         <Text className="text-xs text-gray-500 mt-1">{event.dates.length} fechas disponibles</Text>
                     ) : event.date ? (
-                        <Text className="text-xs text-gray-500 mt-1">{formatDate(event.date)}</Text>
+                        <Text className="text-xs text-gray-500 mt-1">{formatShortDate(event.date)}</Text>
                     ) : null)}
                     {event.venue?.city && (
                         <Text className="text-xs text-gray-500" numberOfLines={1}>
@@ -365,24 +363,21 @@ export default function EventsScreen() {
             {viewMode === 'list' ? (
                 <>
                     {isLoading ? (
-                        <View className="flex-1 items-center justify-center">
-                            <ActivityIndicator size="large" color="#FFD54D" />
-                            <Text className="text-gray-500 mt-3">Cargando eventos…</Text>
-                        </View>
+                        <LoadingView message="Cargando eventos…" />
                     ) : isError ? (
-                        <View className="flex-1 items-center justify-center px-8">
-                            <Ionicons name="alert-circle-outline" size={48} color="#ccc" />
-                            <Text className="text-gray-500 text-center mt-3">
-                                No se pudieron cargar los eventos. Comprueba tu conexión.
-                            </Text>
-                        </View>
+                        <EmptyState
+                            icon="alert-circle-outline"
+                            iconSize={48}
+                            iconColor="#ccc"
+                            title="No se pudieron cargar los eventos. Comprueba tu conexión."
+                        />
                     ) : allEvents.length === 0 ? (
-                        <View className="flex-1 items-center justify-center px-8">
-                            <Ionicons name="search-outline" size={48} color="#ccc" />
-                            <Text className="text-gray-500 text-center mt-3">
-                                No hay eventos que coincidan con tu búsqueda.
-                            </Text>
-                        </View>
+                        <EmptyState
+                            icon="search-outline"
+                            iconSize={48}
+                            iconColor="#ccc"
+                            title="No hay eventos que coincidan con tu búsqueda."
+                        />
                     ) : (
                         <FlatList
                             data={allEvents}

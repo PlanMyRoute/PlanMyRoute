@@ -1,4 +1,6 @@
 import { MicrotextDark, Title3Semibold } from '@/components/customElements/CustomText';
+import { EmptyState } from '@/components/customElements/EmptyState';
+import { LoadingView } from '@/components/customElements/LoadingView';
 import { INTEREST_LABELS } from '@/components/interests/InterestSelector';
 import Travelers from '@/components/travelers/Travelers';
 import { useAuth } from '@/context/AuthContext';
@@ -8,7 +10,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Interest } from '@planmyroute/types';
 import { useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo } from 'react';
-import { ActivityIndicator, ScrollView, Text, View } from 'react-native';
+import { ScrollView, View } from 'react-native';
 
 const INTEREST_ICONS: Record<Interest, string> = {
     nature: 'leaf',
@@ -19,6 +21,7 @@ const INTEREST_ICONS: Record<Interest, string> = {
     beach: 'sunny',
     leisure: 'sparkles',
     nightlife: 'moon',
+    welfare: 'heart',
 };
 
 export default function TravelersScreen() {
@@ -64,38 +67,39 @@ export default function TravelersScreen() {
 
     if (!tripId) {
         return (
-            <View className="flex-1 p-4 justify-center items-center bg-white">
-                <Ionicons name="alert-circle-outline" size={48} color="#CBD5E1" />
-                <Text className="text-base text-gray-500 mt-3">No se ha seleccionado ningún viaje</Text>
-            </View>
+            <EmptyState
+                icon="alert-circle-outline"
+                title="No se ha seleccionado ningún viaje"
+                iconSize={48}
+                iconColor="#CBD5E1"
+            />
         );
     }
 
     if (isLoading) {
-        return (
-            <View className="flex-1 justify-center items-center bg-white">
-                <ActivityIndicator size="large" color="#4F46E5" />
-                <Text className="text-base text-gray-500 mt-3">Cargando viajeros…</Text>
-            </View>
-        );
+        return <LoadingView message="Cargando viajeros…" />;
     }
 
     if (error) {
         return (
-            <View className="flex-1 p-4 justify-center items-center bg-white">
-                <Ionicons name="alert-circle-outline" size={48} color="#EF4444" />
-                <Text className="text-base text-red-500 mt-3">Error al cargar los viajeros</Text>
-                <Text className="text-sm text-gray-500 mt-2">{error}</Text>
-            </View>
+            <EmptyState
+                icon="alert-circle-outline"
+                title="Error al cargar los viajeros"
+                message={error}
+                iconSize={48}
+                iconColor="#EF4444"
+            />
         );
     }
 
     if (!travelers || travelers.length === 0) {
         return (
-            <View className="flex-1 p-4 justify-center items-center bg-white">
-                <Ionicons name="people-outline" size={48} color="#CBD5E1" />
-                <Text className="text-base text-gray-500 mt-3">No hay viajeros en este viaje</Text>
-            </View>
+            <EmptyState
+                icon="people-outline"
+                title="No hay viajeros en este viaje"
+                iconSize={48}
+                iconColor="#CBD5E1"
+            />
         );
     }
 

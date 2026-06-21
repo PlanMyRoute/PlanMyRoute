@@ -1,10 +1,15 @@
-import { Notification, Trip, User } from '@planmyroute/types';
-import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useMemo } from 'react';
-import { useAuth } from '../context/AuthContext';
-import { TripService } from '../services/tripService';
-import { UserService } from '../services/userService';
-import { useNotificationsByTrip } from './useNotifications';
+import { Notification, Trip, User } from "@planmyroute/types";
+import {
+  useMutation,
+  useQueries,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
+import { useMemo } from "react";
+import { useAuth } from "../context/AuthContext";
+import { TripService } from "../services/tripService";
+import { UserService } from "../services/userService";
+import { useNotificationsByTrip } from "./useNotifications";
 
 const TRIP_STALE_TIME = 30_000;
 
@@ -15,9 +20,20 @@ type UseTripsResult = {
   refetch: () => void;
 };
 
+/**
+ * Hook para obtener viajes del usuario.
+ * Si se pasa `tripId` obtiene un viaje individual, si no obtiene todos los viajes del usuario autenticado.
+ * @param tripId - ID del viaje a obtener. Si es `null` o `undefined`, obtiene todos los viajes.
+ * @param options - Opciones de configuración: token de autenticación, habilitación y intervalo de refetch.
+ * @returns Objeto con los datos del viaje, estado de carga, error y función de refetch.
+ */
 export function useTrips(
   tripId?: string | null,
-  options?: { token?: string; enabled?: boolean; refetchInterval?: number | false }
+  options?: {
+    token?: string;
+    enabled?: boolean;
+    refetchInterval?: number | false;
+  },
 ): UseTripsResult {
   const { user, token } = useAuth();
   const enabled = options?.enabled !== false;
@@ -27,15 +43,17 @@ export function useTrips(
 
   // Query para obtener los viajes del usuario autenticado
   const queryTrips = useQuery<Trip[], Error>({
-    queryKey: ['trips', user?.id],
+    queryKey: ["trips", user?.id],
     queryFn: () => {
-      if (!user?.id) throw new Error('Usuario no autenticado');
-      return TripService.getUserTrips(user.id, { token: finalToken || undefined });
+      if (!user?.id) throw new Error("Usuario no autenticado");
+      return TripService.getUserTrips(user.id, {
+        token: finalToken || undefined,
+      });
     },
     enabled: enabled && !tripId && Boolean(user?.id),
     staleTime: TRIP_STALE_TIME,
     retry: (failureCount, error) => {
-      if (error.message.includes('Usuario no autenticado')) {
+      if (error.message.includes("Usuario no autenticado")) {
         return false;
       }
 
@@ -44,17 +62,27 @@ export function useTrips(
   });
 
   const queryTrip = useQuery<Trip, Error>({
-    queryKey: ['trip', tripId ?? ''],
-    queryFn: () => TripService.getTripById(tripId as string, { token: finalToken || undefined }),
+    queryKey: ["trip", tripId ?? ""],
+    queryFn: () =>
+      TripService.getTripById(tripId as string, {
+        token: finalToken || undefined,
+      }),
     enabled: enabled && Boolean(tripId),
     staleTime: TRIP_STALE_TIME,
-    retry: (failureCount, error) => failureCount < 2 && !error.message.includes('Usuario no autenticado'),
+    retry: (failureCount, error) =>
+      failureCount < 2 && !error.message.includes("Usuario no autenticado"),
     refetchInterval: options?.refetchInterval ?? false,
   });
 
   const data = tripId ? (queryTrip.data ?? null) : (queryTrips.data ?? null);
   const loading = tripId ? queryTrip.isLoading : queryTrips.isLoading;
-  const error = tripId ? (queryTrip.error ? queryTrip.error.message : null) : (queryTrips.error ? queryTrips.error.message : null);
+  const error = tripId
+    ? queryTrip.error
+      ? queryTrip.error.message
+      : null
+    : queryTrips.error
+      ? queryTrips.error.message
+      : null;
   const refetch = () => (tripId ? queryTrip.refetch() : queryTrips.refetch());
 
   return { data: data as Trip | Trip[] | null, loading, error, refetch };
@@ -67,19 +95,31 @@ type UseTripStopsCountResult = {
   error: Error | null;
 };
 
-export function useTripStopsCount(tripId?: string | null, options?: { enabled?: boolean }): UseTripStopsCountResult {
+/**
+ * Hook para obtener el número de paradas de un viaje.
+ * @param tripId - ID del viaje del cual obtener las paradas.
+ * @param options - Opciones de configuración: habilitación de la query.
+ * @returns Objeto con el conteo de paradas, datos, estado de carga y error.
+ */
+export function useTripStopsCount(
+  tripId?: string | null,
+  options?: { enabled?: boolean },
+): UseTripStopsCountResult {
   const { token } = useAuth();
-  const enabled = Boolean(tripId) && (options?.enabled !== false);
+  const enabled = Boolean(tripId) && options?.enabled !== false;
 
   const query = useQuery<any[], Error>({
-    queryKey: ['trip', tripId, 'stops'],
-    queryFn: () => TripService.getNumberOfStops(tripId as string, { token: token || undefined }),
+    queryKey: ["trip", tripId, "stops"],
+    queryFn: () =>
+      TripService.getNumberOfStops(tripId as string, {
+        token: token || undefined,
+      }),
     enabled,
     staleTime: TRIP_STALE_TIME,
   });
 
   return {
-    count: query.data ? query.data.length : (query.isLoading ? null : 0),
+    count: query.data ? query.data.length : query.isLoading ? null : 0,
     data: query.data ?? null,
     isLoading: query.isLoading,
     error: query.error ?? null,
@@ -95,14 +135,25 @@ export function useUpdateTrip(token?: string) {
   const finalToken = token || contextToken;
 
   return useMutation({
-    mutationFn: async ({ tripId, tripData }: { tripId: string; tripData: Partial<Trip> }) => {
-      if (!user?.id) throw new Error('Usuario no autenticado');
-      return await TripService.updateTrip(tripId, tripData, user.id, finalToken || undefined);
+    mutationFn: async ({
+      tripId,
+      tripData,
+    }: {
+      tripId: string;
+      tripData: Partial<Trip>;
+    }) => {
+      if (!user?.id) throw new Error("Usuario no autenticado");
+      return await TripService.updateTrip(
+        tripId,
+        tripData,
+        user.id,
+        finalToken || undefined,
+      );
     },
     onSuccess: (_, variables) => {
       // Refrescar la lista de viajes y el detalle de este viaje
-      queryClient.invalidateQueries({ queryKey: ['trips', user?.id] });
-      queryClient.invalidateQueries({ queryKey: ['trip', variables.tripId] });
+      queryClient.invalidateQueries({ queryKey: ["trips", user?.id] });
+      queryClient.invalidateQueries({ queryKey: ["trip", variables.tripId] });
     },
   });
 }
@@ -116,11 +167,15 @@ export function useDeleteTrip(token?: string) {
 
   return useMutation({
     mutationFn: async (tripId: string) => {
-      if (!user?.id) throw new Error('Usuario no autenticado');
-      return await TripService.deleteTrip(tripId, user.id, finalToken || undefined);
+      if (!user?.id) throw new Error("Usuario no autenticado");
+      return await TripService.deleteTrip(
+        tripId,
+        user.id,
+        finalToken || undefined,
+      );
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['trips', user?.id] });
+      queryClient.invalidateQueries({ queryKey: ["trips", user?.id] });
     },
   });
 }
@@ -135,12 +190,16 @@ export function useLeaveTrip(token?: string) {
 
   return useMutation({
     mutationFn: async (tripId: string) => {
-      if (!user?.id) throw new Error('Usuario no autenticado');
-      return await TripService.leaveTrip(user.id, tripId, finalToken || undefined);
+      if (!user?.id) throw new Error("Usuario no autenticado");
+      return await TripService.leaveTrip(
+        user.id,
+        tripId,
+        finalToken || undefined,
+      );
     },
     onSuccess: () => {
       // Refrescar la lista de viajes
-      queryClient.invalidateQueries({ queryKey: ['trips', user?.id] });
+      queryClient.invalidateQueries({ queryKey: ["trips", user?.id] });
     },
   });
 }
@@ -154,13 +213,26 @@ export function useKickUser(token?: string) {
   const finalToken = token || contextToken;
 
   return useMutation({
-    mutationFn: async ({ userId, tripId }: { userId: string; tripId: string }) => {
-      if (!user?.id) throw new Error('Usuario no autenticado');
-      return await TripService.kickUser(user.id, userId, tripId, finalToken || undefined);
+    mutationFn: async ({
+      userId,
+      tripId,
+    }: {
+      userId: string;
+      tripId: string;
+    }) => {
+      if (!user?.id) throw new Error("Usuario no autenticado");
+      return await TripService.kickUser(
+        user.id,
+        userId,
+        tripId,
+        finalToken || undefined,
+      );
     },
     onSuccess: (_, variables) => {
       // Refrescar los viajeros del viaje
-      queryClient.invalidateQueries({ queryKey: ['travelers', variables.tripId] });
+      queryClient.invalidateQueries({
+        queryKey: ["travelers", variables.tripId],
+      });
     },
   });
 }
@@ -177,18 +249,26 @@ export function useChangeUserRole(token?: string) {
     mutationFn: async ({
       userId,
       tripId,
-      role
+      role,
     }: {
       userId: string;
       tripId: string;
-      role: 'owner' | 'editor' | 'viewer'
+      role: "owner" | "editor" | "viewer";
     }) => {
-      if (!user?.id) throw new Error('Usuario no autenticado');
-      return await TripService.changeUserRole(user.id, userId, tripId, role, finalToken || undefined);
+      if (!user?.id) throw new Error("Usuario no autenticado");
+      return await TripService.changeUserRole(
+        user.id,
+        userId,
+        tripId,
+        role,
+        finalToken || undefined,
+      );
     },
     onSuccess: (_, variables) => {
       // Refrescar los viajeros del viaje
-      queryClient.invalidateQueries({ queryKey: ['travelers', variables.tripId] });
+      queryClient.invalidateQueries({
+        queryKey: ["travelers", variables.tripId],
+      });
     },
   });
 }
@@ -196,14 +276,20 @@ export function useChangeUserRole(token?: string) {
 /**
  * Hook para obtener los viajeros de un viaje
  */
-export function useTravelers(tripId?: string | null, options?: { token?: string; enabled?: boolean }) {
+export function useTravelers(
+  tripId?: string | null,
+  options?: { token?: string; enabled?: boolean },
+) {
   const { token } = useAuth();
-  const enabled = Boolean(tripId) && (options?.enabled !== false);
+  const enabled = Boolean(tripId) && options?.enabled !== false;
   const finalToken = options?.token || token;
 
   return useQuery({
-    queryKey: ['travelers', tripId ?? ''],
-    queryFn: () => TripService.getTravelersInTrip(tripId as string, { token: finalToken || undefined }),
+    queryKey: ["travelers", tripId ?? ""],
+    queryFn: () =>
+      TripService.getTravelersInTrip(tripId as string, {
+        token: finalToken || undefined,
+      }),
     enabled,
     staleTime: TRIP_STALE_TIME,
   });
@@ -214,7 +300,7 @@ export function useTravelers(tripId?: string | null, options?: { token?: string;
  */
 export type TravelerWithRole = {
   user: User;
-  role: 'owner' | 'editor' | 'viewer' | 'pending';
+  role: "owner" | "editor" | "viewer" | "pending";
 };
 
 /**
@@ -225,41 +311,45 @@ export type TravelerWithRole = {
  */
 export function useTravelersWithPending(
   tripId?: string | null,
-  options?: { token?: string; enabled?: boolean }
+  options?: { token?: string; enabled?: boolean },
 ) {
   const { token } = useAuth();
-  const enabled = Boolean(tripId) && (options?.enabled !== false);
+  const enabled = Boolean(tripId) && options?.enabled !== false;
   const finalToken = options?.token || token;
 
   // 1. Obtener viajeros confirmados (con relación en user_trip)
   const {
     data: confirmedTravelers,
     isLoading: isLoadingConfirmed,
-    error: errorConfirmed
+    error: errorConfirmed,
   } = useTravelers(tripId, { ...options, enabled });
 
   // 2. Obtener notificaciones de este viaje específico para encontrar invitaciones pending
-  const {
-    data: notifications,
-    isLoading: isLoadingNotifications
-  } = useNotificationsByTrip(tripId ?? undefined, { enabled });
+  const { data: notifications, isLoading: isLoadingNotifications } =
+    useNotificationsByTrip(tripId ?? undefined, { enabled });
 
   // 3. Filtrar notificaciones pending
   const pendingNotifications = useMemo(() => {
     if (!notifications) return [];
-    return notifications.filter((n: Notification) => n.action_status === 'pending');
+    return notifications.filter(
+      (n: Notification) => n.action_status === "pending",
+    );
   }, [notifications]);
 
   // 4. Obtener los usuarios de las notificaciones pending usando useQueries
-  const pendingUserIds = pendingNotifications.map((n: Notification) => n.user_receiver_id);
+  const pendingUserIds = pendingNotifications.map(
+    (n: Notification) => n.user_receiver_id,
+  );
 
   // useQueries permite hacer múltiples queries en paralelo de forma eficiente
   // Usamos getUserProfile en lugar de getUserById porque es más permisivo (optionalAuth)
   const pendingUsersQueries = useQueries({
     queries: pendingUserIds.map((userId: string) => ({
-      queryKey: ['userProfile', userId, 'trip', tripId],
+      queryKey: ["userProfile", userId, "trip", tripId],
       queryFn: async () => {
-        const profileData = await UserService.getUserProfile(userId, { token: finalToken || undefined });
+        const profileData = await UserService.getUserProfile(userId, {
+          token: finalToken || undefined,
+        });
         return profileData.user; // Extraer solo el usuario del perfil
       },
       enabled: enabled && Boolean(userId),
@@ -282,11 +372,11 @@ export function useTravelersWithPending(
       if (query.data) {
         const user = query.data as User;
         // Verificar que no esté ya en la lista de confirmados
-        const alreadyConfirmed = result.some(t => t.user.id === user.id);
+        const alreadyConfirmed = result.some((t) => t.user.id === user.id);
         if (!alreadyConfirmed) {
           result.push({
             user,
-            role: 'pending'
+            role: "pending",
           });
         }
       }
@@ -296,11 +386,13 @@ export function useTravelersWithPending(
   }, [confirmedTravelers, pendingUsersQueries]);
 
   // 6. Estados de carga y error combinados
-  const isLoadingPendingUsers = pendingUsersQueries.some(q => q.isLoading);
-  const isLoading = isLoadingConfirmed || isLoadingNotifications || isLoadingPendingUsers;
+  const isLoadingPendingUsers = pendingUsersQueries.some((q) => q.isLoading);
+  const isLoading =
+    isLoadingConfirmed || isLoadingNotifications || isLoadingPendingUsers;
 
-  const errorPendingUsers = pendingUsersQueries.find(q => q.error)?.error;
-  const error = errorConfirmed?.message ?? (errorPendingUsers as Error)?.message ?? null;
+  const errorPendingUsers = pendingUsersQueries.find((q) => q.error)?.error;
+  const error =
+    errorConfirmed?.message ?? (errorPendingUsers as Error)?.message ?? null;
 
   return {
     data: travelersWithPending,
@@ -310,7 +402,7 @@ export function useTravelersWithPending(
     refetch: () => {
       // El queryClient se encargará de refrescar automáticamente
       // cuando las notificaciones o travelers cambien
-    }
+    },
   };
 }
 
@@ -319,7 +411,10 @@ export function useTravelersWithPending(
  * Cuando se consulta el perfil propio reutiliza el cache de ['trips', userId]
  * para evitar una fetch redundante. Para perfiles ajenos usa su propia entrada.
  */
-export function usePastTrips(userId?: string, options?: { token?: string; enabled?: boolean; publicOnly?: boolean }) {
+export function usePastTrips(
+  userId?: string,
+  options?: { token?: string; enabled?: boolean; publicOnly?: boolean },
+) {
   const { user, token } = useAuth();
   const targetUserId = userId || user?.id;
   const isOwnProfile = !userId || userId === user?.id;
@@ -327,17 +422,23 @@ export function usePastTrips(userId?: string, options?: { token?: string; enable
   const finalToken = options?.token || token;
 
   const query = useQuery<Trip[], Error>({
-    queryKey: isOwnProfile ? ['trips', user?.id] : ['userTrips', targetUserId],
+    queryKey: isOwnProfile ? ["trips", user?.id] : ["userTrips", targetUserId],
     queryFn: async () => {
-      if (!targetUserId) throw new Error('Usuario no especificado');
-      return TripService.getUserTrips(targetUserId, { token: finalToken || undefined });
+      if (!targetUserId) throw new Error("Usuario no especificado");
+      return TripService.getUserTrips(targetUserId, {
+        token: finalToken || undefined,
+      });
     },
     enabled: enabled && Boolean(targetUserId),
     staleTime: TRIP_STALE_TIME,
-    retry: (failureCount, error) => failureCount < 2 && !error.message.includes('Usuario no especificado'),
+    retry: (failureCount, error) =>
+      failureCount < 2 && !error.message.includes("Usuario no especificado"),
   });
 
-  const pastTrips = useMemo(() => query.data?.filter(trip => trip.status === 'completed') ?? [], [query.data]);
+  const pastTrips = useMemo(
+    () => query.data?.filter((trip) => trip.status === "completed") ?? [],
+    [query.data],
+  );
 
   return { ...query, data: query.data ? pastTrips : undefined };
 }
@@ -347,27 +448,39 @@ export function usePastTrips(userId?: string, options?: { token?: string; enable
  * Reutiliza el cache de ['trips', userId] compartido con useTrips()
  * para evitar una fetch redundante.
  */
-export function useActiveTrips(options?: { token?: string; enabled?: boolean }) {
+export function useActiveTrips(options?: {
+  token?: string;
+  enabled?: boolean;
+}) {
   const { user, token } = useAuth();
   const enabled = options?.enabled !== false;
   const finalToken = options?.token || token;
 
   const query = useQuery<Trip[], Error>({
-    queryKey: ['trips', user?.id],
+    queryKey: ["trips", user?.id],
     queryFn: () => {
-      if (!user?.id) throw new Error('Usuario no autenticado');
-      return TripService.getUserTrips(user.id, { token: finalToken || undefined });
+      if (!user?.id) throw new Error("Usuario no autenticado");
+      return TripService.getUserTrips(user.id, {
+        token: finalToken || undefined,
+      });
     },
     enabled: enabled && Boolean(user?.id),
     staleTime: TRIP_STALE_TIME,
-    retry: (failureCount, error) => failureCount < 2 && !error.message.includes('Usuario no autenticado'),
+    retry: (failureCount, error) =>
+      failureCount < 2 && !error.message.includes("Usuario no autenticado"),
   });
 
-  const going = useMemo(() => query.data?.filter(trip => trip.status === 'going') ?? [], [query.data]);
-  const planning = useMemo(() => query.data?.filter(trip => trip.status === 'planning') ?? [], [query.data]);
+  const going = useMemo(
+    () => query.data?.filter((trip) => trip.status === "going") ?? [],
+    [query.data],
+  );
+  const planning = useMemo(
+    () => query.data?.filter((trip) => trip.status === "planning") ?? [],
+    [query.data],
+  );
   const activeData = useMemo(
     () => (query.isLoading ? undefined : { going, planning }),
-    [query.isLoading, going, planning]
+    [query.isLoading, going, planning],
   );
 
   return { ...query, data: activeData };
@@ -376,16 +489,21 @@ export function useActiveTrips(options?: { token?: string; enabled?: boolean }) 
 /**
  * Hook para obtener el rol del usuario en un viaje específico
  */
-export function useUserRoleInTrip(tripId: string, options?: { token?: string; enabled?: boolean }) {
+export function useUserRoleInTrip(
+  tripId: string,
+  options?: { token?: string; enabled?: boolean },
+) {
   const { user, token } = useAuth();
   const enabled = options?.enabled !== false;
   const finalToken = options?.token || token;
 
-  return useQuery<'owner' | 'editor' | 'viewer' | null, Error>({
-    queryKey: ['userRoleInTrip', tripId, user?.id],
+  return useQuery<"owner" | "editor" | "viewer" | null, Error>({
+    queryKey: ["userRoleInTrip", tripId, user?.id],
     queryFn: async () => {
       if (!user?.id) return null;
-      return await TripService.getUserRoleInTrip(user.id, tripId, { token: finalToken || undefined });
+      return await TripService.getUserRoleInTrip(user.id, tripId, {
+        token: finalToken || undefined,
+      });
     },
     enabled: enabled && Boolean(user?.id) && Boolean(tripId),
     staleTime: TRIP_STALE_TIME,

@@ -114,19 +114,20 @@ export default function ResetPasswordScreen() {
           keyboardDismissMode="on-drag"
         >
           <View className="items-center mb-8">
-            <Image source={carLogoImage} style={{ width: 160, height: 96 }} resizeMode="contain" />
+            <Image accessible={false} source={carLogoImage} style={{ width: 160, height: 96 }} resizeMode="contain" />
           </View>
 
           <View className="w-full">
-            <Text className="text-2xl font-bold text-[#1D1D1B] mb-3">Nueva contraseña</Text>
-            <Text className="text-base text-[#1D1D1B] mb-6">
+            <Text className="text-2xl font-bold text-[#202020] mb-3">Nueva contraseña</Text>
+            <Text className="text-base text-[#202020] mb-6">
               Introduce y confirma tu nueva contraseña.
             </Text>
 
-            <Text className="text-base font-semibold text-[#1D1D1B] mb-2 ml-2">Contraseña</Text>
+            <Text className="text-base font-semibold text-[#202020] mb-2 ml-2">Contraseña</Text>
             <View className="flex-row items-center bg-white rounded-full h-14 px-6 mb-4 shadow-sm">
               <Ionicons name="lock-closed-outline" size={20} color="#666" style={{ marginRight: 10 }} />
               <TextInput
+                accessibilityLabel="Contraseña"
                 className="flex-1 text-base text-black h-full"
                 placeholder="••••••••"
                 placeholderTextColor="#9ca3af"
@@ -137,17 +138,18 @@ export default function ResetPasswordScreen() {
                 autoComplete="new-password"
                 returnKeyType="next"
               />
-              <Pressable onPress={() => setShowPassword(!showPassword)} className="p-1">
+              <Pressable accessibilityLabel="Mostrar u ocultar contraseña" onPress={() => setShowPassword(!showPassword)} className="p-1">
                 <Ionicons name={showPassword ? 'eye' : 'eye-off'} size={22} color="#666" />
               </Pressable>
             </View>
 
-            <Text className="text-base font-semibold text-[#1D1D1B] mb-2 ml-2">
+            <Text className="text-base font-semibold text-[#202020] mb-2 ml-2">
               Confirmar contraseña
             </Text>
             <View className="flex-row items-center bg-white rounded-full h-14 px-6 mb-4 shadow-sm">
               <Ionicons name="lock-closed-outline" size={20} color="#666" style={{ marginRight: 10 }} />
               <TextInput
+                accessibilityLabel="Confirmar contraseña"
                 className="flex-1 text-base text-black h-full"
                 placeholder="••••••••"
                 placeholderTextColor="#9ca3af"
@@ -159,13 +161,13 @@ export default function ResetPasswordScreen() {
                 returnKeyType="done"
                 onSubmitEditing={handleSubmit}
               />
-              <Pressable onPress={() => setShowConfirmPassword(!showConfirmPassword)} className="p-1">
+              <Pressable accessibilityLabel="Mostrar u ocultar confirmación de contraseña" onPress={() => setShowConfirmPassword(!showConfirmPassword)} className="p-1">
                 <Ionicons name={showConfirmPassword ? 'eye' : 'eye-off'} size={22} color="#666" />
               </Pressable>
             </View>
 
             <TouchableOpacity
-              className="bg-[#232323] rounded-full h-14 justify-center items-center mb-4 mt-4 shadow-md"
+              className="bg-[#202020] rounded-full h-14 justify-center items-center mb-4 mt-4 shadow-md"
               onPress={handleSubmit}
               activeOpacity={0.8}
               disabled={isSubmitting}

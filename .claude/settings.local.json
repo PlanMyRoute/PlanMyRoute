@@ -10,7 +10,23 @@
       "Bash(npx tsc *)",
       "Bash(Get-ChildItem -Recurse -Directory)",
       "Bash(Select-Object -ExpandProperty FullName)",
-      "Bash(Get-ChildItem -Path \"apps\\\\backend\\\\__tests__\" -Name)"
+      "Bash(Get-ChildItem -Path \"apps\\\\backend\\\\__tests__\" -Name)",
+      "Bash(git -C \"c:/Users/rober/projects/PlanMyRoute/PlanMyRoute\" rm --cached .claude/settings.local.json)",
+      "Bash(git -C \"c:/Users/rober/projects/PlanMyRoute/PlanMyRoute\" commit -m \"resolve conflict: remove .claude/settings.local.json \\(gitignored\\)\")",
+      "Bash(python generate_charts.py)",
+      "Bash(curl *)",
+      "Bash(python -c \"import xml.dom.minidom,sys; xml.dom.minidom.parse\\('diagrama_clases_ia.svg'\\); print\\('XML OK'\\)\")",
+      "Bash(command -v rsvg-convert inkscape magick convert)",
+      "Bash(sed -i 's/ --- / a /g' diagrama_clases_ia.svg)",
+      "Bash(python -c \"import xml.dom.minidom; xml.dom.minidom.parse\\('diagrama_clases_ia.svg'\\); print\\('XML OK'\\)\")",
+      "Bash(python -c \"import cairosvg\")",
+      "Bash(python -c \"import cairosvg; cairosvg.svg2png\\(url='diagrama_clases_ia.svg', write_to='_preview.png', output_width=1080\\)\")",
+      "Bash(pip install *)",
+      "Bash(python -c \"from svglib.svglib import svg2rlg; from reportlab.graphics import renderPM; renderPM.drawToFile\\(svg2rlg\\('diagrama_clases_ia.svg'\\),'_preview.png',fmt='PNG'\\)\")",
+      "Bash(pnpm add *)",
+      "Bash(python -m json.tool)",
+      "Bash(npx jest *)",
+      "Bash(pnpm exec *)"
     ]
   }
 }

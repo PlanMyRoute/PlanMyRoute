@@ -1,112 +1,67 @@
 // __tests__/tripStatusScheduler.test.ts
-import * as TripStatusScheduler from '../src/jobs/tripStatusScheduler';
-import * as TripStatusChecker from '../src/jobs/tripStatusChecker';
+import * as TripStatusScheduler from "../src/jobs/tripStatusScheduler.js";
+import * as TripStatusChecker from "../src/jobs/tripStatusChecker.js";
 
-describe('Trip Status Scheduler - Phase 3', () => {
-    describe('TripStatusScheduler Module', () => {
-        it('should have initScheduler function', () => {
-            expect(TripStatusScheduler.initScheduler).toBeDefined();
-            expect(typeof TripStatusScheduler.initScheduler).toBe('function');
-        });
-
-        it('should have stopScheduler function', () => {
-            expect(TripStatusScheduler.stopScheduler).toBeDefined();
-            expect(typeof TripStatusScheduler.stopScheduler).toBe('function');
-        });
-
-        it('should have restartScheduler function', () => {
-            expect(TripStatusScheduler.restartScheduler).toBeDefined();
-            expect(typeof TripStatusScheduler.restartScheduler).toBe('function');
-        });
-
-        it('should have getSchedulerStatus function', () => {
-            expect(TripStatusScheduler.getSchedulerStatus).toBeDefined();
-            expect(typeof TripStatusScheduler.getSchedulerStatus).toBe('function');
-        });
-
-        it('should have triggerManualCheck function', () => {
-            expect(TripStatusScheduler.triggerManualCheck).toBeDefined();
-            expect(typeof TripStatusScheduler.triggerManualCheck).toBe('function');
-        });
+describe("Trip Status Scheduler - Phase 3", () => {
+  describe("TripStatusScheduler Module", () => {
+    it("debería exportar las funciones del scheduler", () => {
+      expect(TripStatusScheduler.initScheduler).toBeDefined();
+      expect(TripStatusScheduler.stopScheduler).toBeDefined();
+      expect(TripStatusScheduler.restartScheduler).toBeDefined();
+      expect(TripStatusScheduler.triggerManualCheck).toBeDefined();
+      expect(TripStatusScheduler.getSchedulerStatus).toBeDefined();
     });
+  });
 
-    describe('TripStatusChecker Module', () => {
-        it('should have checkTripsToStart function', () => {
-            expect(TripStatusChecker.checkTripsToStart).toBeDefined();
-            expect(typeof TripStatusChecker.checkTripsToStart).toBe('function');
-        });
-
-        it('should have checkTripsToComplete function', () => {
-            expect(TripStatusChecker.checkTripsToComplete).toBeDefined();
-            expect(typeof TripStatusChecker.checkTripsToComplete).toBe('function');
-        });
-
-        it('should have runAllChecks function', () => {
-            expect(TripStatusChecker.runAllChecks).toBeDefined();
-            expect(typeof TripStatusChecker.runAllChecks).toBe('function');
-        });
+  describe("TripStatusChecker Module", () => {
+    it("debería exportar las funciones del checker", () => {
+      expect(TripStatusChecker.checkTripsToStart).toBeDefined();
+      expect(TripStatusChecker.checkTripsToComplete).toBeDefined();
+      expect(TripStatusChecker.runAllChecks).toBeDefined();
     });
+  });
 
-    describe('Scheduler Status', () => {
-        it('should return scheduler status', () => {
-            const status = TripStatusScheduler.getSchedulerStatus();
+  describe("Estado del Scheduler", () => {
+    it("debería devolver el estado del scheduler con las propiedades esperadas", () => {
+      const status = TripStatusScheduler.getSchedulerStatus();
 
-            expect(status).toBeDefined();
-            expect(status).toHaveProperty('isRunning');
-            expect(status).toHaveProperty('tasksCount');
-            expect(status).toHaveProperty('nextExecution');
-            expect(status).toHaveProperty('timezone');
-            expect(status.timezone).toBe('UTC');
-        });
+      expect(status).toBeDefined();
+      expect(status).toHaveProperty("isRunning");
+      expect(status).toHaveProperty("tasksCount");
+      expect(status).toHaveProperty("nextExecution");
+      expect(status).toHaveProperty("timezone");
+      expect(status.timezone).toBe("UTC");
     });
+  });
 });
 
-// Tests de integración (comentados por defecto)
-/*
-describe('Trip Status Scheduler Integration Tests', () => {
-    beforeAll(() => {
-        // Inicializar el scheduler para tests
-        TripStatusScheduler.initScheduler();
-    });
+// Tests de integración deshabilitados — requieren inicializar el scheduler real
+describe.skip("Trip Status Scheduler Integration Tests — pendiente entorno aislado", () => {
+  it("debería iniciar el scheduler correctamente", () => {
+    // Pendiente: requiere inicialización real del scheduler
+  });
 
-    afterAll(() => {
-        // Detener el scheduler después de los tests
-        TripStatusScheduler.stopScheduler();
-    });
+  it("debería detener el scheduler correctamente", () => {
+    // Pendiente: requiere scheduler iniciado
+  });
 
-    it('should start scheduler successfully', () => {
-        const status = TripStatusScheduler.getSchedulerStatus();
-        expect(status.isRunning).toBe(true);
-        expect(status.tasksCount).toBeGreaterThan(0);
-    });
+  it("debería reiniciar el scheduler correctamente", () => {
+    // Pendiente: requiere scheduler iniciado
+  });
 
-    it('should stop scheduler successfully', () => {
-        TripStatusScheduler.stopScheduler();
-        const status = TripStatusScheduler.getSchedulerStatus();
-        expect(status.isRunning).toBe(false);
-        expect(status.tasksCount).toBe(0);
-    });
+  it("debería ejecutar una verificación manual sin errores", () => {
+    // Pendiente: requiere BD real
+  });
 
-    it('should restart scheduler successfully', () => {
-        TripStatusScheduler.restartScheduler();
-        const status = TripStatusScheduler.getSchedulerStatus();
-        expect(status.isRunning).toBe(true);
-    });
+  it("debería verificar viajes para iniciar sin errores", () => {
+    // Pendiente: requiere BD real
+  });
 
-    it('should trigger manual check without errors', async () => {
-        await expect(TripStatusScheduler.triggerManualCheck()).resolves.not.toThrow();
-    });
+  it("debería verificar viajes para completar sin errores", () => {
+    // Pendiente: requiere BD real
+  });
 
-    it('should check trips to start without errors', async () => {
-        await expect(TripStatusChecker.checkTripsToStart()).resolves.not.toThrow();
-    });
-
-    it('should check trips to complete without errors', async () => {
-        await expect(TripStatusChecker.checkTripsToComplete()).resolves.not.toThrow();
-    });
-
-    it('should run all checks without errors', async () => {
-        await expect(TripStatusChecker.runAllChecks()).resolves.not.toThrow();
-    });
+  it("debería ejecutar todas las verificaciones sin errores", () => {
+    // Pendiente: requiere BD real
+  });
 });
-*/

@@ -2,6 +2,8 @@
 module.exports = {
   preset: "ts-jest",
   testEnvironment: "node",
+  setupFilesAfterEnv: ["<rootDir>/__tests__/jest.setup.ts"],
+  testPathIgnorePatterns: ["/node_modules/", "__tests__/jest\\.setup\\.ts"],
   moduleNameMapper: {
     "^(\\.{1,2}/.*)\\.js$": "$1",
   },
@@ -17,15 +19,13 @@ module.exports = {
       },
     ],
   },
-
-  // --- AÑADE ESTO DESDE AQUÍ ---
   collectCoverage: true,
   coverageDirectory: "coverage",
-  coverageReporters: ["lcov", "text"], // "lcov" para Sonar, "text" para que tú lo veas en consola
+  coverageReporters: ["lcov", "text"],
   collectCoverageFrom: [
-    "src/**/*.{ts,js}", // Analizar todo el código fuente
-    "!src/**/*.test.ts", // Ignorar los archivos de test
-    "!**/node_modules/**", // Ignorar librerías
-    "!**/dist/**", // Ignorar código compilado
+    "src/**/*.{ts,js}",
+    "!src/**/*.test.ts",
+    "!**/node_modules/**",
+    "!**/dist/**",
   ],
 };

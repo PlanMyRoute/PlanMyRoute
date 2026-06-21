@@ -1,71 +1,106 @@
 // src/api/trips/trips.service.ts
-import { supabase } from '../../supabase.js';
-import { Trip, CollaboratorRole, Traveler } from '@planmyroute/types';
-import * as ItineraryService from '../itinerary/itinerary.service.js';
+import { supabase } from "../../supabase.js";
+import { Trip, CollaboratorRole } from "@planmyroute/types";
+import * as ItineraryService from "../itinerary/itinerary.service.js";
+import { dlog } from "../../utils/debugLog.js";
 
 type TravelerWithUser = {
-    user: { id: string | null; name?: string | null; username?: string | null; img?: string | null; lastname?: string | null; email?: string | null; bio?: string | null; location?: string | null; timezone?: string | null };
-    role: string | null;
+  user: {
+    id: string | null;
+    name?: string | null;
+    username?: string | null;
+    img?: string | null;
+    lastname?: string | null;
+    email?: string | null;
+    bio?: string | null;
+    location?: string | null;
+    timezone?: string | null;
+  };
+  role: string | null;
 };
 
-const TABLE_NAME = 'trip';
-const TRAVELERS_TABLE_NAME = 'travelers';
-const ROAD_TRIP_TABLE_NAME = 'road_trip';
+const TABLE_NAME = "trip";
+const TRAVELERS_TABLE_NAME = "travelers";
+const ROAD_TRIP_TABLE_NAME = "road_trip";
 
+/**
+ * Obtiene un viaje por su ID
+ * @param id - ID numérico del viaje
+ * @returns Datos del viaje encontrado
+ */
 export const getById = async (id: number): Promise<Trip> => {
-    console.log('🔍 [TripService.getById] Querying trip with id:', id);
-    const { data, error } = await supabase
-        .from(TABLE_NAME)
-        .select('*')
-        .eq('id', id)
-        .maybeSingle();
+  dlog("🔍 [TripService.getById] Querying trip with id:", id);
+  const { data, error } = await supabase
+    .from(TABLE_NAME)
+    .select("*")
+    .eq("id", id)
+    .maybeSingle();
 
-    if (error) {
-        console.error('❌ [TripService.getById] Supabase error:', { id, error });
-        throw new Error(`Error al obtener el viaje: ${error.message}`);
-    }
+  if (error) {
+    console.error("❌ [TripService.getById] Supabase error:", { id, error });
+    throw new Error(`Error al obtener el viaje: ${error.message}`);
+  }
 
-    if (!data) {
-        console.warn('⚠️ [TripService.getById] No trip found for id:', id);
-        throw new Error(`No se encontró ningún viaje con el id: ${id}`);
-    }
+  if (!data) {
+    console.warn("⚠️ [TripService.getById] No trip found for id:", id);
+    throw new Error(`No se encontró ningún viaje con el id: ${id}`);
+  }
 
-    console.log('✅ [TripService.getById] Trip found:', { id, tripName: data.name });
-    return data;
+  dlog("✅ [TripService.getById] Trip found:", {
+    id,
+    tripName: data.name,
+  });
+  return data;
 };
 
-export const getTravelersInTrip = async (tripId: number): Promise<TravelerWithUser[]> => {
-    const { data, error } = await supabase
-        .from(TRAVELERS_TABLE_NAME)
-        .select('user_role, user:user_id(id, name, username, img, lastname, email, bio, location, timezone)')
-        .eq('trip_id', tripId);
+/**
+ * Obtiene los viajeros asociados a un viaje con sus datos de usuario
+ * @param tripId - ID del viaje
+ * @returns Lista de viajeros con su información de usuario y rol
+ */
+export const getTravelersInTrip = async (
+  tripId: number,
+): Promise<TravelerWithUser[]> => {
+  const { data, error } = await supabase
+    .from(TRAVELERS_TABLE_NAME)
+    .select(
+      "user_role, user:user_id(id, name, username, img, lastname, email, bio, location, timezone)",
+    )
+    .eq("trip_id", tripId);
 
-    if (error) {
-        throw new Error(`Error al obtener los viajeros del viaje: ${error.message}`);
-    }
+  if (error) {
+    throw new Error(
+      `Error al obtener los viajeros del viaje: ${error.message}`,
+    );
+  }
 
-    if (!data || data.length === 0) {
-        return [];
-    }
+  if (!data || data.length === 0) {
+    return [];
+  }
 
-    return data.map((traveler: { user_role: string | null; user: unknown }) => ({
-        user: (traveler.user as TravelerWithUser['user']) || { id: null },
-        role: traveler.user_role,
-    }));
+  return data.map((traveler: { user_role: string | null; user: unknown }) => ({
+    user: (traveler.user as TravelerWithUser["user"]) || { id: null },
+    role: traveler.user_role,
+  }));
 };
 
+/**
+ * Crea un nuevo viaje en la base de datos
+ * @param tripData - Datos del viaje a crear
+ * @returns Viaje creado con su ID asignado
+ */
 export const createTrip = async (tripData: Trip): Promise<Trip> => {
-    const { data, error } = await supabase
-        .from(TABLE_NAME)
-        .insert(tripData)
-        .select()
-        .single();
+  const { data, error } = await supabase
+    .from(TABLE_NAME)
+    .insert(tripData)
+    .select()
+    .single();
 
-    if (error) {
-        throw new Error(`Error al crear el viaje: ${error.message}`);
-    }
+  if (error) {
+    throw new Error(`Error al crear el viaje: ${error.message}`);
+  }
 
-    return data;
+  return data;
 };
 
 /**
@@ -77,329 +112,395 @@ export const createTrip = async (tripData: Trip): Promise<Trip> => {
  * - Retorna el itinerario completo del viaje
  */
 type MandatoryStop = {
-    name: string;
-    address: string;
-    coordinates: { lat: number; lng: number };
-    expectedArrivalDate: string | null;
+  name: string;
+  address: string;
+  coordinates: { lat: number; lng: number };
+  expectedArrivalDate: string | null;
 };
 
 export const createTripWithRelations = async (
-    userId: string,
-    vehicleIds: string[],
-    tripData: any,
-    origin: string,
-    destination: string
+  userId: string,
+  vehicleIds: string[],
+  tripData: any,
+  origin: string,
+  destination: string,
 ) => {
-    try {
-        // 1. Limpiar tripData — extraer campos que no pertenecen a la tabla trip
-        // start_time y end_time SÍ se guardan en trip (columnas añadidas en migración)
-        const {
-            origin: _,
-            destination: __,
-            vehicleIds: ___,
-            travelStyle: ____,
-            mandatoryStops,
-            ...cleanTripData
-        } = tripData as any & { mandatoryStops?: MandatoryStop[] };
-        cleanTripData.cover_image_url = GENERIC_IMAGE_URL;
+  try {
+    // 1. Limpiar tripData — extraer campos que no pertenecen a la tabla trip
+    // start_time y end_time SÍ se guardan en trip (columnas añadidas en migración)
+    const {
+      origin: _,
+      destination: __,
+      vehicleIds: ___,
+      travelStyle: ____,
+      mandatoryStops,
+      ...cleanTripData
+    } = tripData as any & { mandatoryStops?: MandatoryStop[] };
+    cleanTripData.cover_image_url = GENERIC_IMAGE_URL;
 
-        // 2. Crear el viaje inmediatamente (sin esperar a Unsplash)
-        const newTrip = await createTrip(cleanTripData);
+    // 2. Crear el viaje inmediatamente (sin esperar a Unsplash)
+    const newTrip = await createTrip(cleanTripData);
 
-        // 3. Disparar la búsqueda de imagen en background — no bloquea la respuesta
-        fetchAndUpdateCoverImage(newTrip.id!, destination);
+    // 3. Disparar la búsqueda de imagen en background — no bloquea la respuesta
+    fetchAndUpdateCoverImage(newTrip.id!, destination);
 
-        // 4. Crear relación owner + relaciones vehículo en paralelo
-        const vehiclePromises = vehicleIds?.length
-            ? vehicleIds.map(id => createVehicleTripRelation(id, newTrip.id!))
-            : [];
-        await Promise.all([
-            createUserTripRelation(userId, newTrip.id!, 'owner'),
-            ...vehiclePromises,
-        ]);
+    // 4. Crear relación owner + relaciones vehículo en paralelo
+    const vehiclePromises = vehicleIds?.length
+      ? vehicleIds.map((id) => createVehicleTripRelation(id, newTrip.id!))
+      : [];
+    await Promise.all([
+      createUserTripRelation(userId, newTrip.id!, "owner"),
+      ...vehiclePromises,
+    ]);
 
-        // 5. Crear paradas de origen y destino en paralelo
-        await Promise.all([
-            ItineraryService.createStopOrigin(origin, newTrip, cleanTripData.start_time),
-            ItineraryService.createStopDestination(destination, newTrip, cleanTripData.end_time),
-        ]);
+    // 5. Crear paradas de origen y destino en paralelo
+    await Promise.all([
+      ItineraryService.createStopOrigin(
+        origin,
+        newTrip,
+        cleanTripData.start_time,
+      ),
+      ItineraryService.createStopDestination(
+        destination,
+        newTrip,
+        cleanTripData.end_time,
+      ),
+    ]);
 
-        // 6. Crear paradas obligatorias intermedias (si las hay)
-        const hasMandatoryStops = mandatoryStops && Array.isArray(mandatoryStops) && mandatoryStops.length > 0;
-        if (hasMandatoryStops) {
-            await Promise.all(
-                mandatoryStops!.map((stop: MandatoryStop) =>
-                    ItineraryService.createMandatoryStop(stop, newTrip.id!)
-                )
-            );
-        }
-
-        // 7. Construir rutas a partir de los stops creados
-        await ItineraryService.rebuildRoutesForTrip(newTrip.id!);
-
-        // 8. Obtener y retornar el itinerario completo
-        return await ItineraryService.getTripItinerary(newTrip.id!);
-    } catch (error) {
-        const err = error as Error;
-        throw new Error(`Error al crear el viaje con sus relaciones: ${err.message}`);
+    // 6. Crear paradas obligatorias intermedias (si las hay)
+    const hasMandatoryStops =
+      mandatoryStops &&
+      Array.isArray(mandatoryStops) &&
+      mandatoryStops.length > 0;
+    if (hasMandatoryStops) {
+      await Promise.all(
+        mandatoryStops!.map((stop: MandatoryStop) =>
+          ItineraryService.createMandatoryStop(stop, newTrip.id!),
+        ),
+      );
     }
+
+    // 7. Calcular distancias de segmento a partir de los stops creados
+    await ItineraryService.recalculateTripSegments(newTrip.id!);
+
+    // 8. Obtener y retornar el itinerario completo
+    return await ItineraryService.getTripItinerary(newTrip.id!);
+  } catch (error) {
+    const err = error as Error;
+    throw new Error(
+      `Error al crear el viaje con sus relaciones: ${err.message}`,
+    );
+  }
 };
 
-export const update = async (id: string, tripData: Partial<Trip>): Promise<Trip> => {
-    const { data, error } = await supabase
-        .from(TABLE_NAME)
-        .update(tripData)
-        .eq('id', id)
-        .select()
-        .maybeSingle();
+/**
+ * Actualiza los datos de un viaje existente
+ * @param id - ID del viaje a actualizar
+ * @param tripData - Campos del viaje a modificar
+ * @returns Viaje actualizado
+ */
+export const update = async (
+  id: string,
+  tripData: Partial<Trip>,
+): Promise<Trip> => {
+  const { data, error } = await supabase
+    .from(TABLE_NAME)
+    .update(tripData)
+    .eq("id", id)
+    .select()
+    .maybeSingle();
 
-    if (error) {
-        throw new Error(`Error al actualizar el viaje: ${error.message}`);
-    }
+  if (error) {
+    throw new Error(`Error al actualizar el viaje: ${error.message}`);
+  }
 
-    if (!data) {
-        throw new Error(`No se encontró ningún viaje con el id: ${id}`);
-    }
+  if (!data) {
+    throw new Error(`No se encontró ningún viaje con el id: ${id}`);
+  }
 
-    return data;
+  return data;
 };
 
+/**
+ * Elimina un viaje de la base de datos tras verificar que existe
+ * @param id - ID del viaje a eliminar
+ * @returns ID del viaje eliminado
+ */
 export const deleteTrip = async (id: string) => {
-    // Primero verificamos que el viaje existe
-    const { data: existingTrip } = await supabase
-        .from(TABLE_NAME)
-        .select('id')
-        .eq('id', id)
-        .maybeSingle();
+  // Primero verificamos que el viaje existe
+  const { data: existingTrip } = await supabase
+    .from(TABLE_NAME)
+    .select("id")
+    .eq("id", id)
+    .maybeSingle();
 
-    if (!existingTrip) {
-        throw new Error(`No se encontró ningún viaje con el id: ${id}`);
-    }
+  if (!existingTrip) {
+    throw new Error(`No se encontró ningún viaje con el id: ${id}`);
+  }
 
-    const { error } = await supabase
-        .from(TABLE_NAME)
-        .delete()
-        .eq('id', id);
+  const { error } = await supabase.from(TABLE_NAME).delete().eq("id", id);
 
-    if (error) {
-        throw new Error(`Error al eliminar el viaje: ${error.message}`);
-    }
+  if (error) {
+    throw new Error(`Error al eliminar el viaje: ${error.message}`);
+  }
 
-    return id;
+  return id;
 };
 
 // =============== TRAVELERS SERVICES ===============
-export const createUserTripRelation = async (userId: string, tripId: number, role: CollaboratorRole) => {
-    const { data, error } = await supabase
-        .from(TRAVELERS_TABLE_NAME)
-        .insert({ user_id: userId, trip_id: tripId, user_role: role })
-        .select()
-        .single();
+/**
+ * Crea la relación entre un usuario y un viaje con un rol específico
+ * @param userId - ID del usuario
+ * @param tripId - ID del viaje
+ * @param role - Rol del usuario en el viaje (owner, editor, viewer)
+ * @returns Datos de la relación creada
+ */
+export const createUserTripRelation = async (
+  userId: string,
+  tripId: number,
+  role: CollaboratorRole,
+) => {
+  const { data, error } = await supabase
+    .from(TRAVELERS_TABLE_NAME)
+    .insert({ user_id: userId, trip_id: tripId, user_role: role })
+    .select()
+    .single();
 
-    if (error) {
-        throw new Error(`Error al crear la relación usuario-viaje: ${error.message}`);
-    }
+  if (error) {
+    throw new Error(
+      `Error al crear la relación usuario-viaje: ${error.message}`,
+    );
+  }
 
-    return data;
-}
+  return data;
+};
+
+/**
+ * Obtiene los IDs de viajes en los que participa un usuario
+ */
+const getTripIdsForUser = async (userId: string): Promise<number[]> => {
+  const { data, error } = await supabase
+    .from(TRAVELERS_TABLE_NAME)
+    .select("trip_id")
+    .eq("user_id", userId);
+
+  if (error) {
+    throw new Error(
+      `Error al obtener los viajes del usuario: ${error.message}`,
+    );
+  }
+
+  if (!data || data.length === 0) {
+    return [];
+  }
+
+  return data.map((t) => t.trip_id);
+};
 
 /**
  * Obtiene todos los viajes en los que participa un usuario específico
  */
 export const getUserTrips = async (userId: string): Promise<Trip[]> => {
-    // Primero obtenemos los trip_ids en los que participa el usuario
-    const { data: travelerData, error: travelerError } = await supabase
-        .from(TRAVELERS_TABLE_NAME)
-        .select('trip_id')
-        .eq('user_id', userId);
+  const tripIds = await getTripIdsForUser(userId);
+  if (tripIds.length === 0) return [];
 
-    if (travelerError) {
-        throw new Error(`Error al obtener los viajes del usuario: ${travelerError.message}`);
-    }
+  const { data: trips, error: tripsError } = await supabase
+    .from(TABLE_NAME)
+    .select("*")
+    .in("id", tripIds);
 
-    // Si no tiene viajes, devolvemos array vacío
-    if (!travelerData || travelerData.length === 0) {
-        return [];
-    }
+  if (tripsError) {
+    throw new Error(
+      `Error al obtener los datos de los viajes: ${tripsError.message}`,
+    );
+  }
 
-    // Extraemos los IDs de los viajes
-    const tripIds = travelerData.map(t => t.trip_id);
-
-    // Obtenemos los datos completos de esos viajes
-    const { data: trips, error: tripsError } = await supabase
-        .from(TABLE_NAME)
-        .select('*')
-        .in('id', tripIds);
-
-    if (tripsError) {
-        throw new Error(`Error al obtener los datos de los viajes: ${tripsError.message}`);
-    }
-
-    return trips || [];
-}
+  return trips || [];
+};
 
 /**
  * Obtiene el historial de viajes completados de un usuario
  */
 export const getUserTripHistory = async (userId: string): Promise<Trip[]> => {
-    // Primero obtenemos los trip_ids en los que participa el usuario
-    const { data: travelerData, error: travelerError } = await supabase
-        .from(TRAVELERS_TABLE_NAME)
-        .select('trip_id')
-        .eq('user_id', userId);
+  const tripIds = await getTripIdsForUser(userId);
+  if (tripIds.length === 0) return [];
 
-    if (travelerError) {
-        throw new Error(`Error al obtener los viajes del usuario: ${travelerError.message}`);
-    }
+  // Obtenemos solo los viajes completados, ordenados por fecha de fin (más recientes primero)
+  const { data: trips, error: tripsError } = await supabase
+    .from(TABLE_NAME)
+    .select("*")
+    .in("id", tripIds)
+    .eq("status", "completed")
+    .order("end_date", { ascending: false });
 
-    // Si no tiene viajes, devolvemos array vacío
-    if (!travelerData || travelerData.length === 0) {
-        return [];
-    }
+  if (tripsError) {
+    throw new Error(
+      `Error al obtener el historial de viajes: ${tripsError.message}`,
+    );
+  }
 
-    // Extraemos los IDs de los viajes
-    const tripIds = travelerData.map(t => t.trip_id);
-
-    // Obtenemos solo los viajes completados, ordenados por fecha de fin (más recientes primero)
-    const { data: trips, error: tripsError } = await supabase
-        .from(TABLE_NAME)
-        .select('*')
-        .in('id', tripIds)
-        .eq('status', 'completed')
-        .order('end_date', { ascending: false });
-
-    if (tripsError) {
-        throw new Error(`Error al obtener el historial de viajes: ${tripsError.message}`);
-    }
-
-    return trips || [];
-}
+  return trips || [];
+};
 
 /**
  * Elimina a un usuario de un viaje (para cuando sale del viaje)
  * Solo puede hacerlo el propio usuario (si es editor/viewer) o el owner (para expulsar)
  */
 export const removeUserFromTrip = async (userId: string, tripId: number) => {
-    // Verificar que la relación existe
-    const { data: existing, error: checkError } = await supabase
-        .from(TRAVELERS_TABLE_NAME)
-        .select('user_role')
-        .eq('user_id', userId)
-        .eq('trip_id', tripId)
-        .maybeSingle();
+  // Verificar que la relación existe
+  const { data: existing, error: checkError } = await supabase
+    .from(TRAVELERS_TABLE_NAME)
+    .select("user_role")
+    .eq("user_id", userId)
+    .eq("trip_id", tripId)
+    .maybeSingle();
 
-    if (checkError) {
-        throw new Error(`Error al verificar la relación: ${checkError.message}`);
+  if (checkError) {
+    throw new Error(`Error al verificar la relación: ${checkError.message}`);
+  }
+
+  if (!existing) {
+    throw new Error("El usuario no es parte de este viaje");
+  }
+
+  // No permitir que el owner se elimine a sí mismo si es el único owner
+  if (existing.user_role === "owner") {
+    const { data: owners, error: ownersError } = await supabase
+      .from(TRAVELERS_TABLE_NAME)
+      .select("user_id")
+      .eq("trip_id", tripId)
+      .eq("user_role", "owner");
+
+    if (ownersError) {
+      throw new Error(
+        `Error al verificar propietarios: ${ownersError.message}`,
+      );
     }
 
-    if (!existing) {
-        throw new Error('El usuario no es parte de este viaje');
+    if (owners && owners.length === 1) {
+      throw new Error(
+        "No puedes salir del viaje siendo el único propietario. Transfiere la propiedad primero o elimina el viaje.",
+      );
     }
+  }
 
-    // No permitir que el owner se elimine a sí mismo si es el único owner
-    if (existing.user_role === 'owner') {
-        const { data: owners, error: ownersError } = await supabase
-            .from(TRAVELERS_TABLE_NAME)
-            .select('user_id')
-            .eq('trip_id', tripId)
-            .eq('user_role', 'owner');
+  // Eliminar la relación
+  const { error: deleteError } = await supabase
+    .from(TRAVELERS_TABLE_NAME)
+    .delete()
+    .eq("user_id", userId)
+    .eq("trip_id", tripId);
 
-        if (ownersError) {
-            throw new Error(`Error al verificar propietarios: ${ownersError.message}`);
-        }
+  if (deleteError) {
+    throw new Error(
+      `Error al eliminar al usuario del viaje: ${deleteError.message}`,
+    );
+  }
 
-        if (owners && owners.length === 1) {
-            throw new Error('No puedes salir del viaje siendo el único propietario. Transfiere la propiedad primero o elimina el viaje.');
-        }
-    }
-
-    // Eliminar la relación
-    const { error: deleteError } = await supabase
-        .from(TRAVELERS_TABLE_NAME)
-        .delete()
-        .eq('user_id', userId)
-        .eq('trip_id', tripId);
-
-    if (deleteError) {
-        throw new Error(`Error al eliminar al usuario del viaje: ${deleteError.message}`);
-    }
-
-    return { success: true, message: 'Usuario eliminado del viaje correctamente' };
-}
+  return {
+    success: true,
+    message: "Usuario eliminado del viaje correctamente",
+  };
+};
 
 /**
  * Cambia el rol de un usuario en un viaje
  * Solo puede hacerlo el owner
  */
-export const changeUserRole = async (userId: string, tripId: number, newRole: CollaboratorRole) => {
-    // Verificar que la relación existe
-    const { data: existing, error: checkError } = await supabase
-        .from(TRAVELERS_TABLE_NAME)
-        .select('user_role')
-        .eq('user_id', userId)
-        .eq('trip_id', tripId)
-        .maybeSingle();
+export const changeUserRole = async (
+  userId: string,
+  tripId: number,
+  newRole: CollaboratorRole,
+) => {
+  // Verificar que la relación existe
+  const { data: existing, error: checkError } = await supabase
+    .from(TRAVELERS_TABLE_NAME)
+    .select("user_role")
+    .eq("user_id", userId)
+    .eq("trip_id", tripId)
+    .maybeSingle();
 
-    if (checkError) {
-        throw new Error(`Error al verificar la relación: ${checkError.message}`);
+  if (checkError) {
+    throw new Error(`Error al verificar la relación: ${checkError.message}`);
+  }
+
+  if (!existing) {
+    throw new Error("El usuario no es parte de este viaje");
+  }
+
+  // No permitir cambiar el rol del único owner
+  if (existing.user_role === "owner" && newRole !== "owner") {
+    const { data: owners, error: ownersError } = await supabase
+      .from(TRAVELERS_TABLE_NAME)
+      .select("user_id")
+      .eq("trip_id", tripId)
+      .eq("user_role", "owner");
+
+    if (ownersError) {
+      throw new Error(
+        `Error al verificar propietarios: ${ownersError.message}`,
+      );
     }
 
-    if (!existing) {
-        throw new Error('El usuario no es parte de este viaje');
+    if (owners && owners.length === 1) {
+      throw new Error(
+        "No puedes cambiar el rol del único propietario. Asigna otro propietario primero.",
+      );
     }
+  }
 
-    // No permitir cambiar el rol del único owner
-    if (existing.user_role === 'owner' && newRole !== 'owner') {
-        const { data: owners, error: ownersError } = await supabase
-            .from(TRAVELERS_TABLE_NAME)
-            .select('user_id')
-            .eq('trip_id', tripId)
-            .eq('user_role', 'owner');
+  // Actualizar el rol
+  const { data, error: updateError } = await supabase
+    .from(TRAVELERS_TABLE_NAME)
+    .update({ user_role: newRole })
+    .eq("user_id", userId)
+    .eq("trip_id", tripId)
+    .select()
+    .single();
 
-        if (ownersError) {
-            throw new Error(`Error al verificar propietarios: ${ownersError.message}`);
-        }
+  if (updateError) {
+    throw new Error(`Error al cambiar el rol: ${updateError.message}`);
+  }
 
-        if (owners && owners.length === 1) {
-            throw new Error('No puedes cambiar el rol del único propietario. Asigna otro propietario primero.');
-        }
-    }
-
-    // Actualizar el rol
-    const { data, error: updateError } = await supabase
-        .from(TRAVELERS_TABLE_NAME)
-        .update({ user_role: newRole })
-        .eq('user_id', userId)
-        .eq('trip_id', tripId)
-        .select()
-        .single();
-
-    if (updateError) {
-        throw new Error(`Error al cambiar el rol: ${updateError.message}`);
-    }
-
-    return data;
-}
+  return data;
+};
 
 // =============== VEHICLE SERVICES ===============
-export const createVehicleTripRelation = async (vehicleId: string, tripId: number) => {
-    const { data, error } = await supabase
-        .from(ROAD_TRIP_TABLE_NAME)
-        .insert({ id_vehicle: vehicleId, id_trip: tripId })
-        .select()
-        .single();
+/**
+ * Crea la relación entre un vehículo y un viaje
+ * @param vehicleId - ID del vehículo
+ * @param tripId - ID del viaje
+ * @returns Datos de la relación creada
+ */
+export const createVehicleTripRelation = async (
+  vehicleId: string,
+  tripId: number,
+) => {
+  const { data, error } = await supabase
+    .from(ROAD_TRIP_TABLE_NAME)
+    .insert({ id_vehicle: vehicleId, id_trip: tripId })
+    .select()
+    .single();
 
-    if (error) {
-        throw new Error(`Error al crear la relación vehículo-viaje: ${error.message}`);
-    }
+  if (error) {
+    throw new Error(
+      `Error al crear la relación vehículo-viaje: ${error.message}`,
+    );
+  }
 
-    return data;
-}
+  return data;
+};
 
+/**
+ * Obtiene los vehículos asociados a un viaje con sus datos completos
+ * @param tripId - ID del viaje
+ * @returns Lista de vehículos del viaje con su información detallada
+ */
 export const getVehiclesInTrip = async (tripId: number) => {
-    const { data, error } = await supabase
-        .from(ROAD_TRIP_TABLE_NAME)
-        .select(`
+  const { data, error } = await supabase
+    .from(ROAD_TRIP_TABLE_NAME)
+    .select(
+      `
             id,
             id_vehicle,
             id_trip,
@@ -413,28 +514,42 @@ export const getVehiclesInTrip = async (tripId: number) => {
                 type_fuel,
                 user_id
             )
-        `)
-        .eq('id_trip', tripId);
-    if (error) {
-        throw new Error(`Error al obtener los vehículos del viaje: ${error.message}`);
-    }
-    return data || [];
-}
+        `,
+    )
+    .eq("id_trip", tripId);
+  if (error) {
+    throw new Error(
+      `Error al obtener los vehículos del viaje: ${error.message}`,
+    );
+  }
+  return data || [];
+};
 
-export const removeVehicleFromTrip = async (vehicleId: string, tripId: number) => {
-    const { error } = await supabase
-        .from(ROAD_TRIP_TABLE_NAME)
-        .delete()
-        .eq('id_vehicle', vehicleId)
-        .eq('id_trip', tripId);
-    if (error) {
-        throw new Error(`Error al eliminar la relación vehículo-viaje: ${error.message}`);
-    }
-}
+/**
+ * Elimina la relación entre un vehículo y un viaje
+ * @param vehicleId - ID del vehículo a desasociar
+ * @param tripId - ID del viaje
+ */
+export const removeVehicleFromTrip = async (
+  vehicleId: string,
+  tripId: number,
+) => {
+  const { error } = await supabase
+    .from(ROAD_TRIP_TABLE_NAME)
+    .delete()
+    .eq("id_vehicle", vehicleId)
+    .eq("id_trip", tripId);
+  if (error) {
+    throw new Error(
+      `Error al eliminar la relación vehículo-viaje: ${error.message}`,
+    );
+  }
+};
 
 // =============== HELPER FUNCTIONS ===============
 
-const GENERIC_IMAGE_URL = 'https://images.unsplash.com/photo-1488646953014-85cb44e25828?w=800';
+const GENERIC_IMAGE_URL =
+  "https://images.unsplash.com/photo-1488646953014-85cb44e25828?w=800";
 
 // In-memory cache: destination name → Unsplash URL (lives as long as the server process)
 const imageCache = new Map<string, string>();
@@ -445,43 +560,47 @@ const imageCache = new Map<string, string>();
  * Devuelve la URL genérica si no hay API key, no hay destino o la llamada falla.
  */
 async function getCoverImageUrl(destinationName?: string): Promise<string> {
-    const UNSPLASH_KEY = process.env.UNSPLASH_ACCESS_KEY;
+  const UNSPLASH_KEY = process.env.UNSPLASH_ACCESS_KEY;
 
-    if (!UNSPLASH_KEY || !destinationName || destinationName.trim().length === 0) {
-        return GENERIC_IMAGE_URL;
+  if (
+    !UNSPLASH_KEY ||
+    !destinationName ||
+    destinationName.trim().length === 0
+  ) {
+    return GENERIC_IMAGE_URL;
+  }
+
+  const cacheKey = destinationName.split(",")[0].trim().toLowerCase();
+  if (!cacheKey) return GENERIC_IMAGE_URL;
+
+  // Return cached URL if available
+  const cached = imageCache.get(cacheKey);
+  if (cached) return cached;
+
+  const query = encodeURIComponent(cacheKey);
+  const fullQuery = `${query},city,travel`;
+  const API_URL = `https://api.unsplash.com/search/photos?query=${fullQuery}&per_page=1&orientation=landscape&client_id=${UNSPLASH_KEY}`;
+
+  try {
+    const response = await fetch(API_URL);
+
+    if (!response.ok) {
+      console.error("Error fetching from Unsplash:", response.statusText);
+      return GENERIC_IMAGE_URL;
     }
 
-    const cacheKey = destinationName.split(',')[0].trim().toLowerCase();
-    if (!cacheKey) return GENERIC_IMAGE_URL;
+    const data = await response.json();
 
-    // Return cached URL if available
-    const cached = imageCache.get(cacheKey);
-    if (cached) return cached;
-
-    const query = encodeURIComponent(cacheKey);
-    const fullQuery = `${query},city,travel`;
-    const API_URL = `https://api.unsplash.com/search/photos?query=${fullQuery}&per_page=1&orientation=landscape&client_id=${UNSPLASH_KEY}`;
-
-    try {
-        const response = await fetch(API_URL);
-
-        if (!response.ok) {
-            console.error('Error fetching from Unsplash:', response.statusText);
-            return GENERIC_IMAGE_URL;
-        }
-
-        const data = await response.json();
-
-        if (data.results && data.results.length > 0) {
-            const url: string = data.results[0].urls.regular;
-            imageCache.set(cacheKey, url);
-            return url;
-        }
-        return GENERIC_IMAGE_URL;
-    } catch (error) {
-        console.error('Error fatal en getCoverImageUrl:', error);
-        return GENERIC_IMAGE_URL;
+    if (data.results && data.results.length > 0) {
+      const url: string = data.results[0].urls.regular;
+      imageCache.set(cacheKey, url);
+      return url;
     }
+    return GENERIC_IMAGE_URL;
+  } catch (error) {
+    console.error("Error fatal en getCoverImageUrl:", error);
+    return GENERIC_IMAGE_URL;
+  }
 }
 
 /**
@@ -489,15 +608,18 @@ async function getCoverImageUrl(destinationName?: string): Promise<string> {
  * No bloquea la respuesta al cliente.
  */
 function fetchAndUpdateCoverImage(tripId: number, destination: string): void {
-    getCoverImageUrl(destination)
-        .then(async (imageUrl) => {
-            if (imageUrl !== GENERIC_IMAGE_URL) {
-                await supabase.from('trip').update({ cover_image_url: imageUrl }).eq('id', tripId);
-            }
-        })
-        .catch(() => {
-            // Best-effort — silently ignore errors in background job
-        });
+  getCoverImageUrl(destination)
+    .then(async (imageUrl) => {
+      if (imageUrl !== GENERIC_IMAGE_URL) {
+        await supabase
+          .from("trip")
+          .update({ cover_image_url: imageUrl })
+          .eq("id", tripId);
+      }
+    })
+    .catch(() => {
+      // Best-effort — silently ignore errors in background job
+    });
 }
 
 // ============================================================================
@@ -514,47 +636,53 @@ function fetchAndUpdateCoverImage(tripId: number, destination: string): void {
  * @returns Viaje actualizado
  */
 export const updateTripStatus = async (
-    tripId: number,
-    newStatus: 'planning' | 'going' | 'completed',
-    changedBy: 'user' | 'auto' | 'system',
-    reason?: string,
-    userId?: string
+  tripId: number,
+  newStatus: "planning" | "going" | "completed",
+  changedBy: "user" | "auto" | "system",
+  reason?: string,
+  userId?: string,
 ) => {
-    console.log('🔄 [TripService.updateTripStatus]', { tripId, newStatus, changedBy });
+  dlog("🔄 [TripService.updateTripStatus]", {
+    tripId,
+    newStatus,
+    changedBy,
+  });
 
-    // Obtener el estado actual del viaje
-    const currentTrip = await getById(tripId);
-    const oldStatus = currentTrip.status;
+  // Obtener el estado actual del viaje
+  const currentTrip = await getById(tripId);
+  const oldStatus = currentTrip.status;
 
-    // Si el estado no ha cambiado, no hacer nada
-    if (oldStatus === newStatus) {
-        console.log('ℹ️ [TripService.updateTripStatus] Status unchanged, skipping');
-        return currentTrip;
-    }
+  // Si el estado no ha cambiado, no hacer nada
+  if (oldStatus === newStatus) {
+    dlog("ℹ️ [TripService.updateTripStatus] Status unchanged, skipping");
+    return currentTrip;
+  }
 
-    // Actualizar el estado del viaje
-    const { data, error } = await supabase
-        .from(TABLE_NAME)
-        .update({
-            status: newStatus,
-            updated_at: new Date().toISOString()
-        })
-        .eq('id', tripId)
-        .select()
-        .single();
+  // Actualizar el estado del viaje
+  const { data, error } = await supabase
+    .from(TABLE_NAME)
+    .update({
+      status: newStatus,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", tripId)
+    .select()
+    .single();
 
-    if (error) {
-        console.error('❌ [TripService.updateTripStatus] Error:', error);
-        throw new Error(`Error al actualizar el estado del viaje: ${error.message}`);
-    }
+  if (error) {
+    console.error("❌ [TripService.updateTripStatus] Error:", error);
+    throw new Error(
+      `Error al actualizar el estado del viaje: ${error.message}`,
+    );
+  }
 
-    console.log('✅ [TripService.updateTripStatus] Trip status updated successfully');
+  dlog("✅ [TripService.updateTripStatus] Trip status updated successfully");
 
-    // Nota: El trigger de base de datos creará automáticamente el registro en trip_status_history
-    // Pero si queremos tener más control, podemos crear el registro manualmente aquí
-    // importando tripStatusHistory.service y llamando a create()
+  // Nota: El trigger de base de datos creará automáticamente el registro en trip_status_history
+  // Pero si queremos tener más control, podemos crear el registro manualmente aquí
+  // importando tripStatusHistory.service y llamando a create()
 
-    return data;
+  return data;
 };
 
 /**
@@ -563,19 +691,21 @@ export const updateTripStatus = async (
  * @returns Array de viajes listos para empezar
  */
 export const getTripsReadyToStart = async () => {
-    const now = new Date();
+  const now = new Date();
 
-    const { data, error } = await supabase
-        .from(TABLE_NAME)
-        .select('*')
-        .eq('status', 'planning')
-        .lte('start_date', now.toISOString());
+  const { data, error } = await supabase
+    .from(TABLE_NAME)
+    .select("*")
+    .eq("status", "planning")
+    .lte("start_date", now.toISOString());
 
-    if (error) {
-        throw new Error(`Error al buscar viajes listos para empezar: ${error.message}`);
-    }
+  if (error) {
+    throw new Error(
+      `Error al buscar viajes listos para empezar: ${error.message}`,
+    );
+  }
 
-    return data || [];
+  return data || [];
 };
 
 /**
@@ -585,49 +715,54 @@ export const getTripsReadyToStart = async () => {
  * @returns Array de viajes listos para completar
  */
 export const getTripsReadyToComplete = async (graceHours: number = 24) => {
-    const now = new Date();
-    const targetTime = new Date(now.getTime() - graceHours * 60 * 60 * 1000);
+  const now = new Date();
+  const targetTime = new Date(now.getTime() - graceHours * 60 * 60 * 1000);
 
-    const { data, error } = await supabase
-        .from(TABLE_NAME)
-        .select('*')
-        .eq('status', 'going')
-        .lte('end_date', targetTime.toISOString());
+  const { data, error } = await supabase
+    .from(TABLE_NAME)
+    .select("*")
+    .eq("status", "going")
+    .lte("end_date", targetTime.toISOString());
 
-    if (error) {
-        throw new Error(`Error al buscar viajes listos para completar: ${error.message}`);
-    }
+  if (error) {
+    throw new Error(
+      `Error al buscar viajes listos para completar: ${error.message}`,
+    );
+  }
 
-    return data || [];
+  return data || [];
 };
 
 /**
  * Desplaza las fechas de inicio y fin de un viaje el número de días indicado,
  * preservando la duración original del viaje.
  */
-export const shiftTripDates = async (tripId: number, daysToAdd: number): Promise<void> => {
-    const trip = await getById(tripId);
+export const shiftTripDates = async (
+  tripId: number,
+  daysToAdd: number,
+): Promise<void> => {
+  const trip = await getById(tripId);
 
-    if (!trip.start_date || !trip.end_date) return;
+  if (!trip.start_date || !trip.end_date) return;
 
-    const newStartDate = new Date(trip.start_date);
-    newStartDate.setDate(newStartDate.getDate() + daysToAdd);
+  const newStartDate = new Date(trip.start_date);
+  newStartDate.setDate(newStartDate.getDate() + daysToAdd);
 
-    const newEndDate = new Date(trip.end_date);
-    newEndDate.setDate(newEndDate.getDate() + daysToAdd);
+  const newEndDate = new Date(trip.end_date);
+  newEndDate.setDate(newEndDate.getDate() + daysToAdd);
 
-    const { error } = await supabase
-        .from(TABLE_NAME)
-        .update({
-            start_date: newStartDate.toISOString(),
-            end_date: newEndDate.toISOString(),
-            updated_at: new Date().toISOString(),
-        })
-        .eq('id', tripId);
+  const { error } = await supabase
+    .from(TABLE_NAME)
+    .update({
+      start_date: newStartDate.toISOString(),
+      end_date: newEndDate.toISOString(),
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", tripId);
 
-    if (error) {
-        throw new Error(`Error al ajustar fechas del viaje: ${error.message}`);
-    }
+  if (error) {
+    throw new Error(`Error al ajustar fechas del viaje: ${error.message}`);
+  }
 };
 
 /**
@@ -636,29 +771,35 @@ export const shiftTripDates = async (tripId: number, daysToAdd: number): Promise
  * @returns Usuario propietario del viaje
  */
 export const getTripOwner = async (tripId: number) => {
-    const { data, error } = await supabase
-        .from(TRAVELERS_TABLE_NAME)
-        .select('user_id, user:user_id(*)')
-        .eq('trip_id', tripId)
-        .eq('user_role', 'owner')
-        .single();
+  const { data, error } = await supabase
+    .from(TRAVELERS_TABLE_NAME)
+    .select("user_id, user:user_id(*)")
+    .eq("trip_id", tripId)
+    .eq("user_role", "owner")
+    .single();
 
-    if (error) {
-        throw new Error(`Error al obtener el propietario del viaje: ${error.message}`);
-    }
+  if (error) {
+    throw new Error(
+      `Error al obtener el propietario del viaje: ${error.message}`,
+    );
+  }
 
-    if (!data) {
-        throw new Error(`No se encontró el propietario del viaje con id: ${tripId}`);
-    }
+  if (!data) {
+    throw new Error(
+      `No se encontró el propietario del viaje con id: ${tripId}`,
+    );
+  }
 
-    // data.user puede ser un array, tomamos el primer elemento si es necesario
-    const user = Array.isArray(data.user) ? data.user[0] : data.user;
+  // data.user puede ser un array, tomamos el primer elemento si es necesario
+  const user = Array.isArray(data.user) ? data.user[0] : data.user;
 
-    if (!user) {
-        throw new Error(`No se encontró información del usuario propietario del viaje con id: ${tripId}`);
-    }
+  if (!user) {
+    throw new Error(
+      `No se encontró información del usuario propietario del viaje con id: ${tripId}`,
+    );
+  }
 
-    return user;
+  return user;
 };
 
 /**
@@ -670,121 +811,142 @@ export const getTripOwner = async (tripId: number) => {
  * @returns Resultado de la operación
  */
 export const respondToStatusCheck = async (
-    tripId: number,
-    notificationId: string,
-    userId: string,
-    response: { started?: boolean; completed?: boolean }
+  tripId: number,
+  notificationId: string,
+  userId: string,
+  response: { started?: boolean; completed?: boolean },
 ) => {
-    console.log(`📋 [respondToStatusCheck] Processing response for trip ${tripId}, notification ${notificationId}`);
+  console.log(
+    `📋 [respondToStatusCheck] Processing response for trip ${tripId}, notification ${notificationId}`,
+  );
 
-    // 1. Verificar que el usuario es el owner del viaje
-    const { data: travelerData, error: travelerError } = await supabase
-        .from(TRAVELERS_TABLE_NAME)
-        .select('user_role')
-        .eq('trip_id', tripId)
-        .eq('user_id', userId)
-        .single();
+  // 1. Verificar que el usuario es el owner del viaje
+  const { data: travelerData, error: travelerError } = await supabase
+    .from(TRAVELERS_TABLE_NAME)
+    .select("user_role")
+    .eq("trip_id", tripId)
+    .eq("user_id", userId)
+    .single();
 
-    if (travelerError || !travelerData) {
-        throw new Error(`No se encontró el usuario en el viaje`);
+  if (travelerError || !travelerData) {
+    throw new Error(`No se encontró el usuario en el viaje`);
+  }
+
+  if (travelerData.user_role !== "owner") {
+    throw new Error(
+      `Solo el propietario del viaje puede responder a estas notificaciones`,
+    );
+  }
+
+  // 2. Obtener el viaje actual
+  const { data: tripData, error: tripError } = await supabase
+    .from(TABLE_NAME)
+    .select("id, name, status, start_date, end_date")
+    .eq("id", tripId)
+    .single();
+
+  if (tripError || !tripData) {
+    throw new Error(
+      `No se encontró el viaje: ${tripError?.message || "Sin datos"}`,
+    );
+  }
+
+  const trip = tripData as any;
+
+  // 3. Determinar el nuevo estado basado en la respuesta
+  let newStatus: "planning" | "going" | "completed" | null = null;
+  let actionStatus: "accepted" | "rejected" = "rejected";
+
+  if (response.started !== undefined) {
+    // Respuesta para inicio de viaje
+    if (trip.status !== "planning") {
+      throw new Error(
+        `El viaje no está en estado 'planning'. Estado actual: ${trip.status}`,
+      );
     }
 
-    if (travelerData.user_role !== 'owner') {
-        throw new Error(`Solo el propietario del viaje puede responder a estas notificaciones`);
-    }
-
-    // 2. Obtener el viaje actual
-    const { data: tripData, error: tripError } = await supabase
-        .from(TABLE_NAME)
-        .select('id, name, status, start_date, end_date')
-        .eq('id', tripId)
-        .single();
-
-    if (tripError || !tripData) {
-        throw new Error(`No se encontró el viaje: ${tripError?.message || 'Sin datos'}`);
-    }
-
-    const trip = tripData as any;
-
-    // 3. Determinar el nuevo estado basado en la respuesta
-    let newStatus: 'planning' | 'going' | 'completed' | null = null;
-    let actionStatus: 'accepted' | 'rejected' = 'rejected';
-
-    if (response.started !== undefined) {
-        // Respuesta para inicio de viaje
-        if (trip.status !== 'planning') {
-            throw new Error(`El viaje no está en estado 'planning'. Estado actual: ${trip.status}`);
-        }
-
-        if (response.started) {
-            newStatus = 'going';
-            actionStatus = 'accepted';
-        } else {
-            actionStatus = 'rejected';
-            // Desplazar fechas si el viaje ya debería haber empezado
-            if (trip.start_date) {
-                const now = new Date();
-                const startDate = new Date(trip.start_date);
-                if (now > startDate) {
-                    const daysLate = Math.ceil((now.getTime() - startDate.getTime()) / 86400000);
-                    await shiftTripDates(tripId, daysLate);
-                }
-            }
-            // Limpiar otras notificaciones pendientes para este viaje (el cron creará una nueva cuando llegue la fecha)
-            await supabase
-                .from('notifications')
-                .update({ status: 'read', action_status: 'rejected' })
-                .eq('related_trip_id', tripId)
-                .eq('type', 'trip_status_check')
-                .eq('action_status', 'pending')
-                .neq('id', notificationId);
-        }
-    } else if (response.completed !== undefined) {
-        // Respuesta para finalización de viaje
-        if (trip.status !== 'going') {
-            throw new Error(`El viaje no está en estado 'going'. Estado actual: ${trip.status}`);
-        }
-
-        if (response.completed) {
-            newStatus = 'completed';
-            actionStatus = 'accepted';
-            console.log(`✅ User confirmed trip completed`);
-        } else {
-            console.log(`❌ User denied trip completed`);
-            actionStatus = 'rejected';
-        }
+    if (response.started) {
+      newStatus = "going";
+      actionStatus = "accepted";
     } else {
-        throw new Error(`Respuesta inválida. Debe incluir 'started' o 'completed'`);
+      actionStatus = "rejected";
+      // Desplazar fechas si el viaje ya debería haber empezado
+      if (trip.start_date) {
+        const now = new Date();
+        const startDate = new Date(trip.start_date);
+        if (now > startDate) {
+          const daysLate = Math.ceil(
+            (now.getTime() - startDate.getTime()) / 86_400_000,
+          );
+          await shiftTripDates(tripId, daysLate);
+        }
+      }
+      // Limpiar otras notificaciones pendientes para este viaje (el cron creará una nueva cuando llegue la fecha)
+      await supabase
+        .from("notifications")
+        .update({ status: "read", action_status: "rejected" })
+        .eq("related_trip_id", tripId)
+        .eq("type", "trip_status_check")
+        .eq("action_status", "pending")
+        .neq("id", notificationId);
+    }
+  } else if (response.completed !== undefined) {
+    // Respuesta para finalización de viaje
+    if (trip.status !== "going") {
+      throw new Error(
+        `El viaje no está en estado 'going'. Estado actual: ${trip.status}`,
+      );
     }
 
-    // 4. Actualizar el estado del viaje si el usuario aceptó
-    if (newStatus) {
-        await updateTripStatus(tripId, newStatus, 'user', 'Usuario respondió a notificación', userId);
+    if (response.completed) {
+      newStatus = "completed";
+      actionStatus = "accepted";
+      console.log(`✅ User confirmed trip completed`);
+    } else {
+      console.log(`❌ User denied trip completed`);
+      actionStatus = "rejected";
     }
+  } else {
+    throw new Error(`Respuesta inválida. Debe incluir 'started' o 'completed'`);
+  }
 
-    // 5. Marcar la notificación como leída y actualizar action_status
-    const { error: notifError } = await supabase
-        .from('notifications')
-        .update({
-            status: 'read',
-            action_status: actionStatus,
-        })
-        .eq('id', notificationId);
+  // 4. Actualizar el estado del viaje si el usuario aceptó
+  if (newStatus) {
+    await updateTripStatus(
+      tripId,
+      newStatus,
+      "user",
+      "Usuario respondió a notificación",
+      userId,
+    );
+  }
 
-    if (notifError) {
-        console.error(`❌ Error updating notification:`, notifError);
-        throw new Error(`Error al actualizar la notificación: ${notifError.message}`);
-    }
+  // 5. Marcar la notificación como leída y actualizar action_status
+  const { error: notifError } = await supabase
+    .from("notifications")
+    .update({
+      status: "read",
+      action_status: actionStatus,
+    })
+    .eq("id", notificationId);
 
-    console.log(`✅ [respondToStatusCheck] Response processed successfully`);
+  if (notifError) {
+    console.error(`❌ Error updating notification:`, notifError);
+    throw new Error(
+      `Error al actualizar la notificación: ${notifError.message}`,
+    );
+  }
 
-    return {
-        success: true,
-        tripId,
-        newStatus: newStatus || trip.trip_status,
-        actionStatus,
-        message: actionStatus === 'accepted'
-            ? 'Estado del viaje actualizado correctamente'
-            : 'Respuesta registrada. El estado del viaje no ha cambiado',
-    };
+  console.log(`✅ [respondToStatusCheck] Response processed successfully`);
+
+  return {
+    success: true,
+    tripId,
+    newStatus: newStatus || trip.trip_status,
+    actionStatus,
+    message:
+      actionStatus === "accepted"
+        ? "Estado del viaje actualizado correctamente"
+        : "Respuesta registrada. El estado del viaje no ha cambiado",
+  };
 };

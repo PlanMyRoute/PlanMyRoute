@@ -27,19 +27,19 @@ describe('<LoginScreen />', () => {
     });
 
     it('Debe renderizar el formulario correctamente', () => {
-        const { getByPlaceholderText, getByText } = render(<LoginScreen />);
+        const { getByLabelText, getByText } = render(<LoginScreen />);
 
-        expect(getByPlaceholderText('Email')).toBeTruthy();
-        expect(getByPlaceholderText('Contraseña')).toBeTruthy();
+        expect(getByLabelText('Email')).toBeTruthy();
+        expect(getByLabelText('Contraseña')).toBeTruthy();
         expect(getByText('Iniciar Sesión')).toBeTruthy();
     });
 
     it('Debe llamar a la función login cuando se pulsa el botón con datos válidos', async () => {
-        const { getByPlaceholderText, getByText } = render(<LoginScreen />);
+        const { getByLabelText, getByText } = render(<LoginScreen />);
 
         // 1. Escribir en los inputs
-        fireEvent.changeText(getByPlaceholderText('Email'), 'patricio@test.com');
-        fireEvent.changeText(getByPlaceholderText('Contraseña'), '123456');
+        fireEvent.changeText(getByLabelText('Email'), 'patricio@test.com');
+        fireEvent.changeText(getByLabelText('Contraseña'), '123456');
 
         // 2. Pulsar el botón
         fireEvent.press(getByText('Iniciar Sesión'));
@@ -51,17 +51,12 @@ describe('<LoginScreen />', () => {
     });
 
     it('Debe mostrar alerta si faltan campos', async () => {
-        // Mockear Alert.alert
-        jest.spyOn(require('react-native').Alert, 'alert');
-
         const { getByText } = render(<LoginScreen />);
 
-        // Pulsar sin escribir nada
         fireEvent.press(getByText('Iniciar Sesión'));
 
-        expect(require('react-native').Alert.alert).toHaveBeenCalledWith(
-            'Error',
-            'Por favor, introduce email y contraseña.'
-        );
+        await waitFor(() => {
+            expect(getByText('Campos incompletos')).toBeTruthy();
+        });
     });
 });
