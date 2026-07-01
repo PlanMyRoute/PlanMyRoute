@@ -9,10 +9,8 @@ describe('INTEGRACIÓN REAL - Usuarios', () => {
     // Upsert para asegurar que el usuario existe
     const { error } = await supabase.from('user').upsert({
       id: FIXED_USER_ID,
-      user_name: 'UsuarioFijoTest',
-      // 'testing' fallaba porque no está en el ENUM de la base de datos.
-      // Usamos 'naturaleza' que es un valor seguro en tu proyecto.
-      user_type: ['leisure'] 
+      username: 'UsuarioFijoTest',
+      user_type: ['leisure']
     });
 
     if (error) {
@@ -30,9 +28,9 @@ describe('INTEGRACIÓN REAL - Usuarios', () => {
     const nuevoNombre = `UsuarioFijo_${Date.now()}`;
     const res = await request(app)
       .patch(`/api/user/${FIXED_USER_ID}`)
-      .send({ user_name: nuevoNombre });
+      .send({ username: nuevoNombre });
 
     expect(res.status).toBe(200);
-    expect(res.body.user_name).toBe(nuevoNombre);
+    expect(res.body.username).toBe(nuevoNombre);
   });
 });

@@ -14,8 +14,8 @@ describe('INTEGRACIÓN REAL - Itinerario y Paradas', () => {
     // 1. Asegurar Usuario
     await supabase.from('user').upsert({
       id: ITINERARY_USER_ID,
-      user_name: 'ItineraryTester',
-      user_type: ['gastronomic', 'cultural'] // Enum válido en inglés
+      username: 'ItineraryTester',
+      user_type: ['gastronomic', 'cultural']
     });
 
     // 2. Crear un Viaje Base para probar las paradas
@@ -70,14 +70,12 @@ describe('INTEGRACIÓN REAL - Itinerario y Paradas', () => {
   });
 
   it('Debe obtener el itinerario completo con la nueva parada', async () => {
-    const res = await request(app).get(`/api/itinerary/trip/${tripId}`);
+    const res = await request(app).get(`/api/itinerary/trip/${tripId}/stops`);
 
     expect(res.status).toBe(200);
-    expect(res.body).toHaveProperty('routesWithStops');
-    
-    // Verificamos que Zaragoza aparece en algún lugar del itinerario
-    // (Nota: la estructura puede variar según cómo devuelvas routesWithStops, 
-    //  pero buscamos en el texto plano del JSON por simplicidad)
+    expect(Array.isArray(res.body)).toBe(true);
+
+    // Verificamos que Zaragoza aparece en la lista de paradas del viaje
     const jsonString = JSON.stringify(res.body);
     expect(jsonString).toContain('Zaragoza');
   });

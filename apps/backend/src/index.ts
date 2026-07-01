@@ -128,3 +128,4 @@ process.on('SIGINT', () => {
 
 // Exportamos para los scripts
 export { app, server };
+export default app;

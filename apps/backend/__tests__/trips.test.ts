@@ -8,11 +8,9 @@ describe('INTEGRACIÓN REAL - Viajes', () => {
 
   afterAll(async () => {
     if (createdTripId) {
-       await request(app).delete(`/api/trips/${createdTripId}`); 
-       // Backup: Borrado directo
-       await supabase.from('trip').delete().eq('id', createdTripId);
+      await supabase.from('trip').delete().eq('id', createdTripId);
     }
-  });
+  }, 15000);
 
   it('Debe crear un viaje real asociado al usuario fijo', async () => {
     const tripData = {

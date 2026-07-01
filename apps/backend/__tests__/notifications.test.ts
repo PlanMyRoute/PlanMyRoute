@@ -10,7 +10,7 @@ describe('INTEGRACIÓN REAL - Notificaciones', () => {
     // Asegurar Usuario Receptor
     await supabase.from('user').upsert({
       id: NOTIF_USER_ID,
-      user_name: 'NotifReceiver',
+      username: 'NotifReceiver',
       user_type: ['cultural']
     });
   });
