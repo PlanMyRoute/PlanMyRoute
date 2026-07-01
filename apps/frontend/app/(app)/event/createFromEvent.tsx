@@ -1,8 +1,7 @@
 import { LocationSearchInput } from '@/components/customElements/LocationSearchInput';
-import { InterestSelector } from '@/components/interests/InterestSelector';
+import { ExtendedInterest, InterestSelector, splitInterests } from '@/components/interests/InterestSelector';
 import { useAuth } from '@/context/AuthContext';
 import { TripService } from '@/services/tripService';
-import { Interest } from '@planmyroute/types';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
@@ -79,7 +78,7 @@ export default function CreateFromEventScreen() {
     const [creating, setCreating] = useState(false);
 
     // AI mode fields
-    const [selectedInterests, setSelectedInterests] = useState<Interest[]>(['leisure']);
+    const [selectedInterests, setSelectedInterests] = useState<ExtendedInterest[]>(['leisure']);
     const [travelStyle, setTravelStyle] = useState<TravelStyle>('balanced');
 
     const isValid = tripName.trim().length > 0 && origin.trim().length > 0 &&
@@ -107,7 +106,8 @@ export default function CreateFromEventScreen() {
                 destination: destinationLabel,
                 vehicleIds: [],
                 travelStyle: isAiMode ? travelStyle : 'balanced',
-                type: isAiMode ? selectedInterests : ['leisure'],
+                type: isAiMode ? splitInterests(selectedInterests).dbInterests : ['leisure'],
+                promptKeywords: isAiMode ? splitInterests(selectedInterests).promptKeywords : [],
             };
 
             const response = await TripService.createTrip(payload as any, user.id, isAiMode, token || undefined);

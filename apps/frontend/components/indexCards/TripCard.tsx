@@ -1,19 +1,37 @@
-import CustomAlert from '@/components/customElements/CustomAlert';
-import { MicrotextDark, SubtitleSemibold, TextRegular, Title2Semibold } from '@/components/customElements/CustomText';
-import { DropdownMenu, DropdownMenuItem } from '@/components/modals/DropdownMenu';
-import { TripStatusBadge } from '@/components/trip/TripStatusBadge';
-import { useTripAccess } from '@/hooks/useTripAccess';
-import { Ionicons } from '@expo/vector-icons';
-import { Trip } from '@planmyroute/types';
-import { useRouter } from 'expo-router';
-import { ROUTES } from '@/constants/routes';
-import { useMemo, useState } from 'react';
-import { ImageBackground, Pressable, TouchableOpacity, View } from 'react-native';
-import Toast from 'react-native-toast-message';
-import { useTripContext } from '../../context/TripContext';
-import { useStops } from '../../hooks/useItinerary';
-import { useTripPermissions } from '../../hooks/useTripPermissions';
-import { useDeleteTrip, useLeaveTrip, useTripStopsCount } from '../../hooks/useTrips';
+import CustomAlert from "@/components/customElements/CustomAlert";
+import {
+  MicrotextDark,
+  SubtitleSemibold,
+  TextRegular,
+  Title2Semibold,
+} from "@/components/customElements/CustomText";
+import {
+  DropdownMenu,
+  DropdownMenuItem,
+} from "@/components/modals/DropdownMenu";
+import { TripStatusBadge } from "@/components/trip/TripStatusBadge";
+import { useTripAccess } from "@/hooks/useTripAccess";
+import { Ionicons } from "@expo/vector-icons";
+import { Trip } from "@planmyroute/types";
+import { useRouter } from "expo-router";
+import { ROUTES } from "@/constants/routes";
+import { formatDateRange } from "@/utils/formatDate";
+import { useMemo, useState } from "react";
+import {
+  ImageBackground,
+  Pressable,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import Toast from "react-native-toast-message";
+import { useTripContext } from "../../context/TripContext";
+import { useStops } from "../../hooks/useItinerary";
+import { useTripPermissions } from "../../hooks/useTripPermissions";
+import {
+  useDeleteTrip,
+  useLeaveTrip,
+  useTripStopsCount,
+} from "../../hooks/useTrips";
 
 interface TripCardProps {
   trip: Trip;
@@ -25,8 +43,12 @@ export const TripCard = ({ trip }: TripCardProps) => {
   const [cardLayout, setCardLayout] = useState({ y: 0, height: 0 });
   const [deleteAlertVisible, setDeleteAlertVisible] = useState(false);
   const [leaveAlertVisible, setLeaveAlertVisible] = useState(false);
-  const { count: stopsCount, isLoading: stopsLoading } = useTripStopsCount(trip.id.toString());
-  const { stops } = useStops(trip.id.toString(), { enabled: trip.status === 'going' });
+  const { count: stopsCount, isLoading: stopsLoading } = useTripStopsCount(
+    trip.id.toString(),
+  );
+  const { stops } = useStops(trip.id.toString(), {
+    enabled: trip.status === "going",
+  });
   const { setCurrentTrip, setTripId } = useTripContext();
   const deleteTripMutation = useDeleteTrip();
   const leaveTripMutation = useLeaveTrip();
@@ -34,48 +56,27 @@ export const TripCard = ({ trip }: TripCardProps) => {
   // Usar el nuevo hook del servidor para permisos reales
   const access = useTripAccess(trip.id.toString());
   // Mantener el antiguo para retrocompatibilidad
-  const { canEdit, canDelete, canLeave, role, isOwner, isEditor, isViewer } = useTripPermissions(trip.id.toString());
+  const { canEdit, canDelete, canLeave, role, isOwner, isEditor, isViewer } =
+    useTripPermissions(trip.id.toString());
 
   const imageUri = (trip as any).cover_image_url
     ? (trip as any).cover_image_url
-    : 'https://images.unsplash.com/photo-1488646953014-85cb44e25828?w=800';
-
-  const formatDateRange = (startInput: string | Date | null | undefined, endInput: string | Date | null | undefined) => {
-    if (!startInput) return '';
-    const start = typeof startInput === 'string' ? new Date(startInput) : startInput;
-    const end = endInput ? (typeof endInput === 'string' ? new Date(endInput) : endInput) : null;
-
-    const startDay = start.getDate().toString().padStart(2, '0');
-    const startMonth = start.toLocaleDateString('es-ES', { month: 'short' });
-
-    if (end) {
-      const endDay = end.getDate().toString().padStart(2, '0');
-      const endMonth = end.toLocaleDateString('es-ES', { month: 'short' });
-
-      if (start.getMonth() === end.getMonth()) {
-        return `${startDay} ${startMonth} - ${endDay} ${startMonth}`;
-      } else {
-        return `${startDay} ${startMonth} - ${endDay} ${endMonth}`;
-      }
-    }
-
-    return `${startDay} ${startMonth}`;
-  };
+    : "https://images.unsplash.com/photo-1488646953014-85cb44e25828?w=800";
 
   const handleDeleteTrip = () => {
     deleteTripMutation.mutate(trip.id.toString(), {
       onSuccess: () => {
         Toast.show({
-          type: 'success',
-          text1: 'Viaje Eliminado',
+          type: "success",
+          text1: "Viaje Eliminado",
           text2: `"${trip.name}" ha sido eliminado.`,
         });
       },
       onError: (error: any) => {
         Toast.show({
-          type: 'error',
-          text1: 'Error',
-          text2: error?.message || 'No se pudo eliminar el viaje.',
+          type: "error",
+          text1: "Error",
+          text2: error?.message || "No se pudo eliminar el viaje.",
         });
       },
     });
@@ -91,16 +92,16 @@ export const TripCard = ({ trip }: TripCardProps) => {
     leaveTripMutation.mutate(trip.id.toString(), {
       onSuccess: () => {
         Toast.show({
-          type: 'success',
-          text1: 'Has salido del viaje',
+          type: "success",
+          text1: "Has salido del viaje",
           text2: `Ya no formas parte de "${trip.name}".`,
         });
       },
       onError: (error: any) => {
         Toast.show({
-          type: 'error',
-          text1: 'Error',
-          text2: error?.message || 'No se pudo salir del viaje.',
+          type: "error",
+          text1: "Error",
+          text2: error?.message || "No se pudo salir del viaje.",
         });
       },
     });
@@ -143,9 +144,9 @@ export const TripCard = ({ trip }: TripCardProps) => {
     // Editar - Solo owners y editors, y no si está completado o es guest
     if (access.canEdit && !access.isCompleted && !access.isGuest) {
       items.push({
-        id: 'edit',
-        label: 'Editar viaje',
-        icon: 'create-outline',
+        id: "edit",
+        label: "Editar viaje",
+        icon: "create-outline",
         onPress: handleEdit,
       });
     }
@@ -153,22 +154,22 @@ export const TripCard = ({ trip }: TripCardProps) => {
     // Eliminar viaje - Solo owner (permitido incluso si está completado)
     if (access.canDelete) {
       items.push({
-        id: 'delete',
-        label: 'Eliminar viaje',
-        icon: 'trash-outline',
+        id: "delete",
+        label: "Eliminar viaje",
+        icon: "trash-outline",
         onPress: handleDelete,
-        variant: 'destructive',
+        variant: "destructive",
       });
     }
 
     // Salir del viaje - Editors y viewers (no guests)
     if (access.canLeave && !access.isGuest) {
       items.push({
-        id: 'leave',
-        label: 'Salir del viaje',
-        icon: 'exit-outline',
+        id: "leave",
+        label: "Salir del viaje",
+        icon: "exit-outline",
         onPress: handleLeave,
-        variant: 'destructive',
+        variant: "destructive",
       });
     }
 
@@ -176,7 +177,7 @@ export const TripCard = ({ trip }: TripCardProps) => {
   }, [access, trip.id]);
 
   // Determinar si es un viaje "en curso" para cambiar el estilo
-  const isOngoingTrip = trip.status === 'going';
+  const isOngoingTrip = trip.status === "going";
 
   // Calcular el día actual del viaje si está en marcha
   const getCurrentTripDay = () => {
@@ -187,7 +188,9 @@ export const TripCard = ({ trip }: TripCardProps) => {
     start.setHours(0, 0, 0, 0);
     today.setHours(0, 0, 0, 0);
 
-    const daysDiff = Math.floor((today.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
+    const daysDiff = Math.floor(
+      (today.getTime() - start.getTime()) / (1000 * 60 * 60 * 24),
+    );
     return Math.max(1, daysDiff + 1);
   };
 
@@ -209,7 +212,10 @@ export const TripCard = ({ trip }: TripCardProps) => {
     const sortedStops = todayStops.sort((a: any, b: any) => {
       if (!a.estimated_arrival) return 1;
       if (!b.estimated_arrival) return -1;
-      return new Date(a.estimated_arrival).getTime() - new Date(b.estimated_arrival).getTime();
+      return (
+        new Date(a.estimated_arrival).getTime() -
+        new Date(b.estimated_arrival).getTime()
+      );
     });
 
     // Buscar la próxima parada que aún no ha llegado
@@ -232,7 +238,7 @@ export const TripCard = ({ trip }: TripCardProps) => {
   return (
     <View
       className="mb-6"
-      style={{ position: 'relative' }}
+      style={{ position: "relative" }}
       onLayout={(event) => {
         const { y, height } = event.nativeEvent.layout;
         setCardLayout({ y, height });
@@ -243,7 +249,7 @@ export const TripCard = ({ trip }: TripCardProps) => {
         <Pressable
           onPress={() => setMenuOpen(false)}
           style={{
-            position: 'absolute',
+            position: "absolute",
             top: -10000,
             left: -10000,
             right: -10000,
@@ -262,7 +268,7 @@ export const TripCard = ({ trip }: TripCardProps) => {
         </View>
       )}
 
-      <View style={{ position: 'relative', zIndex: 999 }}>
+      <View style={{ position: "relative", zIndex: 999 }}>
         <Pressable
           className="rounded-3xl overflow-hidden"
           style={({ pressed }) =>
@@ -275,6 +281,7 @@ export const TripCard = ({ trip }: TripCardProps) => {
         >
           {/* Imagen del viaje */}
           <ImageBackground
+            accessibilityLabel={`Imagen del viaje ${trip.name}`}
             source={{ uri: imageUri }}
             className="w-full"
             style={{ height: isOngoingTrip ? 200 : 160 }}
@@ -323,7 +330,9 @@ export const TripCard = ({ trip }: TripCardProps) => {
           </ImageBackground>
 
           {/* Panel de información debajo de la imagen */}
-          <View className={`p-5 border-2 border-neutral-gray/20 rounded-b-3xl ${isOngoingTrip ? 'bg-primary-yellow' : 'bg-white'}`}>
+          <View
+            className={`p-5 border-2 border-neutral-gray/20 rounded-b-3xl ${isOngoingTrip ? "bg-primary-yellow" : "bg-white"}`}
+          >
             {isOngoingTrip && nextStop ? (
               /* Diseño especial para viajes going */
               <>
@@ -346,9 +355,11 @@ export const TripCard = ({ trip }: TripCardProps) => {
                     <View className="flex-row items-center gap-2">
                       <Ionicons name="time-outline" size={16} color="#202020" />
                       <MicrotextDark className="text-dark-black">
-                        {new Date(nextStop.estimated_arrival).toLocaleTimeString('es-ES', {
-                          hour: '2-digit',
-                          minute: '2-digit'
+                        {new Date(
+                          nextStop.estimated_arrival,
+                        ).toLocaleTimeString("es-ES", {
+                          hour: "2-digit",
+                          minute: "2-digit",
                         })}
                       </MicrotextDark>
                     </View>
@@ -359,7 +370,10 @@ export const TripCard = ({ trip }: TripCardProps) => {
               /* Diseño para viajes planning */
               <>
                 <View className="flex-row items-center justify-between mb-2">
-                  <Title2Semibold className="text-dark-black flex-1" numberOfLines={1}>
+                  <Title2Semibold
+                    className="text-dark-black flex-1"
+                    numberOfLines={1}
+                  >
                     {trip.name}
                   </Title2Semibold>
                   <TripStatusBadge
@@ -372,8 +386,16 @@ export const TripCard = ({ trip }: TripCardProps) => {
                 {/* Descripción o ubicación */}
                 {trip.description && (
                   <View className="flex-row items-start mb-3">
-                    <Ionicons name="location" size={18} color="#202020" style={{ marginTop: 2, marginRight: 6 }} />
-                    <TextRegular className="text-dark-black flex-1" numberOfLines={2}>
+                    <Ionicons
+                      name="location"
+                      size={18}
+                      color="#202020"
+                      style={{ marginTop: 2, marginRight: 6 }}
+                    />
+                    <TextRegular
+                      className="text-dark-black flex-1"
+                      numberOfLines={2}
+                    >
                       {trip.description}
                     </TextRegular>
                   </View>
@@ -383,7 +405,7 @@ export const TripCard = ({ trip }: TripCardProps) => {
                 {stopsCount !== null && stopsCount > 0 && (
                   <View className="flex-row items-center gap-4 pt-3">
                     <MicrotextDark className="text-dark-black">
-                      {stopsCount} {stopsCount === 1 ? 'parada' : 'paradas'}
+                      {stopsCount} {stopsCount === 1 ? "parada" : "paradas"}
                     </MicrotextDark>
                   </View>
                 )}
@@ -411,18 +433,18 @@ export const TripCard = ({ trip }: TripCardProps) => {
         type="warning"
         actions={[
           {
-            text: 'Cancelar',
+            text: "Cancelar",
             onPress: () => setDeleteAlertVisible(false),
-            variant: 'outline'
+            variant: "outline",
           },
           {
-            text: 'Eliminar Definitivamente',
+            text: "Eliminar Definitivamente",
             onPress: () => {
               setDeleteAlertVisible(false);
               handleDeleteTrip();
             },
-            variant: 'dark'
-          }
+            variant: "dark",
+          },
         ]}
         onClose={() => setDeleteAlertVisible(false)}
       />
@@ -435,18 +457,18 @@ export const TripCard = ({ trip }: TripCardProps) => {
         type="warning"
         actions={[
           {
-            text: 'Cancelar',
+            text: "Cancelar",
             onPress: () => setLeaveAlertVisible(false),
-            variant: 'outline'
+            variant: "outline",
           },
           {
-            text: 'Salir del Viaje',
+            text: "Salir del Viaje",
             onPress: () => {
               setLeaveAlertVisible(false);
               handleLeaveTrip();
             },
-            variant: 'dark'
-          }
+            variant: "dark",
+          },
         ]}
         onClose={() => setLeaveAlertVisible(false)}
       />

@@ -1,100 +1,105 @@
-import { API_URL, apiFetch } from '@/constants/api';
-import Constants from 'expo-constants';
-import * as Device from 'expo-device';
+import { apiFetch } from "@/constants/api";
+import Constants from "expo-constants";
+import * as Device from "expo-device";
 
 let notificationHandlerConfigured = false;
 
-export async function registerForPushNotificationsAsync(userId: string, authToken?: string) {
+/** Servicio para gestionar notificaciones push */
+export class PushNotificationService {
+  /** Registra el dispositivo para recibir notificaciones push */
+  static async register(userId: string, authToken?: string) {
     try {
-        if (!Device.isDevice) {
-            console.warn('⚠️ Push notifications are not supported on emulators/simulators');
-            return { success: false, token: null, error: 'Device not supported' };
-        }
+      if (!Device.isDevice) {
+        console.warn(
+          "Las notificaciones push no son compatibles con emuladores/simuladores",
+        );
+        return { success: false, token: null, error: "Device not supported" };
+      }
 
-        if (Constants.executionEnvironment === 'storeClient') {
-            console.warn('⚠️ Push notifications are not available in Expo Go (SDK 53+). Use a development build instead.');
-            return { success: false, token: null, error: 'Expo Go not supported' };
-        }
+      if (Constants.executionEnvironment === "storeClient") {
+        console.warn(
+          "Las notificaciones push no están disponibles en Expo Go (SDK 53+). Usa un build de desarrollo.",
+        );
+        return { success: false, token: null, error: "Expo Go not supported" };
+      }
 
-        const Notifications = await import('expo-notifications');
+      const Notifications = await import("expo-notifications");
 
-        if (!notificationHandlerConfigured) {
-            Notifications.setNotificationHandler({
-                handleNotification: async () => ({
-                    shouldShowAlert: true,
-                    shouldPlaySound: true,
-                    shouldSetBadge: false,
-                    shouldShowBanner: true,
-                    shouldShowList: true,
-                }),
-            });
-            notificationHandlerConfigured = true;
-        }
+      if (!notificationHandlerConfigured) {
+        Notifications.setNotificationHandler({
+          handleNotification: async () => ({
+            shouldShowAlert: true,
+            shouldPlaySound: true,
+            shouldSetBadge: false,
+            shouldShowBanner: true,
+            shouldShowList: true,
+          }),
+        });
+        notificationHandlerConfigured = true;
+      }
 
-        const { status: existingStatus } = await Notifications.getPermissionsAsync();
-        let finalStatus = existingStatus;
+      const { status: existingStatus } =
+        await Notifications.getPermissionsAsync();
+      let finalStatus = existingStatus;
 
-        if (existingStatus !== 'granted') {
-            const { status } = await Notifications.requestPermissionsAsync();
-            finalStatus = status;
-        }
+      if (existingStatus !== "granted") {
+        const { status } = await Notifications.requestPermissionsAsync();
+        finalStatus = status;
+      }
 
-        if (finalStatus !== 'granted') {
-            console.warn('⚠️ Push notification permission not granted');
-            return { success: false, token: null, error: 'Permission not granted' };
-        }
+      if (finalStatus !== "granted") {
+        console.warn("Permiso de notificaciones push no concedido");
+        return { success: false, token: null, error: "Permission not granted" };
+      }
 
-        console.log('📲 Getting Expo push token...');
-        // Intentar obtener el token sin projectId (funciona en Expo Go con experienceId)
-        let tokenData;
+      let tokenData;
+      try {
+        tokenData = await Notifications.getExpoPushTokenAsync();
+      } catch (error: unknown) {
+        console.error(
+          "Error al obtener push token:",
+          error instanceof Error ? error.message : String(error),
+        );
+        throw error;
+      }
+      const expoPushToken = tokenData.data;
+
+      if (authToken && userId) {
         try {
-            tokenData = await Notifications.getExpoPushTokenAsync();
-        } catch (error: unknown) {
-            // Si falla sin projectId, mostrar el error
-            console.error('❌ Failed to get push token:', error instanceof Error ? error.message : String(error));
-            throw error;
+          await apiFetch<void>(`/api/user/${userId}/push-token`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            token: authToken,
+            body: JSON.stringify({ expoPushToken }),
+          });
+        } catch (err) {
+          console.warn("Error al enviar push token al backend", err);
         }
-        const expoPushToken = tokenData.data;
-        console.log('✅ Expo push token obtained:', expoPushToken);
+      }
 
-        // Send token to backend if authToken and userId are provided
-        if (authToken && userId) {
-            try {
-                console.log(`📤 Sending push token to backend: ${API_URL}/api/user/${userId}/push-token`);
-                await apiFetch<void>(`/api/user/${userId}/push-token`, {
-                    method: 'PATCH',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    token: authToken,
-                    body: JSON.stringify({ expoPushToken }),
-                });
-                console.log('✅ Push token sent to backend successfully');
-            } catch (err) {
-                console.warn('⚠️ Failed to send push token to backend', err);
-            }
-        }
-
-        return { success: true, token: expoPushToken };
+      return { success: true, token: expoPushToken };
     } catch (error) {
-        console.error('❌ registerForPushNotificationsAsync error:', error);
-        return { success: false, token: null, error: error instanceof Error ? error.message : String(error) };
+      console.error("Error en register:", error);
+      return {
+        success: false,
+        token: null,
+        error: error instanceof Error ? error.message : String(error),
+      };
     }
-}
+  }
 
-export async function unregisterPushToken(userId: string, authToken?: string) {
+  /** Desregistra el push token del usuario */
+  static async unregister(userId: string, authToken?: string) {
     if (!authToken || !userId) return;
     try {
-        await apiFetch<void>(`/api/user/${userId}/push-token`, {
-            method: 'PATCH',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            token: authToken,
-            body: JSON.stringify({ expoPushToken: null }),
-        });
+      await apiFetch<void>(`/api/user/${userId}/push-token`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        token: authToken,
+        body: JSON.stringify({ expoPushToken: null }),
+      });
     } catch (err) {
-        console.warn('⚠️ Failed to unregister push token', err);
+      console.warn("Error al desregistrar push token", err);
     }
+  }
 }
-

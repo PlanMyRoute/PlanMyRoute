@@ -9,6 +9,7 @@
     "dev": "nodemon src/index.ts",
     "build": "tsc",
     "start": "node dist/index.js",
+    "backfill:distances": "tsx src/scripts/backfillStopDistances.ts",
     "sonar": "node sonar-project.cjs"
   },
   "keywords": [],
@@ -22,12 +23,12 @@
     "cors": "^2.8.5",
     "dotenv": "^17.2.3",
     "express": "^5.1.0",
+    "express-rate-limit": "^8.5.2",
     "formidable": "^3.5.4",
     "helmet": "^8.1.0",
     "node-cron": "^4.2.1",
     "node-fetch": "^3.3.2",
     "node-geocoder": "^4.4.1",
-    "openai": "^6.9.1",
     "stripe": "^20.1.0"
   },
   "devDependencies": {

@@ -1,10 +1,10 @@
-import { Session, User } from '@supabase/supabase-js';
-import * as Linking from 'expo-linking';
-import * as WebBrowser from 'expo-web-browser';
-import React, { createContext, useContext, useEffect, useState } from 'react';
-import { Platform } from 'react-native';
-import { supabase } from '../lib/supabase'; // Ajusta la ruta si es necesario
-import { UserService } from '../services/userService';
+import { Session, User } from "@supabase/supabase-js";
+import * as Linking from "expo-linking";
+import * as WebBrowser from "expo-web-browser";
+import React, { createContext, useContext, useEffect, useState } from "react";
+import { Platform } from "react-native";
+import { supabase } from "../lib/supabase"; // Ajusta la ruta si es necesario
+import { UserService } from "../services/userService";
 
 // Cierra cualquier sesión de WebBrowser pendiente cuando se completa el OAuth.
 WebBrowser.maybeCompleteAuthSession();
@@ -16,8 +16,15 @@ interface AuthContextType {
   token: string | null;
   isLoading: boolean;
   login: (email: string, pass: string) => Promise<void>;
-  signUp: (email: string, pass: string, username: string) => Promise<{ user: User | null; session: Session | null }>;
-  verifyOtp: (email: string, token: string) => Promise<{ user: User | null; session: Session | null }>;
+  signUp: (
+    email: string,
+    pass: string,
+    username: string,
+  ) => Promise<{ user: User | null; session: Session | null }>;
+  verifyOtp: (
+    email: string,
+    token: string,
+  ) => Promise<{ user: User | null; session: Session | null }>;
   resendOtp: (email: string) => Promise<void>;
   signOut: () => Promise<void>;
   signInWithGoogle: () => Promise<void>;
@@ -48,7 +55,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       }
     }, 6000);
 
-    const resolveSession = (session: import('@supabase/supabase-js').Session | null) => {
+    const resolveSession = (
+      session: import("@supabase/supabase-js").Session | null,
+    ) => {
       if (!sessionSettled) {
         sessionSettled = true;
         clearTimeout(sessionTimeoutId);
@@ -58,12 +67,16 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       }
     };
 
-    supabase.auth.getSession()
+    supabase.auth
+      .getSession()
       .then(({ data: { session }, error }) => {
         if (error) {
           // Token inválido/expirado — limpiar estado sin bloquear la app
-          console.warn('getSession: token inválido, cerrando sesión local:', error.message);
-          supabase.auth.signOut({ scope: 'local' }).catch(() => {});
+          console.warn(
+            "getSession: token inválido, cerrando sesión local:",
+            error.message,
+          );
+          supabase.auth.signOut({ scope: "local" }).catch(() => {});
           resolveSession(null);
         } else {
           resolveSession(session);
@@ -71,8 +84,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       })
       .catch((err: Error) => {
         // getSession rechazó la promesa — nunca dejar isLoading en true
-        console.warn('getSession rechazado, cerrando sesión local:', err.message);
-        supabase.auth.signOut({ scope: 'local' }).catch(() => {});
+        console.warn(
+          "getSession rechazado, cerrando sesión local:",
+          err.message,
+        );
+        supabase.auth.signOut({ scope: "local" }).catch(() => {});
         resolveSession(null);
       });
 
@@ -83,10 +99,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         setUser(session?.user ?? null);
         setIsLoading(false);
 
-        if (event === 'SIGNED_IN' && session?.user) {
+        if (event === "SIGNED_IN" && session?.user) {
           await syncAvatarIfGoogle(session.user);
         }
-      }
+      },
     );
 
     // Limpia el listener al desmontar
@@ -102,22 +118,25 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const syncAvatarIfGoogle = async (authUser: User) => {
     if (authUser.is_anonymous) return;
     const provider = authUser.app_metadata?.provider as string | undefined;
-    if (provider !== 'google') return;
+    if (provider !== "google") return;
     const avatarUrl = authUser.user_metadata?.avatar_url;
     if (!avatarUrl) return;
 
     try {
       const { data: existing } = await supabase
-        .from('user')
-        .select('id, img')
-        .eq('id', authUser.id)
+        .from("user")
+        .select("id, img")
+        .eq("id", authUser.id)
         .maybeSingle();
       if (existing && existing.img !== avatarUrl) {
-        await supabase.from('user').update({ img: avatarUrl }).eq('id', authUser.id);
+        await supabase
+          .from("user")
+          .update({ img: avatarUrl })
+          .eq("id", authUser.id);
       }
     } catch (error) {
       // No es crítico: si falla la sincronización del avatar, no rompemos el login.
-      console.warn('No se pudo sincronizar el avatar de Google:', error);
+      console.warn("No se pudo sincronizar el avatar de Google:", error);
     }
   };
 
@@ -132,18 +151,15 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   const signUp = async (email: string, pass: string, username: string) => {
-    console.log('📝 Registrando usuario con metadata:', {
-      email,
-      username,
-      metadata: { user_name: username }
-    });
-
     // Solo usar redirect URL si estamos en web de producción (no app nativa)
-    const isWebProduction = Platform.OS === 'web' && (
-      process.env.EXPO_PUBLIC_ENV === 'production' ||
-      (typeof window !== 'undefined' && window.location.hostname === 'www.planmyroute.es')
-    );
-    const emailRedirectTo = isWebProduction ? 'https://www.planmyroute.es/auth/callback' : undefined;
+    const isWebProduction =
+      Platform.OS === "web" &&
+      (process.env.EXPO_PUBLIC_ENV === "production" ||
+        (typeof window !== "undefined" &&
+          window.location.hostname === "www.planmyroute.es"));
+    const emailRedirectTo = isWebProduction
+      ? "https://www.planmyroute.es/auth/callback"
+      : undefined;
 
     // 1. Crear usuario en Supabase Auth con metadata del username y OTP
     const { data: authData, error: authError } = await supabase.auth.signUp({
@@ -154,44 +170,36 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           user_name: username, // Guardar username en metadata
         },
         emailRedirectTo: emailRedirectTo, // URL de redirección para producción
-      }
+      },
     });
 
     if (authError) {
-      console.error('❌ Error en Auth signup:', authError);
+      console.error("❌ Error en Auth signup:", authError);
       throw authError;
     }
 
     // Supabase devuelve user con identities=[] cuando el email ya está registrado,
     // en vez de lanzar un error. Detectamos ese caso aquí.
-    if (authData.user && Array.isArray(authData.user.identities) && authData.user.identities.length === 0) {
-      throw new Error('EMAIL_ALREADY_REGISTERED');
+    if (
+      authData.user &&
+      Array.isArray(authData.user.identities) &&
+      authData.user.identities.length === 0
+    ) {
+      throw new Error("EMAIL_ALREADY_REGISTERED");
     }
-
-    console.log('✅ Usuario creado en Auth. Código OTP enviado.');
-    console.log('📧 Se ha enviado un código de 6 dígitos a:', email);
-    console.log('🔍 Usuario creado con ID:', authData.user?.id);
-    console.log('🔍 Metadatos guardados:', authData.user?.user_metadata);
 
     return authData;
   };
 
   const verifyOtp = async (email: string, token: string) => {
-    console.log('🔍 Verificando OTP:', {
-      email,
-      token,
-      tokenLength: token.length,
-      tokenTrimmed: token.trim(),
-    });
-
     const { data, error } = await supabase.auth.verifyOtp({
       email,
       token: token.trim(),
-      type: 'email'
+      type: "email",
     });
 
     if (error) {
-      console.error('❌ Error al verificar OTP:', {
+      console.error("❌ Error al verificar OTP:", {
         message: error.message,
         status: error.status,
         code: error.code,
@@ -200,35 +208,36 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       throw error;
     }
 
-    console.log('✅ Email verificado correctamente');
-
     // Reserva la fila en public.user inmediatamente para evitar 404s en cascada.
     // Usamos el username del user_metadata (capturado en el registro) y dejamos
     // name/lastname vacíos para que el wizard los pida después.
     const verifiedUser = data.user;
     const accessToken = data.session?.access_token;
     if (verifiedUser && accessToken) {
-      const username = (verifiedUser.user_metadata?.user_name as string | undefined) || '';
+      const username =
+        (verifiedUser.user_metadata?.user_name as string | undefined) || "";
       try {
-        const existing = await UserService.getUserProfile(verifiedUser.id, { token: accessToken }).catch(() => null);
+        const existing = await UserService.getUserProfile(verifiedUser.id, {
+          token: accessToken,
+        }).catch(() => null);
         if (!existing) {
           await UserService.createUser(
             {
               id: verifiedUser.id,
               email: verifiedUser.email!,
               username,
-              name: '',
-              lastname: '',
+              name: "",
+              lastname: "",
               img: null,
-              timezone: 'UTC',
+              timezone: "UTC",
               auto_trip_status_update: false,
             },
-            accessToken
+            accessToken,
           );
         }
       } catch (e) {
         // No bloqueamos el login si la creación falla — el badge guiará al wizard.
-        console.warn('No se pudo pre-crear la fila en public.user:', e);
+        console.warn("No se pudo pre-crear la fila en public.user:", e);
       }
     }
 
@@ -236,19 +245,15 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   const resendOtp = async (email: string) => {
-    console.log('🔄 Reenviando código OTP a:', email);
-
     const { error } = await supabase.auth.resend({
-      type: 'signup',
+      type: "signup",
       email: email,
     });
 
     if (error) {
-      console.error('❌ Error al reenviar OTP:', error);
+      console.error("❌ Error al reenviar OTP:", error);
       throw error;
     }
-
-    console.log('✅ Código OTP reenviado correctamente');
   };
 
   const signOut = async () => {
@@ -256,17 +261,22 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     const timeoutPromise = new Promise<never>((_, reject) =>
       setTimeout(() => {
         isTimeout = true;
-        reject(new Error('Timeout'));
-      }, 3000)
+        reject(new Error("Timeout"));
+      }, 3000),
     );
     try {
       await Promise.race([supabase.auth.signOut(), timeoutPromise]);
     } catch (error) {
       const err = error as Error;
       if (isTimeout) {
-        console.warn('signOut: timeout al contactar Supabase, cerrando sesión localmente');
+        console.warn(
+          "signOut: timeout al contactar Supabase, cerrando sesión localmente",
+        );
       } else {
-        console.error('signOut: error al cerrar sesión en el servidor:', err.message);
+        console.error(
+          "signOut: error al cerrar sesión en el servidor:",
+          err.message,
+        );
       }
     } finally {
       setUser(null);
@@ -281,13 +291,15 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     const guestUser = data.user;
     const guestToken = data.session?.access_token;
     if (!guestUser || !guestToken) {
-      throw new Error('No se pudo iniciar la sesión de invitado.');
+      throw new Error("No se pudo iniciar la sesión de invitado.");
     }
 
     // Crear perfil mínimo en public.user para que el resto de la app funcione.
     // Si el trigger de la BD ya lo creó, getUserProfile devolverá el existente y saltamos.
     try {
-      const existing = await UserService.getUserProfile(guestUser.id, { token: guestToken });
+      const existing = await UserService.getUserProfile(guestUser.id, {
+        token: guestToken,
+      });
       if (existing?.user) {
         return;
       }
@@ -295,33 +307,41 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       // No existe, lo creamos a continuación.
     }
 
-    const suffix = guestUser.id.replace(/-/g, '').slice(0, 8);
+    // Usamos el UUID completo (sin guiones) como sufijo: garantiza unicidad de
+    // username/email (columnas UNIQUE) sin riesgo de colisión entre invitados.
+    const suffix = guestUser.id.replace(/-/g, "");
     await UserService.createUser(
       {
         id: guestUser.id,
         email: `invitado_${suffix}@guest.planmyroute.local`,
-        name: 'Invitado',
-        lastname: '',
+        name: "Invitado",
+        lastname: "",
         username: `invitado_${suffix}`,
         img: null,
-        timezone: 'UTC',
+        timezone: "UTC",
         auto_trip_status_update: false,
       },
-      guestToken
+      guestToken,
     );
   };
 
   const requestPasswordReset = async (email: string) => {
     // En nativo, el deep link va al esquema de la app. En web, a la URL pública.
-    const isWebProduction = Platform.OS === 'web' && (
-      process.env.EXPO_PUBLIC_ENV === 'production' ||
-      (typeof window !== 'undefined' && window.location.hostname === 'www.planmyroute.es')
-    );
-    const redirectTo = Platform.OS === 'web'
-      ? (isWebProduction ? 'https://www.planmyroute.es/auth/reset-password' : `${window.location.origin}/reset-password`)
-      : 'planmyroute://auth/reset-password';
+    const isWebProduction =
+      Platform.OS === "web" &&
+      (process.env.EXPO_PUBLIC_ENV === "production" ||
+        (typeof window !== "undefined" &&
+          window.location.hostname === "www.planmyroute.es"));
+    const redirectTo =
+      Platform.OS === "web"
+        ? isWebProduction
+          ? "https://www.planmyroute.es/auth/reset-password"
+          : `${window.location.origin}/reset-password`
+        : "planmyroute://auth/reset-password";
 
-    const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo });
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo,
+    });
     if (error) throw error;
   };
 
@@ -331,15 +351,17 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   const signInWithGoogle = async () => {
-    if (Platform.OS === 'web') {
-      const isWebProduction = process.env.EXPO_PUBLIC_ENV === 'production' ||
-        (typeof window !== 'undefined' && window.location.hostname === 'www.planmyroute.es');
+    if (Platform.OS === "web") {
+      const isWebProduction =
+        process.env.EXPO_PUBLIC_ENV === "production" ||
+        (typeof window !== "undefined" &&
+          window.location.hostname === "www.planmyroute.es");
       const redirectUrl = isWebProduction
-        ? 'https://www.planmyroute.es/auth/callback'
+        ? "https://www.planmyroute.es/auth/callback"
         : `${window.location.origin}/callback`;
 
       const { error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
+        provider: "google",
         options: { redirectTo: redirectUrl, skipBrowserRedirect: false },
       });
       if (error) throw error;
@@ -348,18 +370,19 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
     // En nativo, signInWithOAuth no abre el navegador automáticamente.
     // Pedimos la URL y la abrimos con WebBrowser.openAuthSessionAsync.
-    const redirectTo = Linking.createURL('/auth/callback');
+    const redirectTo = Linking.createURL("/auth/callback");
 
     const { data, error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
+      provider: "google",
       options: { redirectTo, skipBrowserRedirect: true },
     });
     if (error) throw error;
-    if (!data?.url) throw new Error('No se pudo obtener la URL de autenticación.');
+    if (!data?.url)
+      throw new Error("No se pudo obtener la URL de autenticación.");
 
     const result = await WebBrowser.openAuthSessionAsync(data.url, redirectTo);
 
-    if (result.type !== 'success' || !result.url) {
+    if (result.type !== "success" || !result.url) {
       // Usuario canceló o cerró el navegador — no es un error que mostrar.
       return;
     }
@@ -367,14 +390,18 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     // Supabase devuelve los tokens en el fragmento (#access_token=...&refresh_token=...)
     const parsed = Linking.parse(result.url);
     const params = (parsed.queryParams ?? {}) as Record<string, string>;
-    const fragment = result.url.split('#')[1] ?? '';
-    const fragmentParams = Object.fromEntries(new URLSearchParams(fragment).entries());
+    const fragment = result.url.split("#")[1] ?? "";
+    const fragmentParams = Object.fromEntries(
+      new URLSearchParams(fragment).entries(),
+    );
 
     const accessToken = params.access_token ?? fragmentParams.access_token;
     const refreshToken = params.refresh_token ?? fragmentParams.refresh_token;
 
     if (!accessToken || !refreshToken) {
-      throw new Error('No se recibieron los tokens de Google. Inténtalo de nuevo.');
+      throw new Error(
+        "No se recibieron los tokens de Google. Inténtalo de nuevo.",
+      );
     }
 
     const { error: setSessionError } = await supabase.auth.setSession({
@@ -385,7 +412,24 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, session, token: session?.access_token || null, isLoading, login, signUp, verifyOtp, resendOtp, signOut, signInWithGoogle, signInAsGuest, isGuest: user?.is_anonymous === true, requestPasswordReset, updatePassword }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        session,
+        token: session?.access_token || null,
+        isLoading,
+        login,
+        signUp,
+        verifyOtp,
+        resendOtp,
+        signOut,
+        signInWithGoogle,
+        signInAsGuest,
+        isGuest: user?.is_anonymous === true,
+        requestPasswordReset,
+        updatePassword,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );
@@ -395,7 +439,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (context === undefined) {
-    throw new Error('useAuth debe ser usado dentro de un AuthProvider');
+    throw new Error("useAuth debe ser usado dentro de un AuthProvider");
   }
   return context;
 };

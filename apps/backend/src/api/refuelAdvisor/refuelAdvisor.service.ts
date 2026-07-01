@@ -1,12 +1,14 @@
-import fetch from 'node-fetch';
-import { getAllStopsInATrip, createRefuelStop } from '../itinerary/itinerary.service.js';
-import { getVehiclesInTrip } from '../trips/trips.service.js';
-import { supabase } from '../../supabase.js';
+import {
+  getAllStopsInATrip,
+  createRefuelStop,
+} from "../itinerary/itinerary.service.js";
+import { getVehiclesInTrip } from "../trips/trips.service.js";
+import { supabase } from "../../supabase.js";
+import { haversineKm, ROAD_FACTOR } from "../../utils/geolocation.js";
 
-const GOOGLE_PLACES_API_KEY = process.env.GOOGLE_PLACES_API_KEY || process.env.GOOGLE_API_KEY;
+const GOOGLE_PLACES_API_KEY =
+  process.env.GOOGLE_PLACES_API_KEY || process.env.GOOGLE_API_KEY;
 
-// Factor haversine → distancia real por carretera
-const ROAD_FACTOR = 1.3;
 // Porcentaje de depósito que se reserva como mínimo de seguridad
 const SAFETY_RESERVE_PCT = 0.15;
 // Radio de búsqueda de gasolineras en metros
@@ -14,125 +16,116 @@ const SEARCH_RADIUS_M = 10_000;
 // Número máximo de candidatos por punto de repostaje
 const MAX_CANDIDATES = 5;
 
-type FuelType = 'diesel' | 'gasoline' | 'electric' | 'LPG';
+type FuelType = "diesel" | "gasoline" | "electric" | "LPG";
 
 function extractCoords(coords: any): { lat: number; lng: number } {
-    return {
-        lat: coords?.latitude ?? coords?.lat ?? 0,
-        lng: coords?.longitude ?? coords?.lng ?? 0,
-    };
-}
-
-function haversineKm(
-    a: { lat: number; lng: number },
-    b: { lat: number; lng: number }
-): number {
-    const R = 6371;
-    const toRad = (v: number) => (v * Math.PI) / 180;
-    const dLat = toRad(b.lat - a.lat);
-    const dLon = toRad(b.lng - a.lng);
-    const A =
-        Math.sin(dLat / 2) ** 2 +
-        Math.cos(toRad(a.lat)) * Math.cos(toRad(b.lat)) * Math.sin(dLon / 2) ** 2;
-    return R * 2 * Math.atan2(Math.sqrt(A), Math.sqrt(1 - A));
+  return {
+    lat: coords?.latitude ?? coords?.lat ?? 0,
+    lng: coords?.longitude ?? coords?.lng ?? 0,
+  };
 }
 
 function interpolateCoords(
-    from: { lat: number; lng: number },
-    to: { lat: number; lng: number },
-    fraction: number
+  from: { lat: number; lng: number },
+  to: { lat: number; lng: number },
+  fraction: number,
 ): { lat: number; lng: number } {
-    return {
-        lat: from.lat + (to.lat - from.lat) * fraction,
-        lng: from.lng + (to.lng - from.lng) * fraction,
-    };
+  return {
+    lat: from.lat + (to.lat - from.lat) * fraction,
+    lng: from.lng + (to.lng - from.lng) * fraction,
+  };
 }
 
 function placeTypeForFuel(fuelType: FuelType): string {
-    return fuelType === 'electric'
-        ? 'electric_vehicle_charging_station'
-        : 'gas_station';
+  return fuelType === "electric"
+    ? "electric_vehicle_charging_station"
+    : "gas_station";
 }
 
 export interface GasStationCandidate {
-    place_id: string;
-    name: string;
-    address: string;
-    lat: number;
-    lng: number;
-    rating?: number;
-    open_now?: boolean;
+  place_id: string;
+  name: string;
+  address: string;
+  lat: number;
+  lng: number;
+  rating?: number;
+  open_now?: boolean;
 }
 
 export interface RefuelSuggestion {
-    /** ID de la parada tras la cual se debe insertar el repostaje */
-    insertAfterStopId: number;
-    insertAfterStopName: string;
-    /** ID de la parada anterior al punto de inserción */
-    insertBeforeStopId: number;
-    insertBeforeStopName: string;
-    /** Nivel de combustible (%) al inicio del segmento problemático */
-    fuelLevelPctAtGap: number;
-    /** Km de autonomía restante cuando se detecta el problema */
-    remainingRangeKm: number;
-    /** Coordenadas del punto óptimo de búsqueda en la ruta */
-    searchLat: number;
-    searchLng: number;
-    /** Gasolineras / puntos de carga cercanos (ordenadas por rating) */
-    candidates: GasStationCandidate[];
+  /** ID de la parada tras la cual se debe insertar el repostaje */
+  insertAfterStopId: number;
+  insertAfterStopName: string;
+  /** ID de la parada anterior al punto de inserción */
+  insertBeforeStopId: number;
+  insertBeforeStopName: string;
+  /** Nivel de combustible (%) al inicio del segmento problemático */
+  fuelLevelPctAtGap: number;
+  /** Km de autonomía restante cuando se detecta el problema */
+  remainingRangeKm: number;
+  /** Coordenadas del punto óptimo de búsqueda en la ruta */
+  searchLat: number;
+  searchLng: number;
+  /** Gasolineras / puntos de carga cercanos (ordenadas por rating) */
+  candidates: GasStationCandidate[];
 }
 
 async function searchNearbyStations(
-    lat: number,
-    lng: number,
-    fuelType: FuelType
+  lat: number,
+  lng: number,
+  fuelType: FuelType,
 ): Promise<GasStationCandidate[]> {
-    if (!GOOGLE_PLACES_API_KEY) {
-        console.warn('⚠️ GOOGLE_PLACES_API_KEY no configurada — no se puede buscar gasolineras');
-        return [];
-    }
+  if (!GOOGLE_PLACES_API_KEY) {
+    console.warn(
+      "⚠️ GOOGLE_PLACES_API_KEY no configurada — no se puede buscar gasolineras",
+    );
+    return [];
+  }
 
-    const url = new URL('https://maps.googleapis.com/maps/api/place/nearbysearch/json');
-    url.searchParams.set('location', `${lat},${lng}`);
-    url.searchParams.set('radius', String(SEARCH_RADIUS_M));
-    url.searchParams.set('type', placeTypeForFuel(fuelType));
-    url.searchParams.set('key', GOOGLE_PLACES_API_KEY);
+  const url = new URL(
+    "https://maps.googleapis.com/maps/api/place/nearbysearch/json",
+  );
+  url.searchParams.set("location", `${lat},${lng}`);
+  url.searchParams.set("radius", String(SEARCH_RADIUS_M));
+  url.searchParams.set("type", placeTypeForFuel(fuelType));
+  url.searchParams.set("key", GOOGLE_PLACES_API_KEY);
 
-    const res = await fetch(url.toString());
-    if (!res.ok) throw new Error(`Google Places Nearby Search error: ${res.status}`);
+  const res = await fetch(url.toString());
+  if (!res.ok)
+    throw new Error(`Error en Google Places Nearby Search: ${res.status}`);
 
-    const data = await res.json() as any;
-    if (data.status === 'ZERO_RESULTS') return [];
-    if (data.status !== 'OK' && data.status !== 'ZERO_RESULTS') {
-        throw new Error(`Google Places API status: ${data.status}`);
-    }
+  const data = (await res.json()) as any;
+  if (data.status === "ZERO_RESULTS") return [];
+  if (data.status !== "OK" && data.status !== "ZERO_RESULTS") {
+    throw new Error(`Estado inesperado de Google Places API: ${data.status}`);
+  }
 
-    return (data.results as any[] || [])
-        .slice(0, MAX_CANDIDATES)
-        .map((r: any) => ({
-            place_id: r.place_id as string,
-            name: r.name as string,
-            address: (r.vicinity as string) || '',
-            lat: r.geometry.location.lat as number,
-            lng: r.geometry.location.lng as number,
-            rating: r.rating as number | undefined,
-            open_now: r.opening_hours?.open_now as boolean | undefined,
-        }))
-        .sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0));
+  return ((data.results as any[]) || [])
+    .slice(0, MAX_CANDIDATES)
+    .map((r: any) => ({
+      place_id: r.place_id as string,
+      name: r.name as string,
+      address: (r.vicinity as string) || "",
+      lat: r.geometry.location.lat as number,
+      lng: r.geometry.location.lng as number,
+      rating: r.rating as number | undefined,
+      open_now: r.opening_hours?.open_now as boolean | undefined,
+    }))
+    .sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0));
 }
 
 /** Devuelve el conjunto de IDs de paradas que ya son de repostaje en el viaje. */
 async function getExistingRefuelStopIds(tripId: number): Promise<Set<number>> {
-    const { data } = await supabase
-        .from('stop')
-        .select('id, refuel!inner(id)')
-        .eq('trip_id', tripId);
+  const { data } = await supabase
+    .from("stop")
+    .select("id, refuel!inner(id)")
+    .eq("trip_id", tripId);
 
-    const ids = new Set<number>();
-    for (const row of data ?? []) {
-        ids.add(row.id as number);
-    }
-    return ids;
+  const ids = new Set<number>();
+  for (const row of data ?? []) {
+    ids.add(row.id as number);
+  }
+  return ids;
 }
 
 /**
@@ -142,84 +135,92 @@ async function getExistingRefuelStopIds(tripId: number): Promise<Set<number>> {
  * Asume que el viaje comienza con el depósito lleno.
  * Las paradas de tipo refuel existentes resetean el nivel al máximo.
  */
-export async function suggestRefuelStops(tripId: number): Promise<RefuelSuggestion[]> {
-    const stops = await getAllStopsInATrip(tripId);
-    if (stops.length < 2) return [];
+export async function suggestRefuelStops(
+  tripId: number,
+): Promise<RefuelSuggestion[]> {
+  const stops = await getAllStopsInATrip(tripId);
+  if (stops.length < 2) return [];
 
-    const vehicleRows = await getVehiclesInTrip(tripId);
-    const vehicle = (vehicleRows[0] as any)?.vehicle;
-    if (!vehicle) return [];
+  const vehicleRows = await getVehiclesInTrip(tripId);
+  const vehicle = (vehicleRows[0] as any)?.vehicle;
+  if (!vehicle) return [];
 
-    const tankCapacity: number = vehicle.fuel_tank_capacity;
-    const avgConsumption: number = vehicle.avg_consumption; // l/100km o kWh/100km
-    const fuelType: FuelType = vehicle.type_fuel;
+  const tankCapacity: number = vehicle.fuel_tank_capacity;
+  const avgConsumption: number = vehicle.avg_consumption; // l/100km o kWh/100km
+  const fuelType: FuelType = vehicle.type_fuel;
 
-    if (!tankCapacity || !avgConsumption || !fuelType) return [];
+  if (!tankCapacity || !avgConsumption || !fuelType) return [];
 
-    const existingRefuelIds = await getExistingRefuelStopIds(tripId);
-    const reserveUnits = tankCapacity * SAFETY_RESERVE_PCT;
-    let currentFuel = tankCapacity;
-    const suggestions: RefuelSuggestion[] = [];
+  const existingRefuelIds = await getExistingRefuelStopIds(tripId);
+  const reserveUnits = tankCapacity * SAFETY_RESERVE_PCT;
+  let currentFuel = tankCapacity;
+  const suggestions: RefuelSuggestion[] = [];
 
-    for (let i = 0; i < stops.length - 1; i++) {
-        const fromStop = stops[i] as any;
-        const toStop = stops[i + 1] as any;
+  for (let i = 0; i < stops.length - 1; i++) {
+    const fromStop = stops[i] as any;
+    const toStop = stops[i + 1] as any;
 
-        // Las paradas de repostaje existentes reponen el depósito
-        if (existingRefuelIds.has(fromStop.id)) {
-            currentFuel = tankCapacity;
-            continue;
-        }
-
-        const fromCoords = extractCoords(fromStop.coordinates);
-        const toCoords = extractCoords(toStop.coordinates);
-
-        const straightKm = haversineKm(fromCoords, toCoords);
-        const roadKm = straightKm * ROAD_FACTOR;
-        const fuelNeeded = (roadKm / 100) * avgConsumption;
-
-        const fuelAfterSegment = currentFuel - fuelNeeded;
-
-        if (fuelAfterSegment < reserveUnits) {
-            // Calcular cuántos km puede recorrer con el combustible disponible (sin la reserva)
-            const usableFuel = Math.max(0, currentFuel - reserveUnits);
-            const safeKm = (usableFuel / avgConsumption) * 100;
-
-            // Punto de búsqueda: fracción del segmento donde se agota el combustible útil
-            // Se toma el 85% de ese punto para tener margen de llegada a la gasolinera
-            const fraction = roadKm > 0
-                ? Math.min(0.85, (safeKm / roadKm) * 0.85)
-                : 0.4;
-
-            const searchPoint = interpolateCoords(fromCoords, toCoords, fraction);
-
-            let candidates: GasStationCandidate[] = [];
-            try {
-                candidates = await searchNearbyStations(searchPoint.lat, searchPoint.lng, fuelType);
-            } catch (err) {
-                console.error(`❌ Error buscando gasolineras en (${searchPoint.lat}, ${searchPoint.lng}):`, err);
-            }
-
-            suggestions.push({
-                insertAfterStopId: fromStop.id,
-                insertAfterStopName: fromStop.name ?? '',
-                insertBeforeStopId: toStop.id,
-                insertBeforeStopName: toStop.name ?? '',
-                fuelLevelPctAtGap: Math.round((currentFuel / tankCapacity) * 100),
-                remainingRangeKm: Math.round(safeKm),
-                searchLat: searchPoint.lat,
-                searchLng: searchPoint.lng,
-                candidates,
-            });
-
-            // Asumir repostaje completo antes de continuar la simulación
-            currentFuel = tankCapacity;
-        } else {
-            currentFuel = fuelAfterSegment;
-        }
+    // Las paradas de repostaje existentes reponen el depósito
+    if (existingRefuelIds.has(fromStop.id)) {
+      currentFuel = tankCapacity;
+      continue;
     }
 
-    return suggestions;
+    const fromCoords = extractCoords(fromStop.coordinates);
+    const toCoords = extractCoords(toStop.coordinates);
+
+    const straightKm = haversineKm(fromCoords, toCoords);
+    const roadKm = straightKm * ROAD_FACTOR;
+    const fuelNeeded = (roadKm / 100) * avgConsumption;
+
+    const fuelAfterSegment = currentFuel - fuelNeeded;
+
+    if (fuelAfterSegment < reserveUnits) {
+      // Calcular cuántos km puede recorrer con el combustible disponible (sin la reserva)
+      const usableFuel = Math.max(0, currentFuel - reserveUnits);
+      const safeKm = (usableFuel / avgConsumption) * 100;
+
+      // Punto de búsqueda: fracción del segmento donde se agota el combustible útil
+      // Se toma el 85% de ese punto para tener margen de llegada a la gasolinera
+      const fraction =
+        roadKm > 0 ? Math.min(0.85, (safeKm / roadKm) * 0.85) : 0.4;
+
+      const searchPoint = interpolateCoords(fromCoords, toCoords, fraction);
+
+      let candidates: GasStationCandidate[] = [];
+      try {
+        candidates = await searchNearbyStations(
+          searchPoint.lat,
+          searchPoint.lng,
+          fuelType,
+        );
+      } catch (err) {
+        console.error(
+          `❌ Error buscando gasolineras en (${searchPoint.lat}, ${searchPoint.lng}):`,
+          err,
+        );
+      }
+
+      suggestions.push({
+        insertAfterStopId: fromStop.id,
+        insertAfterStopName: fromStop.name ?? "",
+        insertBeforeStopId: toStop.id,
+        insertBeforeStopName: toStop.name ?? "",
+        fuelLevelPctAtGap: Math.round((currentFuel / tankCapacity) * 100),
+        remainingRangeKm: Math.round(safeKm),
+        searchLat: searchPoint.lat,
+        searchLng: searchPoint.lng,
+        candidates,
+      });
+
+      // Asumir repostaje completo antes de continuar la simulación
+      currentFuel = tankCapacity;
+    } else {
+      currentFuel = fuelAfterSegment;
+    }
+  }
+
+  return suggestions;
 }
 
 /**
@@ -229,46 +230,55 @@ export async function suggestRefuelStops(tripId: number): Promise<RefuelSuggesti
  * Diseñado para uso no-bloqueante (fire-and-forget desde controllers).
  */
 export async function autoInsertRefuelStops(tripId: number): Promise<void> {
-    try {
-        const suggestions = await suggestRefuelStops(tripId);
-        if (suggestions.length === 0) return;
+  try {
+    const suggestions = await suggestRefuelStops(tripId);
+    if (suggestions.length === 0) return;
 
-        const stops = await getAllStopsInATrip(tripId);
-        const vehicleRows = await getVehiclesInTrip(tripId);
-        const vehicle = (vehicleRows[0] as any)?.vehicle;
-        const fuelType: string | null = vehicle?.type_fuel ?? null;
+    const stops = await getAllStopsInATrip(tripId);
+    const vehicleRows = await getVehiclesInTrip(tripId);
+    const vehicle = (vehicleRows[0] as any)?.vehicle;
+    const fuelType: string | null = vehicle?.type_fuel ?? null;
 
-        for (const suggestion of suggestions) {
-            const best = suggestion.candidates[0];
-            if (!best) {
-                console.warn(`⚠️ [RefuelAdvisor] Sin candidatos entre stops ${suggestion.insertAfterStopId} → ${suggestion.insertBeforeStopId}`);
-                continue;
-            }
+    for (const suggestion of suggestions) {
+      const best = suggestion.candidates[0];
+      if (!best) {
+        console.warn(
+          `⚠️ [RefuelAdvisor] Sin candidatos entre stops ${suggestion.insertAfterStopId} → ${suggestion.insertBeforeStopId}`,
+        );
+        continue;
+      }
 
-            // Obtener día y posición del stop "insertAfter" para insertar justo después
-            const afterStop = stops.find((s: any) => s.id === suggestion.insertAfterStopId) as any;
-            const day: number = afterStop?.day ?? 1;
-            const position: number = (afterStop?.position ?? 1) + 1;
+      // Obtener día y posición del stop "insertAfter" para insertar justo después
+      const afterStop = stops.find(
+        (s: any) => s.id === suggestion.insertAfterStopId,
+      ) as any;
+      const day: number = afterStop?.day ?? 1;
+      const position: number = (afterStop?.position ?? 1) + 1;
 
-            const stopData: any = {
-                name: best.name,
-                address: best.address,
-                coordinates: { latitude: best.lat, longitude: best.lng },
-                type: 'intermedia' as const,
-                day,
-                position,
-                trip_id: tripId,
-            };
+      const stopData: any = {
+        name: best.name,
+        address: best.address,
+        coordinates: { latitude: best.lat, longitude: best.lng },
+        type: "intermedia" as const,
+        day,
+        position,
+        trip_id: tripId,
+      };
 
-            const refuelData: any = {
-                fuel_type: fuelType,
-            };
+      const refuelData: any = {
+        fuel_type: fuelType,
+      };
 
-            await createRefuelStop(stopData, refuelData, tripId);
-            console.log(`⛽ [RefuelAdvisor] Parada de repostaje creada automáticamente: "${best.name}" (trip ${tripId}, día ${day}, pos ${position})`);
-        }
-    } catch (err) {
-        // No-op: el repostaje automático nunca debe romper el flujo principal
-        console.error(`❌ [RefuelAdvisor] Error en autoInsertRefuelStops(trip ${tripId}):`, err);
+      await createRefuelStop(stopData, refuelData, tripId);
+      console.log(
+        `⛽ [RefuelAdvisor] Parada de repostaje creada automáticamente: "${best.name}" (trip ${tripId}, día ${day}, pos ${position})`,
+      );
     }
+  } catch (err) {
+    // No-op: el repostaje automático nunca debe romper el flujo principal
+    console.error(
+      `❌ [RefuelAdvisor] Error en autoInsertRefuelStops(trip ${tripId}):`,
+      err,
+    );
+  }
 }

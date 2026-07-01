@@ -6,10 +6,12 @@ import { useAlert } from '@/context/AlertContext';
 import { useAuth } from '@/context/AuthContext';
 import { useUserPreferences } from '@/hooks/users/useUserPreferences';
 import { useProfile } from '@/hooks/users/useUsers';
+import { apiFetch } from '@/lib/apiClient';
 import { supabase } from '@/lib/supabase';
 import { UserService } from '@/services/userService';
 import { Ionicons } from '@expo/vector-icons';
 import { Interest } from '@planmyroute/types';
+import { DB_INTERESTS, ExtendedInterest } from '@/components/interests/InterestSelector';
 import * as ImagePicker from 'expo-image-picker';
 import { Stack, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
@@ -53,7 +55,7 @@ export default function EditProfileScreen() {
     const [username, setUsername] = useState('');
     const [email, setEmail] = useState('');
     const [profileImage, setProfileImage] = useState<string | null>(null);
-    const [userInterests, setUserInterests] = useState<Interest[]>([]);
+    const [userInterests, setUserInterests] = useState<ExtendedInterest[]>([]);
 
     const [showPasswordSection, setShowPasswordSection] = useState(false);
     const [currentPassword, setCurrentPassword] = useState('');
@@ -76,7 +78,7 @@ export default function EditProfileScreen() {
             setUsername(profile.user.username || '');
             setEmail(user?.email || '');
             setProfileImage(profile.user.img || null);
-            setUserInterests((profile.user.user_type as Interest[]) || []);
+            setUserInterests((profile.user.user_type as ExtendedInterest[]) || []);
         }
     }, [profile, user]);
 
@@ -121,16 +123,16 @@ export default function EditProfileScreen() {
                 name: name.trim(),
                 lastname: lastname.trim(),
                 username: username.trim(),
-                user_type: userInterests,
+                user_type: userInterests.filter((i): i is Interest => DB_INTERESTS.has(i)),
             }, session.access_token);
 
             if (profileImage && profileImage !== profile?.user.img) {
-                const response = await fetch(`${process.env.EXPO_PUBLIC_API_URL}/api/user/${userId}/upload-profile-image`, {
+                await apiFetch(`/api/user/${userId}/upload-profile-image`, {
                     method: 'POST',
                     body: JSON.stringify({ image: profileImage }),
-                    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+                    headers: { 'Content-Type': 'application/json' },
+                    token: session.access_token,
                 });
-                if (!response.ok) throw new Error('Error al actualizar la foto de perfil');
             }
 
             if (newPassword && currentPassword) {
@@ -212,7 +214,7 @@ export default function EditProfileScreen() {
                         <View className="relative">
                             <View className="w-24 h-24 rounded-full bg-neutral/20 items-center justify-center overflow-hidden">
                                 {profileImage ? (
-                                    <Image source={{ uri: profileImage }} style={{ width: 96, height: 96, borderRadius: 48 }} />
+                                    <Image accessibilityLabel="Foto de perfil" source={{ uri: profileImage }} style={{ width: 96, height: 96, borderRadius: 48 }} />
                                 ) : (
                                     <Ionicons name="person" size={40} color="#999" />
                                 )}
@@ -243,7 +245,7 @@ export default function EditProfileScreen() {
                 {/* Intereses */}
                 <View className="px-6 py-5 border-b border-neutral/10 gap-4">
                     <SubtitleSemibold>Mis intereses</SubtitleSemibold>
-                    <InterestSelector selectedInterests={userInterests} onInterestsChange={setUserInterests} multiple />
+                    <InterestSelector selectedInterests={userInterests} onInterestsChange={setUserInterests} multiple extended={false} />
                 </View>
 
                 {/* Cambiar contraseña */}
@@ -266,7 +268,7 @@ export default function EditProfileScreen() {
                                 onChangeText={setCurrentPassword}
                                 secureTextEntry={!showCurrentPassword}
                                 rightElement={
-                                    <TouchableOpacity onPress={() => setShowCurrentPassword(v => !v)} className="px-3 py-3">
+                                    <TouchableOpacity accessibilityLabel="Mostrar u ocultar contraseña actual" onPress={() => setShowCurrentPassword(v => !v)} className="px-3 py-3">
                                         <Ionicons name={showCurrentPassword ? 'eye-off' : 'eye'} size={20} color="#999999" />
                                     </TouchableOpacity>
                                 }
@@ -278,7 +280,7 @@ export default function EditProfileScreen() {
                                 onChangeText={setNewPassword}
                                 secureTextEntry={!showNewPassword}
                                 rightElement={
-                                    <TouchableOpacity onPress={() => setShowNewPassword(v => !v)} className="px-3 py-3">
+                                    <TouchableOpacity accessibilityLabel="Mostrar u ocultar nueva contraseña" onPress={() => setShowNewPassword(v => !v)} className="px-3 py-3">
                                         <Ionicons name={showNewPassword ? 'eye-off' : 'eye'} size={20} color="#999999" />
                                     </TouchableOpacity>
                                 }
@@ -290,7 +292,7 @@ export default function EditProfileScreen() {
                                 onChangeText={setConfirmPassword}
                                 secureTextEntry={!showConfirmPassword}
                                 rightElement={
-                                    <TouchableOpacity onPress={() => setShowConfirmPassword(v => !v)} className="px-3 py-3">
+                                    <TouchableOpacity accessibilityLabel="Mostrar u ocultar confirmación de contraseña" onPress={() => setShowConfirmPassword(v => !v)} className="px-3 py-3">
                                         <Ionicons name={showConfirmPassword ? 'eye-off' : 'eye'} size={20} color="#999999" />
                                     </TouchableOpacity>
                                 }

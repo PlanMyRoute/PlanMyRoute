@@ -107,4 +107,45 @@ export class VehicleService {
       throw error;
     }
   }
+
+  static async getCarQueryMakes(opts?: FetchOptions): Promise<CarQueryMake[]> {
+    try {
+      return await apiFetch<CarQueryMake[]>('/api/carquery/makes', { token: opts?.token });
+    } catch {
+      return [];
+    }
+  }
+
+  static async getCarQueryModels(make: string, opts?: FetchOptions): Promise<CarQueryModel[]> {
+    try {
+      return await apiFetch<CarQueryModel[]>(`/api/carquery/models?make=${encodeURIComponent(make)}`, { token: opts?.token });
+    } catch {
+      return [];
+    }
+  }
+
+  static async getCarQuerySpecs(make: string, model: string, opts?: FetchOptions): Promise<CarQuerySpecs | null> {
+    try {
+      const result = await apiFetch<{ specs: CarQuerySpecs | null }>(`/api/carquery/specs?make=${encodeURIComponent(make)}&model=${encodeURIComponent(model)}`, { token: opts?.token });
+      return result.specs;
+    } catch {
+      return null;
+    }
+  }
+}
+
+export interface CarQueryMake {
+  make_id: string;
+  make_display: string;
+  make_country: string;
+}
+
+export interface CarQueryModel {
+  model_name: string;
+  model_year: string;
+}
+
+export interface CarQuerySpecs {
+  avgConsumption: number | null;
+  fuelTankCapacity: number | null;
 }

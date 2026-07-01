@@ -1,4 +1,5 @@
 import CustomButton from '@/components/customElements/CustomButton';
+import { LoadingView } from '@/components/customElements/LoadingView';
 import { TextRegular, Title2Semibold } from '@/components/customElements/CustomText';
 import UserProfile from '@/components/profile/UserProfile';
 import { ROUTES } from '@/constants/routes';
@@ -7,7 +8,7 @@ import { useProfile } from '@/hooks/users/useUsers';
 import { Ionicons } from '@expo/vector-icons';
 import { Redirect, Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, View } from 'react-native';
+import { View } from 'react-native';
 
 export default function UserProfileScreen() {
     const router = useRouter();
@@ -57,9 +58,7 @@ export default function UserProfileScreen() {
                         },
                     }}
                 />
-                <View className="flex-1 bg-white items-center justify-center">
-                    <ActivityIndicator size="large" color="#FFD54D" />
-                </View>
+                <LoadingView />
             </>
         );
     }

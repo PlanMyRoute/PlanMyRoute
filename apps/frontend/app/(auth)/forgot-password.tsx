@@ -92,21 +92,22 @@ export default function ForgotPasswordScreen() {
           keyboardDismissMode="on-drag"
         >
           <View className="items-center mb-8">
-            <Text className="text-2xl text-[#1D1D1B]">Recupera tu acceso a</Text>
-            <Text className="text-3xl font-bold text-[#1D1D1B] mb-3 text-center">PlanMyRoute</Text>
-            <Image source={carLogoImage} style={{ width: 160, height: 96 }} resizeMode="contain" />
+            <Text className="text-2xl text-[#202020]">Recupera tu acceso a</Text>
+            <Text className="text-3xl font-bold text-[#202020] mb-3 text-center">PlanMyRoute</Text>
+            <Image accessible={false} source={carLogoImage} style={{ width: 160, height: 96 }} resizeMode="contain" />
           </View>
 
           <View className="w-full">
-            <Text className="text-2xl font-bold text-[#1D1D1B] mb-3">¿Olvidaste tu contraseña?</Text>
-            <Text className="text-base text-[#1D1D1B] mb-6">
+            <Text className="text-2xl font-bold text-[#202020] mb-3">¿Olvidaste tu contraseña?</Text>
+            <Text className="text-base text-[#202020] mb-6">
               Introduce tu email y te enviaremos un enlace para crear una nueva.
             </Text>
 
-            <Text className="text-base font-semibold text-[#1D1D1B] mb-2 ml-2">Email</Text>
+            <Text className="text-base font-semibold text-[#202020] mb-2 ml-2">Email</Text>
             <View className="flex-row items-center bg-white rounded-full h-14 px-6 mb-4 shadow-sm">
               <Ionicons name="mail-outline" size={20} color="#666" style={{ marginRight: 10 }} />
               <TextInput
+                accessibilityLabel="Email"
                 className="flex-1 text-base text-black h-full"
                 placeholder="planmyroute@gmail.com"
                 placeholderTextColor="#9ca3af"
@@ -121,7 +122,7 @@ export default function ForgotPasswordScreen() {
             </View>
 
             <TouchableOpacity
-              className="bg-[#232323] rounded-full h-14 justify-center items-center mb-4 mt-4 shadow-md"
+              className="bg-[#202020] rounded-full h-14 justify-center items-center mb-4 mt-4 shadow-md"
               onPress={handleSubmit}
               activeOpacity={0.8}
               disabled={isSubmitting}
@@ -135,7 +136,7 @@ export default function ForgotPasswordScreen() {
 
             <View className="flex-row justify-center mt-4">
               <Pressable onPress={() => router.replace(ROUTES.login)}>
-                <Text className="text-[#1D1D1B] font-bold underline">Volver a iniciar sesión</Text>
+                <Text className="text-[#202020] font-bold underline">Volver a iniciar sesión</Text>
               </Pressable>
             </View>
           </View>

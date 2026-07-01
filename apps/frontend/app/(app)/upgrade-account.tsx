@@ -92,11 +92,11 @@ export default function UpgradeAccountScreen() {
     // No es invitado — no hay nada que upgradear.
     return (
       <View className="flex-1 bg-primary justify-center items-center px-8">
-        <Text className="text-[#1D1D1B] text-center mb-4">
+        <Text className="text-[#202020] text-center mb-4">
           Esta opción solo está disponible para cuentas de invitado.
         </Text>
         <TouchableOpacity onPress={() => router.replace(ROUTES.tabsHome)}>
-          <Text className="text-[#1D1D1B] font-bold underline">Volver al inicio</Text>
+          <Text className="text-[#202020] font-bold underline">Volver al inicio</Text>
         </TouchableOpacity>
       </View>
     );
@@ -128,18 +128,19 @@ export default function UpgradeAccountScreen() {
           keyboardDismissMode="on-drag"
         >
           <View className="items-center mb-6">
-            <Image source={carLogoImage} style={{ width: 160, height: 96 }} resizeMode="contain" />
+            <Image accessible={false} source={carLogoImage} style={{ width: 160, height: 96 }} resizeMode="contain" />
           </View>
 
-          <Text className="text-2xl font-bold text-[#1D1D1B] mb-2">Crea tu cuenta</Text>
-          <Text className="text-base text-[#1D1D1B] mb-6">
+          <Text className="text-2xl font-bold text-[#202020] mb-2">Crea tu cuenta</Text>
+          <Text className="text-base text-[#202020] mb-6">
             Vincula un email y contraseña para conservar tus viajes y poder iniciar sesión más adelante.
           </Text>
 
-          <Text className="text-base font-semibold text-[#1D1D1B] mb-2 ml-2">Email</Text>
+          <Text className="text-base font-semibold text-[#202020] mb-2 ml-2">Email</Text>
           <View className="flex-row items-center bg-white rounded-full h-14 px-6 mb-4 shadow-sm">
             <Ionicons name="mail-outline" size={20} color="#666" style={{ marginRight: 10 }} />
             <TextInput
+              accessibilityLabel="Email"
               className="flex-1 text-base text-black h-full"
               placeholder="planmyroute@gmail.com"
               placeholderTextColor="#9ca3af"
@@ -152,10 +153,11 @@ export default function UpgradeAccountScreen() {
             />
           </View>
 
-          <Text className="text-base font-semibold text-[#1D1D1B] mb-2 ml-2">Contraseña</Text>
+          <Text className="text-base font-semibold text-[#202020] mb-2 ml-2">Contraseña</Text>
           <View className="flex-row items-center bg-white rounded-full h-14 px-6 mb-4 shadow-sm">
             <Ionicons name="lock-closed-outline" size={20} color="#666" style={{ marginRight: 10 }} />
             <TextInput
+              accessibilityLabel="Contraseña"
               className="flex-1 text-base text-black h-full"
               placeholder="••••••••"
               placeholderTextColor="#9ca3af"
@@ -166,17 +168,18 @@ export default function UpgradeAccountScreen() {
               autoComplete="new-password"
               returnKeyType="next"
             />
-            <Pressable onPress={() => setShowPassword(!showPassword)} className="p-1">
+            <Pressable accessibilityLabel="Mostrar u ocultar contraseña" onPress={() => setShowPassword(!showPassword)} className="p-1">
               <Ionicons name={showPassword ? 'eye' : 'eye-off'} size={22} color="#666" />
             </Pressable>
           </View>
 
-          <Text className="text-base font-semibold text-[#1D1D1B] mb-2 ml-2">
+          <Text className="text-base font-semibold text-[#202020] mb-2 ml-2">
             Confirmar contraseña
           </Text>
           <View className="flex-row items-center bg-white rounded-full h-14 px-6 mb-4 shadow-sm">
             <Ionicons name="lock-closed-outline" size={20} color="#666" style={{ marginRight: 10 }} />
             <TextInput
+              accessibilityLabel="Confirmar contraseña"
               className="flex-1 text-base text-black h-full"
               placeholder="••••••••"
               placeholderTextColor="#9ca3af"
@@ -188,13 +191,13 @@ export default function UpgradeAccountScreen() {
               returnKeyType="done"
               onSubmitEditing={handleUpgrade}
             />
-            <Pressable onPress={() => setShowConfirmPassword(!showConfirmPassword)} className="p-1">
+            <Pressable accessibilityLabel="Mostrar u ocultar confirmación de contraseña" onPress={() => setShowConfirmPassword(!showConfirmPassword)} className="p-1">
               <Ionicons name={showConfirmPassword ? 'eye' : 'eye-off'} size={22} color="#666" />
             </Pressable>
           </View>
 
           <TouchableOpacity
-            className="bg-[#232323] rounded-full h-14 justify-center items-center mb-4 mt-4 shadow-md"
+            className="bg-[#202020] rounded-full h-14 justify-center items-center mb-4 mt-4 shadow-md"
             onPress={handleUpgrade}
             activeOpacity={0.8}
             disabled={isSubmitting}
@@ -208,7 +211,7 @@ export default function UpgradeAccountScreen() {
 
           <View className="flex-row justify-center mt-2">
             <Pressable onPress={() => router.back()}>
-              <Text className="text-[#1D1D1B] font-bold underline">Seguir como invitado</Text>
+              <Text className="text-[#202020] font-bold underline">Seguir como invitado</Text>
             </Pressable>
           </View>
         </ScrollView>

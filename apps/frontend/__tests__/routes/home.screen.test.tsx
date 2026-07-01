@@ -7,23 +7,30 @@ jest.mock('../../context/AuthContext', () => ({
 }));
 
 // Simulamos que useUser devuelve el nombre "Patricio"
-jest.mock('../../hooks/useUsers', () => ({
+jest.mock('../../hooks/users/useUsers', () => ({
     useUser: () => ({
         data: { name: 'Patricio' },
         isLoading: false,
     }),
 }));
 
-// Simulamos una lista de viajes
-const mockTrips = [
-    { id: 't1', name: 'Ruta por los Alpes', status: 'planning', start_date: '2030-10-10' },
-    { id: 't2', name: 'Escapada a la Playa', status: 'going', end_date: '2030-12-12' },
-];
+jest.mock('../../hooks/users/useNeedsProfileCompletion', () => ({
+    useNeedsProfileCompletion: () => ({ needsCompletion: false }),
+}));
+
+const mockTrips = {
+    planning: [
+        { id: 't1', name: 'Ruta por los Alpes', status: 'planning', start_date: '2030-10-10' },
+    ],
+    going: [
+        { id: 't2', name: 'Escapada a la Playa', status: 'going', end_date: '2030-12-12' },
+    ],
+};
 
 jest.mock('../../hooks/useTrips', () => ({
-    useTrips: () => ({
+    useActiveTrips: () => ({
         data: mockTrips,
-        loading: false,
+        isLoading: false,
         refetch: jest.fn(),
     }),
     useTripStopsCount: () => ({ count: 3, isLoading: false }),
@@ -42,11 +49,10 @@ describe('<HomeScreen />', () => {
         const { getByText } = render(<HomeScreen />);
 
         // 1. Verificar saludo personalizado
-        expect(getByText('Bienvenido, Patricio')).toBeTruthy();
+        expect(getByText('Hola Patricio,')).toBeTruthy();
 
-        // 2. Verificar secciones
-        expect(getByText('Planificando')).toBeTruthy();
-        expect(getByText('En marcha')).toBeTruthy();
+        // 2. Verificar sección de planificación
+        expect(getByText('Continúa tus planes')).toBeTruthy();
 
         // 3. Verificar que los viajes se renderizan
         expect(getByText('Ruta por los Alpes')).toBeTruthy();

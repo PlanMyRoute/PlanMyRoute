@@ -1,6 +1,6 @@
 import VehicleFormScreen from '@/components/profile/VehicleFormScreen';
 import { useAuth } from '@/context/AuthContext';
-import { Vehicle } from '@/services/VehicleService';
+import { Vehicle } from '@/services/vehicleService';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 
 export default function EditVehicleScreen() {

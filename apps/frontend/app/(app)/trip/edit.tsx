@@ -2,6 +2,7 @@ import CustomAlert from '@/components/customElements/CustomAlert';
 import CustomButton from '@/components/customElements/CustomButton';
 import CustomInput from '@/components/customElements/CustomInput';
 import DateTimePickerWeb from '@/components/customElements/DateTimePickerWeb';
+import { LoadingView } from '@/components/customElements/LoadingView';
 import { MicrotextDark, SubtitleSemibold, TextRegular, Title1 } from '@/components/customElements/CustomText';
 import { InterestSelector } from '@/components/interests/InterestSelector';
 import { useTripContext } from '@/context/TripContext';
@@ -9,12 +10,13 @@ import { useDeleteTrip, useTrips, useUpdateTrip } from '@/hooks/useTrips';
 import '@/index.css';
 import { Ionicons } from '@expo/vector-icons';
 import { Interest, Trip } from '@planmyroute/types';
+import { DB_INTERESTS, ExtendedInterest } from '@/components/interests/InterestSelector';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { ROUTES } from '@/constants/routes';
+import { formatNumericDate } from '@/utils/formatDate';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  ActivityIndicator,
   Platform,
   ScrollView,
   Switch,
@@ -71,8 +73,8 @@ export default function TripSettingsScreen() {
     infants: (currentTrip as Trip | null)?.n_babies ?? 0,
     pets: (currentTrip as Trip | null)?.n_pets ?? 0,
   }));
-  const [selectedInterests, setSelectedInterests] = useState<Interest[]>(
-    () => ((currentTrip as Trip | null)?.type as Interest[]) ?? []
+  const [selectedInterests, setSelectedInterests] = useState<ExtendedInterest[]>(
+    () => ((currentTrip as Trip | null)?.type as ExtendedInterest[]) ?? []
   );
   const [minBudget, setMinBudget] = useState(() => (currentTrip as Trip | null)?.estimated_price_min ?? 50);
   const [maxBudget, setMaxBudget] = useState(() => (currentTrip as Trip | null)?.estimated_price_max ?? 1300);
@@ -99,7 +101,7 @@ export default function TripSettingsScreen() {
         infants: trip.n_babies ?? 0,
         pets: trip.n_pets ?? 0,
       });
-      setSelectedInterests((trip.type as Interest[]) ?? []);
+      setSelectedInterests((trip.type as ExtendedInterest[]) ?? []);
       setMinBudget(trip.estimated_price_min ?? 50);
       setMaxBudget(trip.estimated_price_max ?? 1300);
     }
@@ -114,11 +116,6 @@ export default function TripSettingsScreen() {
       if (type === 'adults' && newValue < 1) return prev;
       return { ...prev, [type]: newValue };
     });
-  };
-
-  const formatDate = (date: Date | null) => {
-    if (!date) return '';
-    return date.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' });
   };
 
   const handleSubmit = async () => {
@@ -151,7 +148,7 @@ export default function TripSettingsScreen() {
       n_children: travelerCounts.children,
       n_babies: travelerCounts.infants,
       n_pets: travelerCounts.pets,
-      type: selectedInterests,
+      type: selectedInterests.filter((i): i is Interest => DB_INTERESTS.has(i)),
       estimated_price_min: minBudget,
       estimated_price_max: maxBudget,
     };
@@ -186,11 +183,7 @@ export default function TripSettingsScreen() {
   const insets = useSafeAreaInsets();
 
   if (isTripLoading && !trip) {
-    return (
-      <View className="flex-1 justify-center items-center bg-white">
-        <ActivityIndicator size="large" color="#FFD54D" />
-      </View>
-    );
+    return <LoadingView />;
   }
 
   if (!trip) {
@@ -284,7 +277,7 @@ export default function TripSettingsScreen() {
                 <CustomInput
                   label="Fecha de salida *"
                   placeholder="DD/MM/AA"
-                  value={formatDate(startDate)}
+                  value={formatNumericDate(startDate)}
                   onPress={() => setShowStartPicker(true)}
                 />
               </View>
@@ -292,7 +285,7 @@ export default function TripSettingsScreen() {
                 <CustomInput
                   label="Fecha de vuelta"
                   placeholder="DD/MM/AA"
-                  value={formatDate(endDate)}
+                  value={formatNumericDate(endDate)}
                   onPress={() => setShowEndPicker(true)}
                 />
               </View>
@@ -385,6 +378,7 @@ export default function TripSettingsScreen() {
             selectedInterests={selectedInterests}
             onInterestsChange={setSelectedInterests}
             multiple={true}
+            extended={false}
           />
         </View>
 

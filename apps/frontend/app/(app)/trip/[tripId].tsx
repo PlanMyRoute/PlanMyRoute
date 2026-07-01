@@ -1,9 +1,10 @@
+import { LoadingView } from '@/components/customElements/LoadingView';
 import { useTripContext } from '@/context/TripContext';
 import useTrips from '@/hooks/useTrips';
 import { Trip } from '@planmyroute/types';
 import { Redirect, useLocalSearchParams } from 'expo-router';
 import { useEffect } from 'react';
-import { ActivityIndicator, Text, TouchableOpacity, View } from 'react-native';
+import { Text, TouchableOpacity, View } from 'react-native';
 
 export default function TripDetailScreen() {
   const { tripId } = useLocalSearchParams<{ tripId: string }>();
@@ -26,11 +27,7 @@ export default function TripDetailScreen() {
   }, [tripObj, tripId, setCurrentTrip, setTripId]);
 
   if (tripLoading) {
-    return (
-      <View className="flex-1 justify-center items-center bg-slate-50">
-        <ActivityIndicator size="large" color="#4F46E5" />
-      </View>
-    );
+    return <LoadingView color="#4F46E5" />;
   }
 
   if (!tripObj) {

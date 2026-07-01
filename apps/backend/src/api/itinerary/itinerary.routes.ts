@@ -5,33 +5,7 @@ import { requirePermission, requireEditor } from '../../middleware/permissions.j
 
 const router = Router();
 const TRIP_BASE_PATH = '/trip/:tripId';
-const ROUTE_BASE_PATH = '/route';
 const STOP_BASE_PATH = '/stop';
-
-// =============== ROUTE ROUTES ===============
-// Obtener ruta por ID (requiere ver el viaje)
-router.get(`${ROUTE_BASE_PATH}/:routeId`, verifyToken, requirePermission('view_trip'), ItineraryController.getRouteById);
-
-// Obtener paradas de una ruta (requiere ver el viaje)
-router.get(`${ROUTE_BASE_PATH}/:routeId/stops`, verifyToken, requirePermission('view_trip'), ItineraryController.getRouteStops);
-
-// Obtener ruta completa con todas sus paradas (requiere ver el viaje)
-router.get(`${ROUTE_BASE_PATH}/:routeId/with-stops`, verifyToken, requirePermission('view_trip'), ItineraryController.getRouteWithStops);
-
-//Obtener una ruta sin origen o destino (de un viaje) 
-router.get(`${TRIP_BASE_PATH}${ROUTE_BASE_PATH}/incomplete`, verifyToken, requirePermission('view_trip'), ItineraryController.getIncompleteRoutes);
-
-// Obtener todas las rutas de un viaje específico
-router.get(`${TRIP_BASE_PATH}${ROUTE_BASE_PATH}`, verifyToken, requirePermission('view_trip'), ItineraryController.getRoutesByTripId);
-
-// Crear nueva ruta (requiere editar)
-router.post(`${TRIP_BASE_PATH}${ROUTE_BASE_PATH}`, verifyToken, requireEditor(), ItineraryController.createRoute);
-
-// Actualizar ruta (requiere editar)
-router.patch(`${TRIP_BASE_PATH}${ROUTE_BASE_PATH}/:routeId`, verifyToken, requireEditor(), ItineraryController.updateRoute);
-
-// Eliminar ruta (y todas sus paradas) (requiere editar)
-router.delete(`${TRIP_BASE_PATH}${ROUTE_BASE_PATH}/:routeId`, verifyToken, requireEditor(), ItineraryController.deleteRoute);
 
 // =============== STOP ROUTES ===============
 

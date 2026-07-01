@@ -1,4 +1,5 @@
-import { apiFetch } from '@/constants/api';
+import { apiFetch } from "@/constants/api";
+
 export interface UserUsageStats {
   usage: {
     ai_trips_generated_month: number;
@@ -7,11 +8,15 @@ export interface UserUsageStats {
   };
 }
 
-export async function getUserUsageStats(userId: string, token: string): Promise<UserUsageStats> {
-  const data = await apiFetch<UserUsageStats>(`/api/user/${userId}/usage`, {
-    token,
-  });
-  console.log('📊 User usage response:', JSON.stringify(data, null, 2));
-  return data;
+/** Servicio para consultar estadísticas de uso del usuario */
+export class UsageService {
+  /** Obtiene las estadísticas de uso de un usuario */
+  static async getUserUsageStats(
+    userId: string,
+    token: string,
+  ): Promise<UserUsageStats> {
+    return apiFetch<UserUsageStats>(`/api/user/${userId}/usage`, {
+      token,
+    });
+  }
 }
-

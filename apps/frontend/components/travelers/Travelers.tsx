@@ -233,7 +233,7 @@ const Travelers = ({
                         key={travelerData.user.id}
                         user={travelerData.user}
                         role={travelerData.role}
-                        canChangeRole={canChangeRoles && travelerData.role !== 'pending'}
+                        canChangeRole={canChangeRoles && travelerData.role !== 'pending' && travelerData.role !== 'owner'}
                         onChangeRole={(newRole: 'owner' | 'editor' | 'viewer') => handleChangeRole(travelerData.user.id, newRole)}
                         canKick={canRemoveTravelers}
                         onKick={() => handleKickUser(

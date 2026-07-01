@@ -127,10 +127,11 @@ export default function TabLayout() {
         animationType="slide"
         onRequestClose={() => setGameModalVisible(false)}
       >
-        <View className="flex-1 bg-primary-yellow">
+        <View className="flex-1 bg-primary-yellow" accessibilityViewIsModal>
           {/* Botón de cerrar */}
           <View className="absolute top-12 right-4 z-50">
             <TouchableOpacity
+              accessibilityLabel="Cerrar juego"
               onPress={() => setGameModalVisible(false)}
               className="w-12 h-12 bg-dark-black rounded-full items-center justify-center"
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
@@ -142,9 +143,7 @@ export default function TabLayout() {
           {/* Juego */}
           <FlappyBirdGame
             visible={gameModalVisible}
-            onGameOver={(score) => {
-              console.log('Game Over! Score:', score);
-            }}
+            onGameOver={() => {}}
           />
         </View>
       </Modal>
@@ -176,6 +175,7 @@ export default function TabLayout() {
             },
             headerRight: () => (
               <TouchableOpacity
+                accessibilityLabel="Notificaciones"
                 onPress={() => router.push(ROUTES.notifications)}
                 className="mr-4"
                 hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
@@ -240,6 +240,7 @@ export default function TabLayout() {
             },
             headerRight: () => (
               <TouchableOpacity
+                accessibilityLabel="Ajustes"
                 onPress={() => setSettingsMenuVisible(true)}
                 className="mr-4"
                 hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}

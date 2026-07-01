@@ -7,6 +7,7 @@ import { useAuth } from '@/context/AuthContext';
 import { useSubscription } from '@/context/SubscriptionContext';
 import { useTokenHistory } from '@/hooks/users/useTokenBalance';
 import { SubscriptionService } from '@/services/subscriptionService';
+import { formatLongDate } from '@/utils/formatDate';
 import { TokenTransaction, TokenTransactionType } from '@planmyroute/types';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -67,18 +68,6 @@ export default function ManageSubscriptionScreen() {
             const result = await SubscriptionService.redeemCode(promoCode.trim(), 'promo', session.access_token);
             await refreshSubscription();
             if (result.success) {
-                // --- ACTUALIZAR is_premium en el usuario ---
-                try {
-                    // Obtener el id del usuario desde el token de sesión
-                    const userId = session.user?.id;
-                    if (userId) {
-                        // Importar dinámicamente UserService para evitar problemas de importación circular
-                        const { UserService } = await import('@/services/userService');
-                        await UserService.updateUser(userId, { plan_type: 'premium' }, session.access_token);
-                    }
-                } catch (e) {
-                    console.warn('No se pudo actualizar is_premium en el usuario:', e);
-                }
                 showUserAlert('✅ Código válido', result.message || '¡Ya eres Premium!');
                 setPromoCode('');
             } else {
@@ -106,16 +95,6 @@ export default function ManageSubscriptionScreen() {
 
     // Verificar si tiene suscripción de Stripe (ha pagado alguna vez)
     const hasStripeSubscription = subscription?.provider_subscription_id ? true : false;
-
-    // Formatear fecha
-    const formatDate = (dateString: string | null | undefined) => {
-        if (!dateString) return 'N/A';
-        return new Date(dateString).toLocaleDateString('es-ES', {
-            day: 'numeric',
-            month: 'long',
-            year: 'numeric'
-        });
-    };
 
     // Determinar el plan actual
     const getCurrentPlan = () => {
@@ -251,13 +230,13 @@ export default function ManageSubscriptionScreen() {
                                 <View className="flex-row justify-between mb-2">
                                     <TextRegular className="text-neutral-gray">Próxima facturación</TextRegular>
                                     <TextRegular className="font-semibold">
-                                        {formatDate(subscription.current_period_end)}
+                                        {formatLongDate(subscription.current_period_end)}
                                     </TextRegular>
                                 </View>
                                 {subscription.cancel_at_period_end && (
                                     <View className="bg-orange-100 rounded-xl p-3 mt-2">
                                         <TextRegular className="text-orange-700 text-sm">
-                                            Tu suscripción se cancelará el {formatDate(subscription.current_period_end)}
+                                            Tu suscripción se cancelará el {formatLongDate(subscription.current_period_end)}
                                         </TextRegular>
                                     </View>
                                 )}
@@ -359,7 +338,7 @@ export default function ManageSubscriptionScreen() {
                                 <View className="bg-green-50 rounded-xl p-4 mb-4">
                                     <TextRegular className="text-green-700 text-sm leading-5">
                                         🎁 Tu acceso Premium fue activado mediante código promocional o período de prueba.
-                                        Expira el {formatDate(subscription?.current_period_end)}.
+                                        Expira el {formatLongDate(subscription?.current_period_end)}.
                                     </TextRegular>
                                 </View>
 

@@ -30,9 +30,6 @@ export default function VerifyEmailScreen() {
   const params = useLocalSearchParams();
   const email = params.email as string;
 
-  console.log('🟢 Pantalla verify-email cargada');
-  console.log('🟢 Email recibido:', email);
-
   // 6 inputs separados para el código
   const [code, setCode] = useState(['', '', '', '', '', '']);
   const inputRefs = useRef<Array<TextInput | null>>([]);
@@ -83,14 +80,8 @@ export default function VerifyEmailScreen() {
       return;
     }
 
-    console.log('🔵 Verificando código:', {
-      email,
-      otp: otpCode,
-    });
-
     try {
       const result = await verifyOtp(email, otpCode);
-      console.log('✅ Verificación exitosa:', result);
       showAlert(
         '¡Email verificado!',
         'Tu cuenta ha sido verificada correctamente.',
@@ -130,16 +121,16 @@ export default function VerifyEmailScreen() {
           showsVerticalScrollIndicator={false}
         >
           <View className="items-center mb-8">
-            <Text className="text-2xl text-[#1D1D1B]">Verifica tu email</Text>
-            <Text className="text-3xl font-bold text-[#1D1D1B] mb-3 text-center">PlanMyRoute</Text>
-            <Image source={carLogoImage} style={{ width: 160, height: 96 }} resizeMode="contain" />
+            <Text className="text-2xl text-[#202020]">Verifica tu email</Text>
+            <Text className="text-3xl font-bold text-[#202020] mb-3 text-center">PlanMyRoute</Text>
+            <Image accessible={false} source={carLogoImage} style={{ width: 160, height: 96 }} resizeMode="contain" />
           </View>
 
           <View className="w-full">
-            <Text className="text-base text-[#1D1D1B] mb-1 text-center">
+            <Text className="text-base text-[#202020] mb-1 text-center">
               Hemos enviado un código de 6 dígitos a:
             </Text>
-            <Text className="text-lg font-bold text-[#1D1D1B] mb-8 text-center">
+            <Text className="text-lg font-bold text-[#202020] mb-8 text-center">
               {email}
             </Text>
 
@@ -149,6 +140,7 @@ export default function VerifyEmailScreen() {
                 <TextInput
                   key={index}
                   ref={(ref) => { inputRefs.current[index] = ref; }}
+                  accessibilityLabel={`Dígito ${index + 1} de 6`}
                   className="bg-white rounded-xl w-12 h-14 text-center text-2xl font-bold text-black shadow-md"
                   value={digit}
                   onChangeText={(text) => handleCodeChange(text, index)}
@@ -162,7 +154,7 @@ export default function VerifyEmailScreen() {
             </View>
 
             <TouchableOpacity
-              className="bg-[#232323] rounded-full h-14 justify-center items-center mb-3 shadow-md"
+              className="bg-[#202020] rounded-full h-14 justify-center items-center mb-3 shadow-md"
               onPress={() => handleVerify()}
               activeOpacity={0.8}
             >
@@ -170,7 +162,7 @@ export default function VerifyEmailScreen() {
             </TouchableOpacity>
 
             <TouchableOpacity
-              className="bg-white border border-[#232323] rounded-full h-14 justify-center items-center mb-3 shadow-sm"
+              className="bg-white border border-[#202020] rounded-full h-14 justify-center items-center mb-3 shadow-sm"
               onPress={async () => {
                 if (isResending) return;
                 setIsResending(true);
@@ -186,7 +178,7 @@ export default function VerifyEmailScreen() {
               activeOpacity={0.8}
               disabled={isResending}
             >
-              <Text className="text-[#232323] text-lg font-bold">
+              <Text className="text-[#202020] text-lg font-bold">
                 {isResending ? 'Reenviando...' : 'Reenviar código'}
               </Text>
             </TouchableOpacity>
@@ -196,7 +188,7 @@ export default function VerifyEmailScreen() {
               onPress={() => router.back()}
               activeOpacity={0.7}
             >
-              <Text className="text-[#1D1D1B] text-sm underline">Volver al registro</Text>
+              <Text className="text-[#202020] text-sm underline">Volver al registro</Text>
             </TouchableOpacity>
           </View>
         </ScrollView>

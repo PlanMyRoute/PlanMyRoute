@@ -15,8 +15,9 @@ import {
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
+import { LoadingView } from '@/components/customElements/LoadingView';
 import { useTripContext } from '@/context/TripContext';
-import { getPhotos, uploadPhoto, deletePhoto } from '@/services/photoService';
+import { PhotoService } from '@/services/photoService';
 import { useLocalSearchParams } from 'expo-router';
 import Animated, {
   FadeIn,
@@ -44,15 +45,6 @@ interface UploadingPhoto {
   progress: number;
   error?: string;
 }
-
-// Skeleton loader component (unused but kept for future)
-const PhotoSkeleton = () => (
-  <Animated.View
-    entering={FadeIn}
-    className="bg-neutral/20 rounded-lg"
-    style={{ width: '100%', aspectRatio: 1 }}
-  />
-);
 
 // Photo grid item
 const PhotoGridItem = ({
@@ -233,7 +225,7 @@ const ImageViewer = ({
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={handleClose}>
       <StatusBar hidden />
-      <View className="flex-1 bg-black">
+      <View className="flex-1 bg-black" accessibilityViewIsModal>
         {/* Header */}
         <Animated.View
           entering={SlideInDown}
@@ -242,7 +234,7 @@ const ImageViewer = ({
             backgroundColor: 'rgba(0,0,0,0.5)',
           }}
         >
-          <TouchableOpacity onPress={handleClose} className="p-2">
+          <TouchableOpacity accessibilityLabel="Cerrar visor de fotos" onPress={handleClose} className="p-2">
             <Ionicons name="close" size={28} color="white" />
           </TouchableOpacity>
 
@@ -251,10 +243,10 @@ const ImageViewer = ({
           </Text>
 
           <View className="flex-row">
-            <TouchableOpacity onPress={() => onShare(currentPhoto)} className="p-2 mr-2">
+            <TouchableOpacity accessibilityLabel="Compartir foto" onPress={() => onShare(currentPhoto)} className="p-2 mr-2">
               <Ionicons name="share-outline" size={24} color="white" />
             </TouchableOpacity>
-            <TouchableOpacity onPress={() => onDelete(currentPhoto)} className="p-2">
+            <TouchableOpacity accessibilityLabel="Eliminar foto" onPress={() => onDelete(currentPhoto)} className="p-2">
               <Ionicons name="trash-outline" size={24} color="white" />
             </TouchableOpacity>
           </View>
@@ -285,6 +277,7 @@ const ImageViewer = ({
             style={{ transform: [{ translateY: -20 }] }}
           >
             <TouchableOpacity
+              accessibilityLabel="Foto anterior"
               onPress={() => setCurrentIndex(currentIndex - 1)}
               className="bg-black/50 p-3 rounded-full"
             >
@@ -300,6 +293,7 @@ const ImageViewer = ({
             style={{ transform: [{ translateY: -20 }] }}
           >
             <TouchableOpacity
+              accessibilityLabel="Foto siguiente"
               onPress={() => setCurrentIndex(currentIndex + 1)}
               className="bg-black/50 p-3 rounded-full"
             >
@@ -323,27 +317,23 @@ export default function TripPhotosTab() {
   const [viewerIndex, setViewerIndex] = useState(0);
   const [tripId] = useState<string | null>(() => {
     const id = (params.tripId as string) || tripContext.tripId;
-    console.log('🆔 TripPhotosTab - Initial tripId:', id);
     return id;
   });
 
   // Cargar fotos una sola vez cuando el componente monta
   useEffect(() => {
     if (!tripId) {
-      console.log('⚠️ No tripId available, skipping photo load');
       setLoading(false);
       return;
     }
 
-    console.log('📸 Loading photos for tripId:', tripId);
     let cancelled = false;
     
     const loadPhotos = async () => {
       setLoading(true);
       try {
-        const res = await getPhotos(tripId);
+const res = await PhotoService.getPhotos(tripId);
         if (!cancelled) {
-          console.log('✅ Photos loaded:', res?.length || 0);
           setPhotos(res || []);
         }
       } catch (error) {
@@ -368,9 +358,8 @@ export default function TripPhotosTab() {
   // Función para recargar fotos (usada después de subir)
   const reloadPhotos = async () => {
     if (!tripId) return;
-    console.log('🔄 Reloading photos for tripId:', tripId);
     try {
-      const res = await getPhotos(tripId);
+      const res = await PhotoService.getPhotos(tripId);
       setPhotos(res || []);
     } catch (error) {
       console.error('Error reloading photos:', error);
@@ -379,25 +368,17 @@ export default function TripPhotosTab() {
 
   const handleImagePick = async (fromCamera = false) => {
     try {
-      console.log('📸 Iniciando selección de imagen...', { fromCamera });
-      
       // Request permissions
-      console.log('🔐 Solicitando permisos...');
       const permission = fromCamera
         ? await ImagePicker.requestCameraPermissionsAsync()
         : await ImagePicker.requestMediaLibraryPermissionsAsync();
 
-      console.log('🔐 Permisos obtenidos:', permission);
-
       if (permission.status !== 'granted' && permission.granted !== true) {
-        console.log('❌ Permisos denegados');
         return Alert.alert(
           'Permiso denegado',
           `Necesitamos permiso para acceder a ${fromCamera ? 'la cámara' : 'tus fotos'}.`
         );
       }
-
-      console.log('✅ Permisos concedidos, abriendo selector...');
 
       // Prefer the new API `ImagePicker.MediaType` (MediaTypeOptions is deprecated)
       const mediaType = (ImagePicker as any).MediaType
@@ -418,11 +399,8 @@ export default function TripPhotosTab() {
             allowsMultipleSelection: true,
           });
 
-      console.log('📷 Resultado del picker:', result);
-
       const canceled = (result as any).cancelled ?? (result as any).canceled ?? false;
       if (canceled) {
-        console.log('ℹ️ Usuario canceló la selección');
         return;
       }
 
@@ -434,21 +412,16 @@ export default function TripPhotosTab() {
         assets = [{ uri: (result as any).uri }];
       }
 
-      console.log('🖼️ Assets seleccionados:', assets.length);
-
       if (assets.length === 0) {
-        console.log('❌ No se obtuvieron imágenes');
         return Alert.alert('Error', 'No se obtuvieron imágenes.');
       }
 
       // Validar que tripId existe
       if (!tripId) {
-        console.log('❌ No hay tripId disponible');
         return Alert.alert('Error', 'No se pudo identificar el viaje. Recarga la página.');
       }
 
       // Upload all selected images
-      console.log('📤 Iniciando subida de', assets.length, 'imágenes a tripId:', tripId);
       await uploadMultiplePhotos(assets.map((a: any) => a.uri));
     } catch (error) {
       console.error('❌ Error en handleImagePick:', error);
@@ -464,7 +437,6 @@ export default function TripPhotosTab() {
       return;
     }
 
-    console.log('📸 uploadMultiplePhotos - tripId:', tripId, 'uris:', uris.length);
     // Add to uploading state
     const newUploading: UploadingPhoto[] = uris.map((uri) => ({
       uri,
@@ -481,7 +453,7 @@ export default function TripPhotosTab() {
           prev.map((p) => (p.uri === uri ? { ...p, progress: 50 } : p))
         );
 
-        await uploadPhoto(tripId as string, uri);
+        await PhotoService.uploadPhoto(tripId as string, uri);
 
         // Mark as complete
         setUploadingPhotos((prev) =>
@@ -518,7 +490,7 @@ export default function TripPhotosTab() {
           style: 'destructive',
           onPress: async () => {
             try {
-              await deletePhoto(item.id, item.path);
+              await PhotoService.deletePhoto(item.id, item.path);
               setPhotos((prev) => prev.filter((p) => p.id !== item.id));
               setViewerVisible(false);
             } catch (error) {
@@ -548,11 +520,9 @@ export default function TripPhotosTab() {
   }, []);
 
   const showUploadOptions = () => {
-    console.log('🎬 showUploadOptions llamado, platform:', Platform.OS);
     try {
       // En web, ir directamente a la galería (Alert.alert no funciona bien en web)
       if (Platform.OS === 'web') {
-        console.log('🌐 Detectado web, abriendo galería directamente...');
         handleImagePick(false);
         return;
       }
@@ -562,14 +532,12 @@ export default function TripPhotosTab() {
         {
           text: 'Tomar foto',
           onPress: () => {
-            console.log('📷 Usuario eligió "Tomar foto"');
             handleImagePick(true);
           },
         },
         {
           text: 'Elegir de galería',
           onPress: () => {
-            console.log('🖼️ Usuario eligió "Elegir de galería"');
             handleImagePick(false);
           },
         },
@@ -644,12 +612,7 @@ export default function TripPhotosTab() {
 
       {/* Content */}
       {loading && photos.length === 0 ? (
-        <View className="flex-1 items-center justify-center">
-          <ActivityIndicator size="large" color="#FFD54D" />
-          <Text style={{ fontFamily: 'Urbanist-Regular', fontSize: 14, color: '#999999', marginTop: 12 }}>
-            Cargando fotos...
-          </Text>
-        </View>
+        <LoadingView message="Cargando fotos..." />
       ) : (
         <FlatList
           data={allItems}

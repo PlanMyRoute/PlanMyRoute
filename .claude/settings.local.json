@@ -11,10 +11,13 @@
       "Bash(Get-ChildItem -Recurse -Directory)",
       "Bash(Select-Object -ExpandProperty FullName)",
       "Bash(Get-ChildItem -Path \"apps\\\\backend\\\\__tests__\" -Name)",
-      "Bash(ffprobe -v quiet -print_format json -show_streams -show_format \"C:\\\\Users\\\\jotas\\\\Desktop\\\\videolyric_agario_improved.mp4\")",
-      "Bash(ffprobe -v quiet -print_format json -show_streams \"C:\\\\Users\\\\jotas\\\\Desktop\\\\videolyric_agario_improved.mp4\")",
-      "Bash(python -c \"import json,sys; d=json.load\\(sys.stdin\\); print\\('Streams:', len\\(d['streams']\\)\\); [print\\(f'  [{s[\\\\\"index\\\\\"]}] {s[\\\\\"codec_type\\\\\"]} - {s.get\\(\\\\\"codec_name\\\\\",\\\\\"?\\\\\"\\)}'\\) for s in d['streams']]\")",
-      "PowerShell(ffprobe -v quiet -print_format json -show_streams \"C:\\\\Users\\\\jotas\\\\Desktop\\\\videolyric_agario_improved.mp4\" 2>$null)"
+      "Bash(python generate_charts.py)",
+      "Bash(curl *)",
+      "Bash(pip install *)",
+      "Bash(pnpm add *)",
+      "Bash(python -m json.tool)",
+      "Bash(npx jest *)",
+      "Bash(pnpm exec *)"
     ]
   }
 }

@@ -1,9 +1,11 @@
 import CustomAlert from '@/components/customElements/CustomAlert';
+import { LoadingView } from '@/components/customElements/LoadingView';
 import { useAuth } from '@/context/AuthContext';
 import { useEvent } from '@/hooks/useEvents';
 import { supabase } from '@/lib/supabase';
 import { ChatMessage, EventService } from '@/services/eventService';
 import { ROUTES } from '@/constants/routes';
+import { formatFullDate } from '@/utils/formatDate';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
@@ -23,16 +25,6 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-function formatDate(date: string | null, time: string | null) {
-    if (!date) return 'Fecha por confirmar';
-    const d = new Date(date + 'T' + (time || '00:00:00'));
-    const dateStr = d.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
-    if (time) {
-        const timeStr = d.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
-        return `${dateStr} · ${timeStr}`;
-    }
-    return dateStr;
-}
 
 function formatPrice(min: number | null, max: number | null, currency: string | null) {
     if (min == null) return 'Precio a consultar';
@@ -125,6 +117,7 @@ function ChatModal({
             onRequestClose={onClose}
         >
             <KeyboardAvoidingView
+                accessibilityViewIsModal
                 className="flex-1 bg-gray-50"
                 behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
             >
@@ -134,6 +127,7 @@ function ChatModal({
                     style={{ paddingTop: insets.top + 12, paddingBottom: 12 }}
                 >
                     <TouchableOpacity
+                        accessibilityLabel="Cerrar chat"
                         className="mr-3 w-9 h-9 rounded-full bg-gray-100 items-center justify-center"
                         onPress={onClose}
                         activeOpacity={0.7}
@@ -194,6 +188,7 @@ function ChatModal({
                                 blurOnSubmit
                             />
                             <TouchableOpacity
+                                accessibilityLabel="Enviar mensaje"
                                 className="w-10 h-10 bg-primary-yellow rounded-full items-center justify-center"
                                 onPress={onSend}
                                 disabled={sending || !text.trim()}
@@ -233,7 +228,7 @@ export default function EventDetailScreen() {
     useEffect(() => {
         if (!id) return;
         setLoadingMessages(true);
-        EventService.getChatMessages(id, 0, { token })
+        EventService.getChatMessages(id, 0, { token: token ?? undefined })
             .then(setMessages)
             .catch(() => {})
             .finally(() => setLoadingMessages(false));
@@ -326,11 +321,7 @@ export default function EventDetailScreen() {
     };
 
     if (isLoading) {
-        return (
-            <View className="flex-1 items-center justify-center bg-white">
-                <ActivityIndicator size="large" color="#FFD54D" />
-            </View>
-        );
+        return <LoadingView />;
     }
 
     if (isError || !event) {
@@ -369,6 +360,7 @@ export default function EventDetailScreen() {
                     )}
                     <View className="absolute inset-0 bg-dark-black" style={{ opacity: 0.35 }} />
                     <TouchableOpacity
+                        accessibilityLabel="Volver"
                         className="absolute top-3 left-4 w-9 h-9 bg-white/80 rounded-full items-center justify-center"
                         style={{ marginTop: insets.top }}
                         onPress={() => router.back()}
@@ -419,7 +411,7 @@ export default function EventDetailScreen() {
                                 {allDates.map((d) => (
                                     <View key={d} className="bg-gray-100 rounded-xl px-3 py-2 mr-2">
                                         <Text className="text-dark-black text-xs font-medium capitalize">
-                                            {formatDate(d, null)}
+                                            {formatFullDate(d, null)}
                                         </Text>
                                     </View>
                                 ))}
@@ -431,7 +423,7 @@ export default function EventDetailScreen() {
                                 <Ionicons name="calendar" size={16} color="#202020" />
                             </View>
                             <Text className="text-dark-black text-sm capitalize">
-                                {formatDate(event.date, event.time)}
+                                {formatFullDate(event.date, event.time)}
                             </Text>
                         </View>
                     )}

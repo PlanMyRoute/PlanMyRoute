@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
-import { View, ActivityIndicator, Text } from 'react-native';
 import { useRouter } from 'expo-router';
+import { LoadingView } from '@/components/customElements/LoadingView';
 import { supabase } from '@/lib/supabase';
 import { ROUTES } from '@/constants/routes';
 
@@ -32,7 +32,6 @@ export default function AuthCallbackScreen() {
         }
 
         if (!session) {
-          console.log('⚠️ [Callback] No hay sesión tras reintentos, redirigiendo a login');
           router.replace(ROUTES.login);
           return;
         }
@@ -61,12 +60,5 @@ export default function AuthCallbackScreen() {
     handleCallback();
   }, []);
 
-  return (
-    <View className="flex-1 bg-primary justify-center items-center">
-      <ActivityIndicator size="large" color="#232323" />
-      <Text className="mt-4 text-lg text-[#1D1D1B]">
-        {status}
-      </Text>
-    </View>
-  );
+  return <LoadingView color="#202020" message={status} />;
 }

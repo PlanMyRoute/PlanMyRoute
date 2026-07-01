@@ -9,12 +9,13 @@ import {
     handleWebhook
 } from './stripe.controller.js';
 import { verifyToken } from '../../middleware/auth.js';
+import { stripeCheckoutLimiter } from '../../middleware/rateLimiter.js';
 
 const router = Router();
 
 // Rutas protegidas (requieren autenticación)
-router.post('/create-checkout-session', verifyToken, createCheckoutSession);
-router.post('/create-token-checkout-session', verifyToken, createTokenCheckoutSession);
+router.post('/create-checkout-session', verifyToken, stripeCheckoutLimiter, createCheckoutSession);
+router.post('/create-token-checkout-session', verifyToken, stripeCheckoutLimiter, createTokenCheckoutSession);
 router.post('/create-portal-session', verifyToken, createPortalSession);
 router.post('/cancel', verifyToken, cancelSubscription);
 router.post('/reactivate', verifyToken, reactivateSubscription);

@@ -1,10 +1,14 @@
 // jest.setup.js
 
+// 0. Dummy env vars for Supabase (must be set before any module loads supabase.ts)
+process.env.EXPO_PUBLIC_SUPABASE_URL = "https://test.supabase.co";
+process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY = "test-anon-key";
+
 // 1. Configuración de Reanimated
 require("react-native-reanimated").setUpTests();
 
 // 2. Mock para fetch
-import { enableFetchMocks } from "jest-fetch-mock";
+const { enableFetchMocks } = require("jest-fetch-mock");
 enableFetchMocks();
 
 // 3. Mocks globales para Expo y React Native
@@ -37,7 +41,7 @@ jest.mock("expo-router", () => ({
 
 // Mock de Async Storage
 jest.mock("@react-native-async-storage/async-storage", () =>
-  require("@react-native-async-storage/async-storage/jest/async-storage-mock")
+  require("@react-native-async-storage/async-storage/jest/async-storage-mock"),
 );
 
 // --- CAMBIO IMPORTANTE ---
@@ -49,5 +53,5 @@ jest.mock(
     addListener: jest.fn(),
     removeListeners: jest.fn(),
   }),
-  { virtual: true }
+  { virtual: true },
 ); // <--- 'virtual: true' es la clave si el módulo no existe físicamente

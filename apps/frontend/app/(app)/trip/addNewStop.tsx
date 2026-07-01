@@ -3,9 +3,10 @@ import CustomDateTimePicker from '@/components/customElements/CustomDateTimePick
 import { LocationSearchInput } from '@/components/customElements/LocationSearchInput';
 import { AccommodationStopForm, ActivityStopForm, RefuelStopForm } from '@/components/newStopForms';
 import { FileInfo } from '@/components/trip/FilePicker';
+import { PLACEHOLDER_TEXT_COLOR } from '@/constants/Colors';
 import { useTripContext } from '@/context/TripContext';
 import { useCreateAccommodationStop, useCreateActivityStop, useCreateRefuelStop, useStops, useUpdateAccommodationStop, useUpdateActivityStop, useUpdateRefuelStop, useUpdateStop } from '@/hooks/useItinerary';
-import { API_URL } from '@/lib/apiClient';
+import { apiFetch } from '@/lib/apiClient';
 import { supabase } from '@/lib/supabase';
 import { ItineraryService } from '@/services/itineraryService';
 import { Ionicons } from '@expo/vector-icons';
@@ -385,14 +386,13 @@ export default function AddNewStopScreen() {
 
     const geocodeStop = async (address: string): Promise<{ latitude: number; longitude: number } | undefined> => {
         try {
-            const response = await fetch(`${API_URL}/api/places/autocomplete?input=${encodeURIComponent(address)}&language=es`);
-            if (response.ok) {
-                const data = await response.json();
-                const prediction = data.predictions?.[0];
-                if (prediction?.place_id) {
-                    const decoded = JSON.parse(atob(prediction.place_id));
-                    return { latitude: parseFloat(decoded.lat), longitude: parseFloat(decoded.lng) };
-                }
+            const data = await apiFetch<{ predictions?: Array<{ place_id: string }> }>(
+                `/api/places/autocomplete?input=${encodeURIComponent(address)}&language=es`,
+            );
+            const prediction = data.predictions?.[0];
+            if (prediction?.place_id) {
+                const decoded = JSON.parse(atob(prediction.place_id));
+                return { latitude: parseFloat(decoded.lat), longitude: parseFloat(decoded.lng) };
             }
         } catch { }
         return undefined;
@@ -483,7 +483,7 @@ export default function AddNewStopScreen() {
                     headerStyle: { backgroundColor: '#FFFFFF' },
                     headerShadowVisible: false,
                     headerLeft: () => (
-                        <TouchableOpacity onPress={() => router.back()} className="w-10 h-10 items-center justify-center ml-1">
+                        <TouchableOpacity accessibilityLabel="Volver" onPress={() => router.back()} className="w-10 h-10 items-center justify-center ml-1">
                             <Ionicons name="arrow-back" size={22} color="#202020" />
                         </TouchableOpacity>
                     ),
@@ -517,7 +517,7 @@ export default function AddNewStopScreen() {
                                 <TextInput
                                     placeholder="Ej: Hotel Bielsa"
                                     className="flex-1 text-sm text-dark-black ml-3"
-                                    placeholderTextColor="#9CA3AF"
+                                    placeholderTextColor={PLACEHOLDER_TEXT_COLOR}
                                     value={formData.stopData.name || ''}
                                     onChangeText={(value) => updateStopField('name', value)}
                                 />
@@ -540,7 +540,7 @@ export default function AddNewStopScreen() {
                                 <TextInput
                                     placeholder="Notas adicionales sobre esta parada…"
                                     className="text-sm text-dark-black min-h-[72px]"
-                                    placeholderTextColor="#9CA3AF"
+                                    placeholderTextColor={PLACEHOLDER_TEXT_COLOR}
                                     value={formData.stopData.description || ''}
                                     onChangeText={(value) => updateStopField('description', value)}
                                     multiline

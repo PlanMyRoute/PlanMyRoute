@@ -32,9 +32,9 @@ export default function BillsScreen() {
     const { tripId } = useTripContext();
     const { token } = useAuth();
 
-    const { data: refuelData, isLoading: refuelLoading } = useRefuelCostByTrip(tripId as string, { enabled: !!tripId, token });
-    const { data: accommodationData, isLoading: accommodationLoading } = useAccommodationCostByTrip(tripId as string, { enabled: !!tripId, token });
-    const { data: activityData, isLoading: activityLoading } = useActivityCostByTrip(tripId as string, { enabled: !!tripId, token });
+    const { data: refuelData, isLoading: refuelLoading } = useRefuelCostByTrip(tripId as string, { enabled: !!tripId, token: token ?? undefined });
+    const { data: accommodationData, isLoading: accommodationLoading } = useAccommodationCostByTrip(tripId as string, { enabled: !!tripId, token: token ?? undefined });
+    const { data: activityData, isLoading: activityLoading } = useActivityCostByTrip(tripId as string, { enabled: !!tripId, token: token ?? undefined });
 
     const fuelCost = refuelData?.total_cost || 0;
     const accommodationCost = accommodationData?.total_cost || 0;

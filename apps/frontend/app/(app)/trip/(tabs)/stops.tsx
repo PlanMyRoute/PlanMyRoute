@@ -28,7 +28,9 @@ export default function StopsScreen() {
     const insets = useSafeAreaInsets();
     const currentTripId = tripId as string;
 
-    const isGenerating = (currentTrip as any)?.generation_status === 'generating';
+    const generationStatus = (currentTrip as any)?.generation_status as string | undefined;
+    const isGenerating = generationStatus === 'generating';
+    const isFailed = generationStatus === 'failed';
 
     // Poll el trip cada 3s mientras se generan paradas, para detectar cuando termina
     const { data: polledTrip } = useTrips(isGenerating ? currentTripId : null, {
@@ -38,7 +40,6 @@ export default function StopsScreen() {
     useEffect(() => {
         if (polledTrip && (polledTrip as any).generation_status !== 'generating') {
             setCurrentTrip(polledTrip as any);
-            // Forzar un último refetch de stops para mostrar todos los recién creados
             queryClient.invalidateQueries({ queryKey: ['stops', currentTripId] });
         }
     }, [polledTrip, setCurrentTrip, queryClient, currentTripId]);
@@ -258,6 +259,36 @@ export default function StopsScreen() {
                     <TripStatusBanner isGuest={access.isGuest} isCompleted={access.isCompleted} />
                 </View>
 
+                {/* Banner de error si la generación falló */}
+                {isFailed && (
+                    <View className="mx-6 mt-2 mb-2 bg-red-50 border border-red-200 rounded-2xl p-4">
+                        <View className="flex-row items-center gap-2 mb-1">
+                            <Ionicons name="alert-circle" size={20} color="#EF4444" />
+                            <SubtitleSemibold style={{ color: '#EF4444' }}>Error en la generación</SubtitleSemibold>
+                        </View>
+                        <TextRegular className="text-neutral mb-3">
+                            Hubo un problema al generar el itinerario. Los tokens han sido reembolsados.
+                        </TextRegular>
+                        <TouchableOpacity
+                            onPress={() => router.back()}
+                            className="self-start bg-dark-black rounded-full px-4 py-2"
+                            activeOpacity={0.8}
+                        >
+                            <Text className="text-primary-yellow text-sm font-semibold">Volver a intentar</Text>
+                        </TouchableOpacity>
+                    </View>
+                )}
+
+                {/* Banner de enriquecimiento en progreso */}
+                {isGenerating && localStops.length > 0 && (
+                    <View className="mx-6 mt-2 mb-2 bg-yellow-50 border border-yellow-200 rounded-2xl px-4 py-3 flex-row items-center gap-2">
+                        <ActivityIndicator size="small" color="#D97706" />
+                        <MicrotextDark className="text-yellow-700 flex-1">
+                            Completando fotos y detalles de las paradas…
+                        </MicrotextDark>
+                    </View>
+                )}
+
                 {/* Selector de días */}
                 <DaySelector
                     days={dayInfos}
@@ -338,6 +369,7 @@ export default function StopsScreen() {
                                             stopNumber={i + 1}
                                             isLast={i === group.length - 1}
                                             canEdit={canEditStop && !access.isGuest && !access.isCompleted}
+                                            isEnriching={isGenerating}
                                             legDistanceKm={metrics?.legs?.[i]?.km}
                                             legDurationStr={metrics?.legs?.[i]?.dur}
                                             onEdit={handleOpenEditStop}

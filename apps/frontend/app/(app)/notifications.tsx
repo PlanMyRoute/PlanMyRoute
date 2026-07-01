@@ -1,4 +1,6 @@
 import CustomInput from '@/components/customElements/CustomInput';
+import { EmptyState } from '@/components/customElements/EmptyState';
+import { LoadingView } from '@/components/customElements/LoadingView';
 import { MicrotextDark, SubtitleSemibold, TextRegular } from '@/components/customElements/CustomText';
 import { Invitation } from '@/components/notifications/Invitation';
 import { TripStatusCheck } from '@/components/notifications/TripStatusCheck';
@@ -170,12 +172,7 @@ export default function NotificationsScreen() {
     ];
 
     if (!userId) {
-        return (
-            <SafeAreaView edges={['bottom']} className="flex-1 bg-white justify-center items-center">
-                <ActivityIndicator size="large" color="#FFD54D" />
-                <TextRegular className="mt-4 text-neutral-gray">Cargando notificaciones...</TextRegular>
-            </SafeAreaView>
-        );
+        return <LoadingView safeArea message="Cargando notificaciones..." />;
     }
 
     return (
@@ -184,6 +181,7 @@ export default function NotificationsScreen() {
             <View className="px-6 pt-4 pb-6">
                 <View className="flex-row items-center">
                     <TouchableOpacity
+                        accessibilityLabel="Volver"
                         className="w-9 h-9 rounded-full bg-gray-100 items-center justify-center"
                         onPress={() => router.back()}
                         activeOpacity={0.7}
@@ -203,6 +201,7 @@ export default function NotificationsScreen() {
                         />
                     </View>
                     <TouchableOpacity
+                        accessibilityLabel="Filtrar notificaciones"
                         className="w-12 h-12 bg-dark-black rounded-full items-center justify-center"
                         onPress={() => setShowFilterModal(true)}
                     >
@@ -216,7 +215,7 @@ export default function NotificationsScreen() {
                         <MicrotextDark className="text-neutral-gray mr-2">
                             Filtro: {filterOptions.find(f => f.value === filterType)?.label}
                         </MicrotextDark>
-                        <TouchableOpacity onPress={() => setFilterType('all')}>
+                        <TouchableOpacity accessibilityLabel="Quitar filtro" onPress={() => setFilterType('all')}>
                             <Ionicons name="close-circle" size={18} color="#999999" />
                         </TouchableOpacity>
                     </View>
@@ -231,6 +230,7 @@ export default function NotificationsScreen() {
                 onRequestClose={() => setShowFilterModal(false)}
             >
                 <TouchableOpacity
+                    accessibilityViewIsModal
                     className="flex-1 bg-black/50 justify-center items-center"
                     activeOpacity={1}
                     onPress={() => setShowFilterModal(false)}
@@ -295,16 +295,15 @@ export default function NotificationsScreen() {
                         </View>
                     )}
                     ListEmptyComponent={() => (
-                        <View className="py-16 items-center">
-                            <View className="w-20 h-20 rounded-full bg-neutral-gray/10 items-center justify-center mb-4">
-                                <Ionicons name="notifications-off-outline" size={32} color="#999999" />
-                            </View>
-                            <TextRegular className="text-neutral-gray text-center">
-                                {searchQuery || filterType !== 'all'
-                                    ? 'No se encontraron notificaciones'
-                                    : 'No hay notificaciones'}
-                            </TextRegular>
-                        </View>
+                        <EmptyState
+                            icon="notifications-off-outline"
+                            iconSize={32}
+                            iconBackgroundColor="rgba(153,153,153,0.1)"
+                            iconBackgroundSize={80}
+                            title={searchQuery || filterType !== 'all'
+                                ? 'No se encontraron notificaciones'
+                                : 'No hay notificaciones'}
+                        />
                     )}
                     refreshControl={
                         <RefreshControl

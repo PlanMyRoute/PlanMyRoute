@@ -2,6 +2,7 @@ import CustomAlert, { type AlertAction } from '@/components/customElements/Custo
 import CustomButton from '@/components/customElements/CustomButton';
 import CustomInput from '@/components/customElements/CustomInput';
 import { MicrotextDark, SubtitleSemibold, TextRegular, Title1, Title2 } from '@/components/customElements/CustomText';
+import { LoadingView } from '@/components/customElements/LoadingView';
 import { ROUTES } from '@/constants/routes';
 import { useAuth } from '@/context/AuthContext';
 import { useDraftBanner } from '@/hooks/trip/useWizardDraft';
@@ -14,7 +15,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Trip, getActionCost } from '@planmyroute/types';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, ScrollView, TouchableOpacity, View } from 'react-native';
+import { ScrollView, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function CreateTripTabScreen() {
@@ -36,11 +37,7 @@ export default function CreateTripTabScreen() {
     }, [needsCompletion, router]);
 
     if (profileLoading || needsCompletion) {
-        return (
-            <View className="flex-1 bg-white items-center justify-center">
-                <ActivityIndicator size="large" color="#FFD54D" />
-            </View>
-        );
+        return <LoadingView />;
     }
 
     // Fetch user trips for plantillas rápidas (reuses React Query cache)
