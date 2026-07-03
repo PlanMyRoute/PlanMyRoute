@@ -415,12 +415,23 @@ export async function enrichStopsForTrip(
   stopIds: number[],
   tripId: number,
 ): Promise<void> {
+  const totalBatches = Math.ceil(stopIds.length / ENRICH_CONCURRENCY);
+  console.log(
+    `⚙️ [Background] Enriqueciendo ${stopIds.length} paradas (fotos + precios) en ${totalBatches} lote(s) de hasta ${ENRICH_CONCURRENCY}...`,
+  );
   for (let i = 0; i < stopIds.length; i += ENRICH_CONCURRENCY) {
     const batch = stopIds.slice(i, i + ENRICH_CONCURRENCY);
+    const batchNum = Math.floor(i / ENRICH_CONCURRENCY) + 1;
+    console.log(
+      `⚙️ [Background] Lote ${batchNum}/${totalBatches} — enriqueciendo paradas [${batch.join(", ")}]`,
+    );
     await Promise.allSettled(
       batch.map((id) => ItineraryService.enrichStop(id)),
     );
   }
+  console.log(
+    `⚙️ [Background] Enriquecimiento completo. Recalculando segmentos de ruta para trip ${tripId}...`,
+  );
   await ItineraryService.recalculateTripSegments(tripId);
 }
 
@@ -516,9 +527,15 @@ export async function requestItineraryToLLM(
 
   let raw: string;
   try {
+    console.log(
+      `[AI] Enviando prompt a Gemini (${ITINERARY_GENERATOR_MODEL})...`,
+    );
     const result = await model.generateContent(prompt);
     usage = result.response.usageMetadata;
     raw = result.response.text();
+    console.log(
+      `[AI] Respuesta recibida en ${Date.now() - startedAt}ms | tokens: ${usage?.promptTokenCount ?? "?"} prompt / ${usage?.candidatesTokenCount ?? "?"} completion`,
+    );
   } catch (err) {
     const errorMessage = err instanceof Error ? err.message : String(err);
     recordOutcome("api_error", { errorMessage });

@@ -328,6 +328,9 @@ async function generateItineraryInBackground(
   );
 
   // Phase 2: background enrichment — photos + prices in parallel batches, then rebuild routes.
+  console.log(
+    `⚙️ [Background] Iniciando enriquecimiento de ${allStopIds.length} paradas para trip ${tripId}...`,
+  );
   await enrichStopsForTrip(allStopIds, tripId);
 
   await TripService.update(String(tripId), {
