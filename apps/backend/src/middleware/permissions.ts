@@ -218,6 +218,83 @@ export function requireEditor() {
 }
 
 /**
+ * Resuelve el trip_id al que pertenece una parada.
+ * Devuelve null si la parada no existe.
+ */
+async function getTripIdForStop(stopId: string): Promise<number | null> {
+  const { data, error } = await supabase
+    .from("stop")
+    .select("trip_id")
+    .eq("id", stopId)
+    .maybeSingle();
+
+  if (error || !data) return null;
+  return (data as { trip_id: number }).trip_id;
+}
+
+/**
+ * Middleware de permisos para rutas cuyo parámetro es un `stopId` en lugar de un
+ * `tripId` (adjuntos, refuel, fotos). Resuelve el viaje al que pertenece la
+ * parada, lo inyecta en `req.params.tripId` y delega en `requirePermission`,
+ * reutilizando toda la lógica de roles y estado del viaje.
+ */
+export function requireStopPermission(action: TripAction) {
+  return async (req: Request, res: Response, next: NextFunction) => {
+    const stopId = req.params.stopId;
+    if (!stopId) {
+      return res
+        .status(400)
+        .json({ error: "No se proporcionó el ID de la parada" });
+    }
+
+    const tripId = await getTripIdForStop(String(stopId));
+    if (tripId === null) {
+      return res.status(404).json({ error: "No se encontró la parada" });
+    }
+
+    req.params.tripId = String(tripId);
+    return requirePermission(action)(req, res, next);
+  };
+}
+
+/**
+ * Igual que requireStopPermission pero partiendo de un `attachmentId`:
+ * adjunto → stop → trip. Para la ruta DELETE /attachments/:attachmentId.
+ */
+export function requireAttachmentPermission(action: TripAction) {
+  return async (req: Request, res: Response, next: NextFunction) => {
+    const attachmentId = req.params.attachmentId;
+    if (!attachmentId) {
+      return res
+        .status(400)
+        .json({ error: "No se proporcionó el ID del adjunto" });
+    }
+
+    const { data, error } = await supabase
+      .from("reservation_attachments")
+      .select("stop_id")
+      .eq("id", attachmentId)
+      .maybeSingle();
+
+    if (error || !data) {
+      return res.status(404).json({ error: "No se encontró el adjunto" });
+    }
+
+    const tripId = await getTripIdForStop(
+      String((data as { stop_id: number }).stop_id),
+    );
+    if (tripId === null) {
+      return res
+        .status(404)
+        .json({ error: "No se encontró la parada del adjunto" });
+    }
+
+    req.params.tripId = String(tripId);
+    return requirePermission(action)(req, res, next);
+  };
+}
+
+/**
  * Verifica permisos directamente en un controlador (sin middleware)
  * Útil cuando necesitas hacer validaciones más complejas
  */

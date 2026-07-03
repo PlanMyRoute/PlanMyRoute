@@ -1,5 +1,6 @@
 // src/api/follows/follows.service.ts
 import { supabase } from "../../supabase.js";
+import { BadRequestError, ConflictError } from "../../utils/errors.js";
 
 export interface UserFollow {
   id: number;
@@ -22,7 +23,7 @@ export const followUser = async (
 ): Promise<UserFollow> => {
   // Validar que el usuario no intenta seguirse a sí mismo
   if (userId === followingId) {
-    throw new Error("No puedes seguirte a ti mismo");
+    throw new BadRequestError("No puedes seguirte a ti mismo");
   }
 
   const { data, error } = await supabase
@@ -37,7 +38,7 @@ export const followUser = async (
   if (error) {
     if (error.code === "23505") {
       // Violación de restricción de unicidad
-      throw new Error("Ya sigues a este usuario");
+      throw new ConflictError("Ya sigues a este usuario");
     }
     throw new Error(`Error al seguir usuario: ${error.message}`);
   }

@@ -9,15 +9,15 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
  * @returns Query de React Query con el estado de seguimiento
  */
 export const useIsFollowing = (followingId: string | undefined) => {
-  const { user } = useAuth();
+  const { user, token } = useAuth();
 
   return useQuery({
     queryKey: ["isFollowing", user?.id, followingId],
     queryFn: async () => {
-      if (!user?.id || !followingId) return false;
-      return await FollowService.checkIfFollowing(user.id, followingId);
+      if (!user?.id || !followingId || !token) return false;
+      return await FollowService.checkIfFollowing(user.id, followingId, { token });
     },
-    enabled: !!user?.id && !!followingId,
+    enabled: !!user?.id && !!followingId && !!token,
   });
 };
 
@@ -27,13 +27,15 @@ export const useIsFollowing = (followingId: string | undefined) => {
  * @returns Query de React Query con las estadísticas de seguidores y seguidos
  */
 export const useFollowStats = (userId: string | undefined) => {
+  const { token } = useAuth();
+
   return useQuery<FollowStats>({
     queryKey: ["followStats", userId],
     queryFn: async () => {
-      if (!userId) throw new Error("User ID is required");
-      return await FollowService.getFollowStats(userId);
+      if (!userId || !token) throw new Error("User ID is required");
+      return await FollowService.getFollowStats(userId, { token });
     },
-    enabled: !!userId,
+    enabled: !!userId && !!token,
     staleTime: 1000 * 60 * 5, // Cache for 5 minutes
   });
 };
@@ -44,13 +46,15 @@ export const useFollowStats = (userId: string | undefined) => {
  * @returns Query de React Query con la lista de seguidores
  */
 export const useFollowers = (userId: string | undefined) => {
+  const { token } = useAuth();
+
   return useQuery({
     queryKey: ["followers", userId],
     queryFn: async () => {
-      if (!userId) throw new Error("User ID is required");
-      return await FollowService.getFollowers(userId);
+      if (!userId || !token) throw new Error("User ID is required");
+      return await FollowService.getFollowers(userId, { token });
     },
-    enabled: !!userId,
+    enabled: !!userId && !!token,
   });
 };
 
@@ -60,13 +64,15 @@ export const useFollowers = (userId: string | undefined) => {
  * @returns Query de React Query con la lista de usuarios seguidos
  */
 export const useFollowing = (userId: string | undefined) => {
+  const { token } = useAuth();
+
   return useQuery({
     queryKey: ["following", userId],
     queryFn: async () => {
-      if (!userId) throw new Error("User ID is required");
-      return await FollowService.getFollowing(userId);
+      if (!userId || !token) throw new Error("User ID is required");
+      return await FollowService.getFollowing(userId, { token });
     },
-    enabled: !!userId,
+    enabled: !!userId && !!token,
   });
 };
 
@@ -75,13 +81,13 @@ export const useFollowing = (userId: string | undefined) => {
  * @returns Funciones de seguir/dejar de seguir, estados de carga y errores
  */
 export const useFollowUser = () => {
-  const { user } = useAuth();
+  const { user, token } = useAuth();
   const queryClient = useQueryClient();
 
   const followMutation = useMutation({
     mutationFn: async (followingId: string) => {
-      if (!user?.id) throw new Error("User not authenticated");
-      return await FollowService.followUser(user.id, followingId);
+      if (!user?.id || !token) throw new Error("User not authenticated");
+      return await FollowService.followUser(user.id, followingId, { token });
     },
     onMutate: async (followingId: string) => {
       // Cancel outgoing queries
@@ -122,8 +128,8 @@ export const useFollowUser = () => {
 
   const unfollowMutation = useMutation({
     mutationFn: async (followingId: string) => {
-      if (!user?.id) throw new Error("User not authenticated");
-      return await FollowService.unfollowUser(user.id, followingId);
+      if (!user?.id || !token) throw new Error("User not authenticated");
+      return await FollowService.unfollowUser(user.id, followingId, { token });
     },
     onMutate: async (followingId: string) => {
       await queryClient.cancelQueries({

@@ -18,8 +18,9 @@ import { Stop } from '@planmyroute/types';
 import { useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Image, ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { CachedImage } from '@/components/ui/CachedImage';
 
 export default function StopsScreen() {
     const router = useRouter();
@@ -458,7 +459,7 @@ export default function StopsScreen() {
                                     style={{ elevation: 1 }}
                                 >
                                     {event.image ? (
-                                        <Image source={{ uri: event.image }} style={{ width: 72, height: 72 }} resizeMode="cover" />
+                                        <CachedImage source={{ uri: event.image }} style={{ width: 72, height: 72 }} />
                                     ) : (
                                         <View style={{ width: 72, height: 72 }} className="bg-gray-200 items-center justify-center">
                                             <Ionicons name="musical-notes" size={24} color="#bbb" />
@@ -499,6 +500,8 @@ export default function StopsScreen() {
                 <TouchableOpacity
                     onPress={() => router.push(ROUTES.tripAddStop)}
                     activeOpacity={0.8}
+                    accessibilityRole="button"
+                    accessibilityLabel="Añadir parada"
                     className="absolute right-6 w-14 h-14 bg-dark rounded-full items-center justify-center"
                     style={{
                         bottom: insets.bottom + 24,

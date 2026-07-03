@@ -12,6 +12,11 @@ import * as TripService from "../trips/trips.service.js";
 import { searchPlacePhotoSmart } from "../../utils/placesPhotos.js";
 import { getPlacePrice } from "../../utils/placePrices.js";
 import { dlog } from "../../utils/debugLog.js";
+import {
+  BadRequestError,
+  ForbiddenError,
+  NotFoundError,
+} from "../../utils/errors.js";
 
 const STOP_TABLE = "stop";
 const ACTIVITY_TABLE = "activity";
@@ -44,7 +49,7 @@ export const getStopById = async (id: string) => {
   }
 
   if (!data) {
-    throw new Error(`No se encontró ninguna parada con el id: ${id}`);
+    throw new NotFoundError(`No se encontró ninguna parada con el id: ${id}`);
   }
 
   return data;
@@ -244,7 +249,9 @@ export const createStop = async (stopData: Partial<Stop>, tripId: number) => {
       console.error(
         `❌ Validación de restricciones fallida: ${validation.message}`,
       );
-      throw new Error(validation.message || "Restricción de orden violada");
+      throw new BadRequestError(
+        validation.message || "Restricción de orden violada",
+      );
     }
 
     // Cargar las paradas del viaje UNA sola vez (versión ligera, sin embeds).
@@ -258,7 +265,9 @@ export const createStop = async (stopData: Partial<Stop>, tripId: number) => {
       // VALIDAR RANGO: requestedPosition entre 1 y stopsInDayBeforeIncrement.length + 1
       const maxPosition = stopsInDayBeforeIncrement.length + 1;
       if (requestedPosition < 1 || requestedPosition > maxPosition) {
-        throw new Error(`La posición debe estar entre 1 y ${maxPosition}`);
+        throw new BadRequestError(
+          `La posición debe estar entre 1 y ${maxPosition}`,
+        );
       }
 
       // Paradas que necesitan incrementar su posición
@@ -338,7 +347,7 @@ export const createStop = async (stopData: Partial<Stop>, tripId: number) => {
       console.error(
         "No se pudieron obtener coordenadas válidas para la parada",
       );
-      throw new Error(
+      throw new BadRequestError(
         "No se pudieron obtener coordenadas válidas para la dirección proporcionada. Por favor, verifica la dirección e intenta de nuevo.",
       );
     }
@@ -545,9 +554,7 @@ export const createActivityStop = async (
     // No insertar total_cost aquí, la tabla activity no tiene esa columna
     // Solo usar estimated_price que sí existe
     if (activityPayload.estimated_price) {
-      dlog(
-        `Total cost de actividad: ${activityPayload.estimated_price}€`,
-      );
+      dlog(`Total cost de actividad: ${activityPayload.estimated_price}€`);
     }
 
     const { data: activity, error } = await supabase
@@ -654,7 +661,7 @@ export const createStopFast = async (
     typeof (stopData.coordinates as any).latitude !== "number" ||
     typeof (stopData.coordinates as any).longitude !== "number"
   ) {
-    throw new Error(
+    throw new BadRequestError(
       `No se pudieron obtener coordenadas para: ${stopData.address}`,
     );
   }
@@ -877,7 +884,9 @@ export const getRefuelStop = async (stopId: string) => {
     }
 
     if (!refuel) {
-      throw new Error(`No se encontró ningún repostaje con el id: ${stopId}`);
+      throw new NotFoundError(
+        `No se encontró ningún repostaje con el id: ${stopId}`,
+      );
     }
 
     return {
@@ -939,7 +948,9 @@ export const updateActivityStop = async (
     }
 
     if (!activity) {
-      throw new Error(`No se encontró ninguna actividad con el id: ${stopId}`);
+      throw new NotFoundError(
+        `No se encontró ninguna actividad con el id: ${stopId}`,
+      );
     }
 
     dlog("Activity actualizada exitosamente:", activity);
@@ -999,7 +1010,9 @@ export const updateAccommodationStop = async (
     }
 
     if (!accommodation) {
-      throw new Error(`No se encontró ningún alojamiento con el id: ${stopId}`);
+      throw new NotFoundError(
+        `No se encontró ningún alojamiento con el id: ${stopId}`,
+      );
     }
 
     dlog("Accommodation actualizado exitosamente:", accommodation);
@@ -1046,7 +1059,9 @@ export const updateRefuelStop = async (
     }
 
     if (!refuel) {
-      throw new Error(`No se encontró ningún repostaje con el id: ${stopId}`);
+      throw new NotFoundError(
+        `No se encontró ningún repostaje con el id: ${stopId}`,
+      );
     }
 
     dlog("Refuel actualizado exitosamente:", refuel);
@@ -1098,9 +1113,7 @@ const validateAndRepairPositions = async (day: number) => {
     }
 
     if (needsRepair) {
-      dlog(
-        `🔧 Reparando ${stopsInDay.length} posiciones en día ${day}...`,
-      );
+      dlog(`🔧 Reparando ${stopsInDay.length} posiciones en día ${day}...`);
       // Renumerar todas las posiciones secuencialmente
       for (let i = 0; i < stopsInDay.length; i++) {
         const newPosition = i + 1;
@@ -1152,9 +1165,8 @@ export const updateStop = async (
   // Carga memoizada de las paradas del viaje (versión ligera, sin embeds).
   // Las validaciones de día/posición de abajo son de solo lectura y comparten
   // este único snapshot en lugar de releer por cada bloque.
-  let _tripStopsCache:
-    | Awaited<ReturnType<typeof getStopsForOrdering>>
-    | null = null;
+  let _tripStopsCache: Awaited<ReturnType<typeof getStopsForOrdering>> | null =
+    null;
   const loadTripStops = async () => {
     if (_tripStopsCache) return _tripStopsCache;
     _tripStopsCache = resolvedTripId
@@ -1174,14 +1186,16 @@ export const updateStop = async (
       console.error(
         `❌ Validación de restricciones fallida: ${validation.message}`,
       );
-      throw new Error(validation.message || "Restricción de orden violada");
+      throw new BadRequestError(
+        validation.message || "Restricción de orden violada",
+      );
     }
   }
 
   // ✨ VALIDACIÓN ESTRICTA: ORIGEN solo puede estar en día 1
   if (currentStop?.type === "origen" && stopDataWithPrice.day !== undefined) {
     if (stopDataWithPrice.day !== 1) {
-      throw new Error(
+      throw new BadRequestError(
         `El Origen debe estar siempre en el día 1 (intenta cambiar al día ${stopDataWithPrice.day})`,
       );
     }
@@ -1193,7 +1207,7 @@ export const updateStop = async (
     stopDataWithPrice.position !== undefined
   ) {
     if (stopDataWithPrice.position !== 1) {
-      throw new Error(
+      throw new BadRequestError(
         `El Origen debe estar siempre en posición 1 (intenta cambiar a posición ${stopDataWithPrice.position})`,
       );
     }
@@ -1215,7 +1229,7 @@ export const updateStop = async (
         );
 
         if (newDay < maxIntermediaDay) {
-          throw new Error(
+          throw new BadRequestError(
             `El Destino no puede estar en un día anterior a las intermedias (última intermedia está en día ${maxIntermediaDay})`,
           );
         }
@@ -1333,18 +1347,17 @@ export const updateStop = async (
       // La parada opuesta (origen<->destino) se obtiene del snapshot por type,
       // sin recorrer rutas ni hacer una query por cada una.
       const tripStops = await loadTripStops();
-      const oppositeType =
-        currentStop.type === "origen" ? "destino" : "origen";
+      const oppositeType = currentStop.type === "origen" ? "destino" : "origen";
       const oppositeStop = tripStops.find((s) => s.type === oppositeType);
 
       if (oppositeStop && oppositeStop.day != null) {
         if (currentStop.type === "origen" && newDay > oppositeStop.day) {
-          throw new Error(
+          throw new BadRequestError(
             `El Origen no puede estar en un día posterior al Destino (Destino está en día ${oppositeStop.day})`,
           );
         }
         if (currentStop.type === "destino" && newDay < oppositeStop.day) {
-          throw new Error(
+          throw new BadRequestError(
             `El Destino no puede estar en un día anterior al Origen (Origen está en día ${oppositeStop.day})`,
           );
         }
@@ -1413,7 +1426,7 @@ export const updateStop = async (
               console.error(
                 `❌ Validación fallida: Intermedia en día ${dayToUpdate} > Destino en día ${destino.day}`,
               );
-              throw new Error(
+              throw new BadRequestError(
                 `Una parada intermedia no puede estar en un día posterior al destino (Destino está en día ${destino.day})`,
               );
             }
@@ -1434,7 +1447,7 @@ export const updateStop = async (
                 console.error(
                   `❌ Validación fallida: Intermedia posición ${newPosition} > Destino posición ${destinoPosition}`,
                 );
-                throw new Error(
+                throw new BadRequestError(
                   `Una parada intermedia no puede estar después del destino en el mismo día (Destino está en posición ${destinoPosition})`,
                 );
               }
@@ -1467,7 +1480,9 @@ export const updateStop = async (
             console.error(
               `❌ Posición ${newPosition} inválida. Rango válido: 1-${maxPosition}`,
             );
-            throw new Error(`La posición debe estar entre 1 y ${maxPosition}`);
+            throw new BadRequestError(
+              `La posición debe estar entre 1 y ${maxPosition}`,
+            );
           }
 
           // Insertar el stop siendo editado en la nueva posición
@@ -1478,9 +1493,7 @@ export const updateStop = async (
           );
 
           // Renumerar TODAS las paradas secuencialmente
-          dlog(
-            `🔄 INICIANDO RENUMERACIÓN de ${otherIds.length} paradas`,
-          );
+          dlog(`🔄 INICIANDO RENUMERACIÓN de ${otherIds.length} paradas`);
           const updatePromises = [];
           for (let i = 0; i < otherIds.length; i++) {
             const correctPos = i + 1;
@@ -1509,9 +1522,7 @@ export const updateStop = async (
           // Esperar a que todos los updates terminen
           await Promise.all(updatePromises);
 
-          dlog(
-            `✅ Renumeración completada para ${otherIds.length} paradas`,
-          );
+          dlog(`✅ Renumeración completada para ${otherIds.length} paradas`);
 
           // NO actualizar position en stopDataWithPrice - ya fue manejado
           delete (stopDataWithPrice as any).position;
@@ -1558,7 +1569,7 @@ export const updateStop = async (
   }
 
   if (!data) {
-    throw new Error(`No se encontró ninguna parada con el id: ${id}`);
+    throw new NotFoundError(`No se encontró ninguna parada con el id: ${id}`);
   }
 
   // ✅ Solo reorganizar si CAMBIÓ el día o la hora
@@ -1571,9 +1582,7 @@ export const updateStop = async (
     stopDataWithPrice.estimated_arrival !== currentStop?.estimated_arrival;
 
   if (tripId && (dayChanged || timeChanged)) {
-    dlog(
-      `📝 Día o hora cambió → Reorganizando posiciones (no-bloqueante)`,
-    );
+    dlog(`📝 Día o hora cambió → Reorganizando posiciones (no-bloqueante)`);
     reorganizePositions(tripId).catch((error) =>
       console.error(
         `⚠️ Error reorganizando posiciones en update (no-bloqueante):`,
@@ -1601,7 +1610,7 @@ export const deleteStop = async (id: string) => {
     .maybeSingle();
 
   if (!existingStop) {
-    throw new Error(`No se encontró ninguna parada con el id: ${id}`);
+    throw new NotFoundError(`No se encontró ninguna parada con el id: ${id}`);
   }
 
   const tripId = existingStop.trip_id;
@@ -1679,9 +1688,7 @@ const convertTimeToTimestamp = async (
     baseDate.setHours(hours, minutes, 0, 0);
 
     const timestamp = baseDate.toISOString();
-    dlog(
-      `Hora convertida: ${timeString} (Día ${day || 1}) -> ${timestamp}`,
-    );
+    dlog(`Hora convertida: ${timeString} (Día ${day || 1}) -> ${timestamp}`);
 
     return timestamp;
   } catch (error) {
@@ -1748,9 +1755,7 @@ export const getCoordinatesForAddress = async (
               `⚠️  Geocoding fallback: "${address}" → "${tryAddress}" (lat=${latitude}, lon=${longitude})`,
             );
           } else {
-            dlog(
-              `Coordenadas obtenidas: lat=${latitude}, lon=${longitude}`,
-            );
+            dlog(`Coordenadas obtenidas: lat=${latitude}, lon=${longitude}`);
           }
           return { latitude, longitude };
         }
@@ -1763,7 +1768,7 @@ export const getCoordinatesForAddress = async (
   console.error(
     `No se encontraron coordenadas válidas para la dirección: "${address}"`,
   );
-  throw new Error(
+  throw new BadRequestError(
     `No se pudo geocodificar la dirección: "${address}". Por favor, verifica que la dirección sea correcta.`,
   );
 };
@@ -1848,9 +1853,7 @@ const reorganizePositions = async (tripId: number) => {
       // Actualizar posiciones para este día
       orderedInDay.forEach((stop, index) => {
         const newPosition = index + 1;
-        dlog(
-          `  ✏️ ${stop.name} (${stop.type}) → posición ${newPosition}`,
-        );
+        dlog(`  ✏️ ${stop.name} (${stop.type}) → posición ${newPosition}`);
 
         updatePromises.push(
           supabase
@@ -2161,7 +2164,9 @@ export const getTotalRefuelCostByTrip = async (tripId: number) => {
       .eq("trip_id", tripId);
 
     if (stopsError) {
-      throw new Error(`Error al obtener paradas del viaje: ${stopsError.message}`);
+      throw new Error(
+        `Error al obtener paradas del viaje: ${stopsError.message}`,
+      );
     }
 
     const stopIdsArray = (stops || []).map((s) => s.id);
@@ -2215,9 +2220,7 @@ export const getTotalRefuelCostByTrip = async (tripId: number) => {
  */
 export const getTotalAccommodationCostByTrip = async (tripId: number) => {
   try {
-    dlog(
-      `[getTotalAccommodationCostByTrip] Iniciando para tripId: ${tripId}`,
-    );
+    dlog(`[getTotalAccommodationCostByTrip] Iniciando para tripId: ${tripId}`);
 
     // Paradas del viaje (directamente por trip_id)
     const { data: stops, error: stopsError } = await supabase
@@ -2354,9 +2357,7 @@ export const getTotalActivityCostByTrip = async (tripId: number) => {
       }
     }
 
-    dlog(
-      `[getTotalActivityCostByTrip] Total cost calculado: ${totalCost}€`,
-    );
+    dlog(`[getTotalActivityCostByTrip] Total cost calculado: ${totalCost}€`);
 
     return {
       trip_id: tripId,
@@ -2403,7 +2404,7 @@ export const uploadReservationAttachment = async (
 
   if (routeError || !routes) {
     console.error("❌ Parada no encontrada en ninguna ruta");
-    throw new Error("Parada no encontrada");
+    throw new NotFoundError("Parada no encontrada");
   }
 
   const { data: traveler, error: travelerError } = await supabase
@@ -2421,7 +2422,9 @@ export const uploadReservationAttachment = async (
 
   if (!traveler) {
     console.error("❌ Usuario no es viajero del viaje");
-    throw new Error("No tienes permiso para subir archivos a esta parada");
+    throw new ForbiddenError(
+      "No tienes permiso para subir archivos a esta parada",
+    );
   }
 
   // 2. Validar tipo de archivo
@@ -2433,7 +2436,7 @@ export const uploadReservationAttachment = async (
   ];
 
   if (!allowedTypes.includes(file.mimetype || "")) {
-    throw new Error(
+    throw new BadRequestError(
       "Tipo de archivo no permitido. Solo se aceptan PDF e imágenes",
     );
   }
@@ -2585,7 +2588,7 @@ export const getStopAttachments = async (
     .maybeSingle();
 
   if (!traveler) {
-    throw new Error("No tienes permiso para ver estos adjuntos");
+    throw new ForbiddenError("No tienes permiso para ver estos adjuntos");
   }
 
   // Obtener adjuntos
@@ -2680,12 +2683,12 @@ export const deleteAttachment = async (
     .single();
 
   if (error || !attachment) {
-    throw new Error("Adjunto no encontrado");
+    throw new NotFoundError("Adjunto no encontrado");
   }
 
   // Verificar que el usuario sea el dueño
   if (attachment.uploaded_by !== userId) {
-    throw new Error("No tienes permiso para eliminar este adjunto");
+    throw new ForbiddenError("No tienes permiso para eliminar este adjunto");
   }
 
   // Eliminar de storage
@@ -2718,7 +2721,7 @@ export const refreshStopPhoto = async (stopId: string) => {
   const stop = await getStopById(stopId);
 
   if (!stop.name || !stop.coordinates) {
-    throw new Error(
+    throw new BadRequestError(
       "La parada debe tener nombre y coordenadas para buscar foto",
     );
   }

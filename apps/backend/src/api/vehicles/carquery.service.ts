@@ -124,7 +124,9 @@ export function pickBestSpecs(trims: CarTrim[]): {
     .filter((n) => !isNaN(n) && n > 0);
 
   const avg = (arr: number[]) =>
-    arr.length > 0 ? Math.round((arr.reduce((a, b) => a + b, 0) / arr.length) * 10) / 10 : null;
+    arr.length > 0
+      ? Math.round((arr.reduce((a, b) => a + b, 0) / arr.length) * 10) / 10
+      : null;
 
   return {
     avgConsumption: avg(consumptions),

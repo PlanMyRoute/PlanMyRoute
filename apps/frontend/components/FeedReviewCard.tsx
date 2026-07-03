@@ -6,7 +6,8 @@ import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { ROUTES } from "@/constants/routes";
 import React from "react";
-import { Image, ImageBackground, TouchableOpacity, View } from "react-native";
+import { Image, ImageBackground } from "expo-image";
+import { TouchableOpacity, View } from "react-native";
 
 interface FeedReviewCardProps {
   review: {
@@ -63,8 +64,10 @@ export const FeedReviewCard: React.FC<FeedReviewCardProps> = ({ review }) => {
       <ImageBackground
         accessibilityLabel={`Imagen del viaje ${review.trip?.name || "sin nombre"}`}
         source={{ uri: imageUri }}
-        className="w-full h-48"
-        resizeMode="cover"
+        contentFit="cover"
+        transition={200}
+        cachePolicy="memory-disk"
+        style={{ width: "100%", height: 192, backgroundColor: "#EDEDED" }}
       >
         <View className="flex-1" />
       </ImageBackground>
@@ -96,7 +99,10 @@ export const FeedReviewCard: React.FC<FeedReviewCardProps> = ({ review }) => {
                     review.user.img ||
                     `https://ui-avatars.com/api/?name=${review.user.username}&background=FFD54D&color=202020&size=100`,
                 }}
-                className="w-10 h-10 rounded-full"
+                contentFit="cover"
+                transition={150}
+                cachePolicy="memory-disk"
+                style={{ width: 40, height: 40, borderRadius: 20 }}
               />
               <TextRegular className="text-dark-black">
                 {review.user.name || review.user.username}

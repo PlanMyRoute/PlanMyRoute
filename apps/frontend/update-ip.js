@@ -8,9 +8,15 @@ const os = require('os');
 const fs = require('fs');
 const path = require('path');
 
+const VIRTUAL_ADAPTER_PATTERN = /virtual|vmware|vmnet|vethernet|hyper-v|docker|wsl|loopback|virtualbox/i;
+
 function getLanIp() {
     const interfaces = os.networkInterfaces();
+    const candidates = [];
+
     for (const name of Object.keys(interfaces)) {
+        if (VIRTUAL_ADAPTER_PATTERN.test(name)) continue;
+
         for (const iface of interfaces[name]) {
             if (iface.family !== 'IPv4' || iface.internal) continue;
             const addr = iface.address;
@@ -19,11 +25,16 @@ function getLanIp() {
                 addr.startsWith('10.') ||
                 /^172\.(1[6-9]|2\d|3[01])\./.test(addr)
             ) {
-                return addr;
+                candidates.push({ name, addr });
             }
         }
     }
-    return null;
+
+    if (candidates.length === 0) return null;
+
+    // Prefer real Wi-Fi/Ethernet adapters if multiple candidates remain.
+    const preferred = candidates.find((c) => /wi-?fi|ethernet/i.test(c.name));
+    return (preferred || candidates[0]).addr;
 }
 
 const ip = getLanIp();

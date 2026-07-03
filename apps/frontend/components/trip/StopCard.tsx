@@ -1,7 +1,8 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Stop } from "@planmyroute/types";
 import React from "react";
-import { StyleSheet, Text, TouchableOpacity, View, Image } from "react-native";
+import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { CachedImage } from "@/components/ui/CachedImage";
 import Animated, {
   useAnimatedStyle,
   withSpring,
@@ -60,10 +61,9 @@ export const StopCard: React.FC<StopCardProps> = ({
       {/* Foto de la parada (si existe) */}
       {stop.photo_url && (
         <View className="mb-3 rounded-lg overflow-hidden">
-          <Image
+          <CachedImage
             source={{ uri: stop.photo_url }}
             style={{ width: "100%", height: 160 }}
-            resizeMode="cover"
           />
         </View>
       )}

@@ -8,7 +8,8 @@ import { useRouter } from "expo-router";
 import { ROUTES } from "@/constants/routes";
 import { formatRelativeDate } from "@/utils/formatDate";
 import React from "react";
-import { Image, Text, TouchableOpacity, View } from "react-native";
+import { Text, TouchableOpacity, View } from "react-native";
+import { CachedImage } from "@/components/ui/CachedImage";
 
 interface ReviewCardProps {
   review: {
@@ -61,7 +62,7 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({
       {/* User Info */}
       {showUserInfo && review.user && (
         <View className="flex-row items-center mb-3">
-          <Image
+          <CachedImage
             source={{
               uri: review.user.img || "https://via.placeholder.com/40",
             }}
@@ -92,7 +93,7 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({
           activeOpacity={0.7}
         >
           {review.trip.cover_image_url ? (
-            <Image
+            <CachedImage
               source={{ uri: review.trip.cover_image_url }}
               className="w-12 h-12 rounded-xl"
             />

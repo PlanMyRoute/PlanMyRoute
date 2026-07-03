@@ -20,6 +20,12 @@ jest.mock("../src/middleware/permissions.js", () => ({
   requirePermission: jest.fn(() => (_req: any, _res: any, next: any) => next()),
   requireOwner: jest.fn(() => (_req: any, _res: any, next: any) => next()),
   requireEditor: jest.fn(() => (_req: any, _res: any, next: any) => next()),
+  requireStopPermission: jest.fn(
+    () => (_req: any, _res: any, next: any) => next(),
+  ),
+  requireAttachmentPermission: jest.fn(
+    () => (_req: any, _res: any, next: any) => next(),
+  ),
   checkPermission: jest.fn(async () => true),
 }));
 

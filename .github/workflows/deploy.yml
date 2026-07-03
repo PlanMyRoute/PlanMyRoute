@@ -14,8 +14,8 @@ jobs:
         env:
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         with:
-          host: 178.105.153.20
-          username: adrian
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
           password: ${{ secrets.SSH_PASSWORD }}
           command_timeout: 20m
           envs: SUPABASE_SERVICE_ROLE_KEY
@@ -57,13 +57,16 @@ jobs:
         working-directory: apps/frontend
         env:
           EXPO_PUBLIC_API_URL: 'https://planmyroute.es/api'
+          EXPO_PUBLIC_ENV: 'production'
+          EXPO_PUBLIC_SUPABASE_URL: ${{ secrets.EXPO_PUBLIC_SUPABASE_URL }}
+          EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.EXPO_PUBLIC_SUPABASE_ANON_KEY }}
         run: npx expo export -p web
 
       - name: Copy frontend to server
         uses: appleboy/scp-action@v0.1.7
         with:
-          host: 178.105.153.20
-          username: adrian
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
           password: ${{ secrets.SSH_PASSWORD }}
           source: "apps/frontend/dist/*"
           target: "/opt/proyecto/planmyroute/apps/frontend/dist"

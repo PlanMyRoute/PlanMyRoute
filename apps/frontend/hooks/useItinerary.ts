@@ -35,6 +35,78 @@ function invalidateStopQueries(
     setTimeout(run, ENRICHMENT_REFETCH_DELAY_MS);
 }
 
+// =============== OPTIMISTIC CACHE HELPERS ===============
+
+type ItineraryCache = Array<Route & { stops: Stop[] }>;
+
+/** Instantánea de ambas caches (paradas + itinerario) para poder revertir. */
+type StopCacheSnapshot = {
+    stops: Stop[] | undefined;
+    itinerary: ItineraryCache | undefined;
+};
+
+const stopsKey = (tripId: string) => ['stops', tripId] as const;
+const itineraryKey = (tripId: string) => ['itinerary', tripId] as const;
+
+/** Cancela refetches en curso para que no pisen la actualización optimista. */
+async function cancelStopQueries(queryClient: QueryClient, tripId: string) {
+    await Promise.all([
+        queryClient.cancelQueries({ queryKey: stopsKey(tripId) }),
+        queryClient.cancelQueries({ queryKey: itineraryKey(tripId) }),
+    ]);
+}
+
+function snapshotStopCaches(queryClient: QueryClient, tripId: string): StopCacheSnapshot {
+    return {
+        stops: queryClient.getQueryData<Stop[]>(stopsKey(tripId)),
+        itinerary: queryClient.getQueryData<ItineraryCache>(itineraryKey(tripId)),
+    };
+}
+
+function restoreStopCaches(queryClient: QueryClient, tripId: string, snapshot: StopCacheSnapshot) {
+    queryClient.setQueryData(stopsKey(tripId), snapshot.stops);
+    queryClient.setQueryData(itineraryKey(tripId), snapshot.itinerary);
+}
+
+/** Elimina una parada de ambas caches de forma inmediata. */
+function removeStopFromCaches(queryClient: QueryClient, tripId: string, stopId: string | number) {
+    const idStr = String(stopId);
+    queryClient.setQueryData<Stop[]>(stopsKey(tripId), (old) =>
+        old ? old.filter((s) => String(s.id) !== idStr) : old,
+    );
+    queryClient.setQueryData<ItineraryCache>(itineraryKey(tripId), (old) =>
+        old
+            ? old.map((route) => ({
+                  ...route,
+                  stops: (route.stops ?? []).filter((s) => String(s.id) !== idStr),
+              }))
+            : old,
+    );
+}
+
+/** Aplica un patch parcial a una parada en ambas caches de forma inmediata. */
+function patchStopInCaches(
+    queryClient: QueryClient,
+    tripId: string,
+    stopId: string | number,
+    patch: Partial<Stop>,
+) {
+    const idStr = String(stopId);
+    queryClient.setQueryData<Stop[]>(stopsKey(tripId), (old) =>
+        old ? old.map((s) => (String(s.id) === idStr ? { ...s, ...patch } : s)) : old,
+    );
+    queryClient.setQueryData<ItineraryCache>(itineraryKey(tripId), (old) =>
+        old
+            ? old.map((route) => ({
+                  ...route,
+                  stops: (route.stops ?? []).map((s) =>
+                      String(s.id) === idStr ? { ...s, ...patch } : s,
+                  ),
+              }))
+            : old,
+    );
+}
+
 // =============== TYPES ===============
 
 type RefuelCostByUserResponse = { user_id: string; total_cost: number; refuel_count: number; trips_count: number };
@@ -232,8 +304,19 @@ export function useUpdateStop(tripId: string, options?: { token?: string }) {
         }) => {
             return await ItineraryService.updateStop(stopId, stopData, tripId, finalToken || undefined);
         },
-        onSuccess: () => {
-            // Invalidar y refetch del itinerario y paradas
+        // Edición optimista: los cambios (nombre, dirección, descripción…) se
+        // reflejan al instante y se revierten si la petición falla.
+        onMutate: async ({ stopId, stopData }): Promise<StopCacheSnapshot | undefined> => {
+            if (!tripId) return undefined;
+            await cancelStopQueries(queryClient, tripId);
+            const snapshot = snapshotStopCaches(queryClient, tripId);
+            patchStopInCaches(queryClient, tripId, stopId, stopData);
+            return snapshot;
+        },
+        onError: (_err, _vars, context) => {
+            if (tripId && context) restoreStopCaches(queryClient, tripId, context);
+        },
+        onSettled: () => {
             queryClient.invalidateQueries({ queryKey: ['itinerary', tripId] });
             queryClient.invalidateQueries({ queryKey: ['stops', tripId] });
             queryClient.invalidateQueries({ queryKey: ['trip', tripId, 'stops'] });
@@ -316,10 +399,20 @@ export function useDeleteStop(tripId: string, options?: { token?: string }) {
         mutationFn: async (stopId: string) => {
             return await ItineraryService.deleteStop(stopId, tripId, finalToken || undefined);
         },
-        onSuccess: (_, stopId) => {
-            // Asegurar que tripId no es null antes de invalidar
+        // Borrado optimista: la parada desaparece de la lista al instante y se
+        // restaura si la petición falla.
+        onMutate: async (stopId): Promise<StopCacheSnapshot | undefined> => {
+            if (!tripId) return undefined;
+            await cancelStopQueries(queryClient, tripId);
+            const snapshot = snapshotStopCaches(queryClient, tripId);
+            removeStopFromCaches(queryClient, tripId, stopId);
+            return snapshot;
+        },
+        onError: (_err, _stopId, context) => {
+            if (tripId && context) restoreStopCaches(queryClient, tripId, context);
+        },
+        onSettled: () => {
             if (tripId) {
-                // Invalidar y refetch del itinerario y paradas
                 queryClient.invalidateQueries({ queryKey: ['itinerary', tripId] });
                 queryClient.invalidateQueries({ queryKey: ['stops', tripId] });
                 queryClient.invalidateQueries({ queryKey: ['trip', tripId, 'stops'] });

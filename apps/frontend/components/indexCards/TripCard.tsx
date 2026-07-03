@@ -17,12 +17,8 @@ import { useRouter } from "expo-router";
 import { ROUTES } from "@/constants/routes";
 import { formatDateRange } from "@/utils/formatDate";
 import { useMemo, useState } from "react";
-import {
-  ImageBackground,
-  Pressable,
-  TouchableOpacity,
-  View,
-} from "react-native";
+import { ImageBackground } from "expo-image";
+import { Pressable, TouchableOpacity, View } from "react-native";
 import Toast from "react-native-toast-message";
 import { useTripContext } from "../../context/TripContext";
 import { useStops } from "../../hooks/useItinerary";
@@ -279,12 +275,18 @@ export const TripCard = ({ trip }: TripCardProps) => {
           onPress={handlePress}
           onLongPress={handleLongPress}
         >
-          {/* Imagen del viaje */}
+          {/* Imagen del viaje — expo-image: caché en disco + fade-in */}
           <ImageBackground
             accessibilityLabel={`Imagen del viaje ${trip.name}`}
             source={{ uri: imageUri }}
-            className="w-full"
-            style={{ height: isOngoingTrip ? 200 : 160 }}
+            contentFit="cover"
+            transition={200}
+            cachePolicy="memory-disk"
+            style={{
+              width: "100%",
+              height: isOngoingTrip ? 200 : 160,
+              backgroundColor: "#EDEDED",
+            }}
           >
             <View className="flex-1 p-5">
               {/* Para viajes en planificación: fecha arriba y flecha */}

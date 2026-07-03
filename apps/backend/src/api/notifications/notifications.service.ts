@@ -1,6 +1,7 @@
 import { supabase } from "../../supabase.js";
 import { Notification } from "@planmyroute/types";
 import * as PushNotificationService from "../../services/pushNotificationService.js";
+import { NotFoundError } from "../../utils/errors.js";
 
 const TABLE_NAME = "notifications";
 
@@ -21,7 +22,9 @@ export const getById = async (id: string | number) => {
   }
 
   if (!data) {
-    throw new Error(`No se encontró ninguna notificación con el id: ${id}`);
+    throw new NotFoundError(
+      `No se encontró ninguna notificación con el id: ${id}`,
+    );
   }
 
   return data as Notification;
@@ -124,7 +127,9 @@ export const update = async (
   }
 
   if (!data) {
-    throw new Error(`No se encontró ninguna notificación con el id: ${id}`);
+    throw new NotFoundError(
+      `No se encontró ninguna notificación con el id: ${id}`,
+    );
   }
 
   return data as Notification;
@@ -143,7 +148,9 @@ export const deleteNotification = async (id: string | number) => {
     .maybeSingle();
 
   if (!existing) {
-    throw new Error(`No se encontró ninguna notificación con el id: ${id}`);
+    throw new NotFoundError(
+      `No se encontró ninguna notificación con el id: ${id}`,
+    );
   }
 
   const { error } = await supabase.from(TABLE_NAME).delete().eq("id", id);
