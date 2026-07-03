@@ -1791,8 +1791,11 @@ export const orderStop = async (tripId: number) => {
  * 1. ORIGEN → posición 1
  * 2. INTERMEDIA → ordenadas por day + estimated_arrival
  * 3. DESTINO → última posición
+ *
+ * Se exporta para que el flujo de generación de IA pueda llamarla tras el
+ * fast-insert masivo, que no gestiona posiciones y puede crear colisiones.
  */
-const reorganizePositions = async (tripId: number) => {
+export const reorganizePositions = async (tripId: number) => {
   try {
     const stops = await getAllStopsInATrip(tripId);
     if (!stops || stops.length < 2) return; // No hay nada que reorganizar

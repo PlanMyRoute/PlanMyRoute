@@ -11,8 +11,8 @@ const GOOGLE_PLACES_API_KEY =
 
 // Porcentaje de depósito que se reserva como mínimo de seguridad
 const SAFETY_RESERVE_PCT = 0.15;
-// Radio de búsqueda de gasolineras en metros
-const SEARCH_RADIUS_M = 10_000;
+// Radios de búsqueda progresivos (metros): si el primero no da resultados se amplía
+const SEARCH_RADII_M = [10_000, 25_000, 50_000];
 // Número máximo de candidatos por punto de repostaje
 const MAX_CANDIDATES = 5;
 
@@ -82,36 +82,55 @@ async function searchNearbyStations(
     return [];
   }
 
-  const url = new URL(
-    "https://maps.googleapis.com/maps/api/place/nearbysearch/json",
-  );
-  url.searchParams.set("location", `${lat},${lng}`);
-  url.searchParams.set("radius", String(SEARCH_RADIUS_M));
-  url.searchParams.set("type", placeTypeForFuel(fuelType));
-  url.searchParams.set("key", GOOGLE_PLACES_API_KEY);
+  for (const radius of SEARCH_RADII_M) {
+    const url = new URL(
+      "https://maps.googleapis.com/maps/api/place/nearbysearch/json",
+    );
+    url.searchParams.set("location", `${lat},${lng}`);
+    url.searchParams.set("radius", String(radius));
+    url.searchParams.set("type", placeTypeForFuel(fuelType));
+    url.searchParams.set("key", GOOGLE_PLACES_API_KEY);
 
-  const res = await fetch(url.toString());
-  if (!res.ok)
-    throw new Error(`Error en Google Places Nearby Search: ${res.status}`);
+    const res = await fetch(url.toString());
+    if (!res.ok)
+      throw new Error(`Error en Google Places Nearby Search: ${res.status}`);
 
-  const data = (await res.json()) as any;
-  if (data.status === "ZERO_RESULTS") return [];
-  if (data.status !== "OK" && data.status !== "ZERO_RESULTS") {
-    throw new Error(`Estado inesperado de Google Places API: ${data.status}`);
+    const data = (await res.json()) as any;
+
+    if (data.status !== "OK" && data.status !== "ZERO_RESULTS") {
+      throw new Error(`Estado inesperado de Google Places API: ${data.status}`);
+    }
+
+    const results: GasStationCandidate[] = ((data.results as any[]) || [])
+      .slice(0, MAX_CANDIDATES)
+      .map((r: any) => ({
+        place_id: r.place_id as string,
+        name: r.name as string,
+        address: (r.vicinity as string) || "",
+        lat: r.geometry.location.lat as number,
+        lng: r.geometry.location.lng as number,
+        rating: r.rating as number | undefined,
+        open_now: r.opening_hours?.open_now as boolean | undefined,
+      }))
+      .sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0));
+
+    if (results.length > 0) {
+      if (radius > SEARCH_RADII_M[0]) {
+        console.log(
+          `[RefuelAdvisor] Radio ampliado a ${radius / 1000} km — ${results.length} candidato(s) encontrado(s)`,
+        );
+      }
+      return results;
+    }
+
+    if (radius < SEARCH_RADII_M[SEARCH_RADII_M.length - 1]) {
+      console.log(
+        `[RefuelAdvisor] Sin resultados en ${radius / 1000} km, ampliando a ${SEARCH_RADII_M[SEARCH_RADII_M.indexOf(radius) + 1] / 1000} km...`,
+      );
+    }
   }
 
-  return ((data.results as any[]) || [])
-    .slice(0, MAX_CANDIDATES)
-    .map((r: any) => ({
-      place_id: r.place_id as string,
-      name: r.name as string,
-      address: (r.vicinity as string) || "",
-      lat: r.geometry.location.lat as number,
-      lng: r.geometry.location.lng as number,
-      rating: r.rating as number | undefined,
-      open_now: r.opening_hours?.open_now as boolean | undefined,
-    }))
-    .sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0));
+  return [];
 }
 
 /** Devuelve el conjunto de IDs de paradas que ya son de repostaje en el viaje. */

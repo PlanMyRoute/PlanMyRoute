@@ -327,6 +327,12 @@ async function generateItineraryInBackground(
     `⚡ [Background] ${allStopIds.length} paradas insertadas (sin fotos/precios) para trip ${tripId}`,
   );
 
+  // Corregir colisiones de posición: origin/destination y AI fast-inserts
+  // compiten por position=1 dentro del mismo día. Reorganizar antes de que
+  // el advisor de repostaje calcule la posición de inserción.
+  await ItineraryService.reorganizePositions(tripId);
+  console.log(`🔧 [Background] Posiciones reorganizadas para trip ${tripId}`);
+
   // Phase 2: background enrichment — photos + prices in parallel batches, then rebuild routes.
   console.log(
     `⚙️ [Background] Iniciando enriquecimiento de ${allStopIds.length} paradas para trip ${tripId}...`,
