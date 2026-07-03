@@ -11,8 +11,8 @@ const GOOGLE_PLACES_API_KEY =
 
 // Porcentaje de depósito que se reserva como mínimo de seguridad
 const SAFETY_RESERVE_PCT = 0.15;
-// Radio de búsqueda de gasolineras en metros
-const SEARCH_RADIUS_M = 10_000;
+// Radios de búsqueda progresivos (metros): si el primero no da resultados se amplía
+const SEARCH_RADII_M = [10_000, 25_000, 50_000];
 // Número máximo de candidatos por punto de repostaje
 const MAX_CANDIDATES = 5;
 
@@ -82,36 +82,55 @@ async function searchNearbyStations(
     return [];
   }
 
-  const url = new URL(
-    "https://maps.googleapis.com/maps/api/place/nearbysearch/json",
-  );
-  url.searchParams.set("location", `${lat},${lng}`);
-  url.searchParams.set("radius", String(SEARCH_RADIUS_M));
-  url.searchParams.set("type", placeTypeForFuel(fuelType));
-  url.searchParams.set("key", GOOGLE_PLACES_API_KEY);
+  for (const radius of SEARCH_RADII_M) {
+    const url = new URL(
+      "https://maps.googleapis.com/maps/api/place/nearbysearch/json",
+    );
+    url.searchParams.set("location", `${lat},${lng}`);
+    url.searchParams.set("radius", String(radius));
+    url.searchParams.set("type", placeTypeForFuel(fuelType));
+    url.searchParams.set("key", GOOGLE_PLACES_API_KEY);
 
-  const res = await fetch(url.toString());
-  if (!res.ok)
-    throw new Error(`Error en Google Places Nearby Search: ${res.status}`);
+    const res = await fetch(url.toString());
+    if (!res.ok)
+      throw new Error(`Error en Google Places Nearby Search: ${res.status}`);
 
-  const data = (await res.json()) as any;
-  if (data.status === "ZERO_RESULTS") return [];
-  if (data.status !== "OK" && data.status !== "ZERO_RESULTS") {
-    throw new Error(`Estado inesperado de Google Places API: ${data.status}`);
+    const data = (await res.json()) as any;
+
+    if (data.status !== "OK" && data.status !== "ZERO_RESULTS") {
+      throw new Error(`Estado inesperado de Google Places API: ${data.status}`);
+    }
+
+    const results: GasStationCandidate[] = ((data.results as any[]) || [])
+      .slice(0, MAX_CANDIDATES)
+      .map((r: any) => ({
+        place_id: r.place_id as string,
+        name: r.name as string,
+        address: (r.vicinity as string) || "",
+        lat: r.geometry.location.lat as number,
+        lng: r.geometry.location.lng as number,
+        rating: r.rating as number | undefined,
+        open_now: r.opening_hours?.open_now as boolean | undefined,
+      }))
+      .sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0));
+
+    if (results.length > 0) {
+      if (radius > SEARCH_RADII_M[0]) {
+        console.log(
+          `[RefuelAdvisor] Radio ampliado a ${radius / 1000} km — ${results.length} candidato(s) encontrado(s)`,
+        );
+      }
+      return results;
+    }
+
+    if (radius < SEARCH_RADII_M[SEARCH_RADII_M.length - 1]) {
+      console.log(
+        `[RefuelAdvisor] Sin resultados en ${radius / 1000} km, ampliando a ${SEARCH_RADII_M[SEARCH_RADII_M.indexOf(radius) + 1] / 1000} km...`,
+      );
+    }
   }
 
-  return ((data.results as any[]) || [])
-    .slice(0, MAX_CANDIDATES)
-    .map((r: any) => ({
-      place_id: r.place_id as string,
-      name: r.name as string,
-      address: (r.vicinity as string) || "",
-      lat: r.geometry.location.lat as number,
-      lng: r.geometry.location.lng as number,
-      rating: r.rating as number | undefined,
-      open_now: r.opening_hours?.open_now as boolean | undefined,
-    }))
-    .sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0));
+  return [];
 }
 
 /** Devuelve el conjunto de IDs de paradas que ya son de repostaje en el viaje. */
@@ -138,18 +157,36 @@ async function getExistingRefuelStopIds(tripId: number): Promise<Set<number>> {
 export async function suggestRefuelStops(
   tripId: number,
 ): Promise<RefuelSuggestion[]> {
+  console.log(`[RefuelAdvisor] Analizando itinerario trip ${tripId}...`);
   const stops = await getAllStopsInATrip(tripId);
-  if (stops.length < 2) return [];
+  if (stops.length < 2) {
+    console.log(
+      `[RefuelAdvisor] Trip ${tripId} tiene menos de 2 paradas — sin análisis.`,
+    );
+    return [];
+  }
 
   const vehicleRows = await getVehiclesInTrip(tripId);
   const vehicle = (vehicleRows[0] as any)?.vehicle;
-  if (!vehicle) return [];
+  if (!vehicle) {
+    console.log(
+      `[RefuelAdvisor] Trip ${tripId} sin vehículo asignado — sin análisis.`,
+    );
+    return [];
+  }
 
   const tankCapacity: number = vehicle.fuel_tank_capacity;
   const avgConsumption: number = vehicle.avg_consumption; // l/100km o kWh/100km
   const fuelType: FuelType = vehicle.type_fuel;
 
   if (!tankCapacity || !avgConsumption || !fuelType) return [];
+
+  console.log(
+    `[RefuelAdvisor] Vehículo detectado: ${vehicle.brand ?? ""} ${vehicle.model ?? ""} | ${fuelType} | depósito: ${tankCapacity}L | consumo: ${avgConsumption}L/100km`,
+  );
+  console.log(
+    `[RefuelAdvisor] Simulando consumo en ${stops.length} paradas (reserva de seguridad: ${Math.round(SAFETY_RESERVE_PCT * 100)}%)...`,
+  );
 
   const existingRefuelIds = await getExistingRefuelStopIds(tripId);
   const reserveUnits = tankCapacity * SAFETY_RESERVE_PCT;
@@ -187,12 +224,22 @@ export async function suggestRefuelStops(
 
       const searchPoint = interpolateCoords(fromCoords, toCoords, fraction);
 
+      console.log(
+        `[RefuelAdvisor] ⚠️  Combustible insuficiente: "${fromStop.name ?? `stop#${fromStop.id}`}" → "${toStop.name ?? `stop#${toStop.id}`}" ` +
+          `(${roadKm.toFixed(1)} km | necesita ${fuelNeeded.toFixed(1)}L | queda ${currentFuel.toFixed(1)}L | autonomía útil: ${safeKm.toFixed(1)} km). ` +
+          `Buscando gasolineras en (${searchPoint.lat.toFixed(4)}, ${searchPoint.lng.toFixed(4)})...`,
+      );
+
       let candidates: GasStationCandidate[] = [];
       try {
         candidates = await searchNearbyStations(
           searchPoint.lat,
           searchPoint.lng,
           fuelType,
+        );
+        console.log(
+          `[RefuelAdvisor] ${candidates.length} candidato(s) encontrado(s)` +
+            (candidates[0] ? `: "${candidates[0].name}" (rating: ${candidates[0].rating ?? "N/A"})` : ""),
         );
       } catch (err) {
         console.error(
@@ -220,6 +267,9 @@ export async function suggestRefuelStops(
     }
   }
 
+  console.log(
+    `[RefuelAdvisor] Análisis completo — ${suggestions.length} parada(s) de repostaje sugerida(s) para trip ${tripId}.`,
+  );
   return suggestions;
 }
 
@@ -230,9 +280,17 @@ export async function suggestRefuelStops(
  * Diseñado para uso no-bloqueante (fire-and-forget desde controllers).
  */
 export async function autoInsertRefuelStops(tripId: number): Promise<void> {
+  console.log(
+    `⛽ [RefuelAdvisor] Iniciando inserción automática de repostaje para trip ${tripId}...`,
+  );
   try {
     const suggestions = await suggestRefuelStops(tripId);
-    if (suggestions.length === 0) return;
+    if (suggestions.length === 0) {
+      console.log(
+        `⛽ [RefuelAdvisor] Sin tramos críticos — no se requieren paradas de repostaje para trip ${tripId}.`,
+      );
+      return;
+    }
 
     const stops = await getAllStopsInATrip(tripId);
     const vehicleRows = await getVehiclesInTrip(tripId);

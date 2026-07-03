@@ -12,8 +12,6 @@ describe("INTEGRACIÓN REAL - Usuarios", () => {
     const { error } = await supabase.from("user").upsert({
       id: FIXED_USER_ID,
       username: "UsuarioFijoTest",
-      // 'testing' fallaba porque no está en el ENUM de la base de datos.
-      // Usamos 'naturaleza' que es un valor seguro en tu proyecto.
       user_type: ["leisure"],
     });
 

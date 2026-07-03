@@ -14,7 +14,7 @@ describe("INTEGRACIÓN REAL - Itinerario y Paradas", () => {
     await supabase.from("user").upsert({
       id: ITINERARY_USER_ID,
       username: "ItineraryTester",
-      user_type: ["gastronomic", "cultural"], // Enum válido en inglés
+      user_type: ["gastronomic", "cultural"],
     });
 
     // 2. Crear un Viaje Base para probar las paradas
@@ -69,11 +69,6 @@ describe("INTEGRACIÓN REAL - Itinerario y Paradas", () => {
   });
 
   it("Debe obtener el itinerario completo con la nueva parada", async () => {
-    // Consultamos el listado de paradas del viaje (mismo endpoint que usa el
-    // frontend para renderizar el itinerario): devuelve TODAS las paradas
-    // asociadas por trip_id, incluidas las intermedias. El endpoint de rutas
-    // (routesWithStops) solo expone los extremos origen/destino de cada
-    // segmento, por lo que no es el adecuado para verificar paradas intermedias.
     const res = await request(app).get(`/api/itinerary/trip/${tripId}/stops`);
 
     expect(res.status).toBe(200);

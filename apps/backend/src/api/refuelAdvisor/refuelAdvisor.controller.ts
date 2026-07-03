@@ -21,6 +21,10 @@ export async function suggestRefuel(req: Request, res: Response) {
       return res.status(400).json({ error: "tripId inválido" });
     }
 
+    console.log(
+      `[RefuelAdvisor] Sugerencia solicitada — trip ${tripId}, usuario ${userId}`,
+    );
+
     // Cobrar tokens antes de llamar a la API externa
     const isPremium = await getIsPremium(userId);
     try {
@@ -96,6 +100,9 @@ export async function applyRefuelSuggestions(req: Request, res: Response) {
       return res.status(400).json({ error: "No hay selecciones para aplicar" });
     }
 
+    console.log(
+      `[RefuelAdvisor] Aplicando ${selections.length} parada(s) de repostaje para trip ${tripId}...`,
+    );
     const created = [];
 
     for (const sel of selections) {
@@ -123,6 +130,9 @@ export async function applyRefuelSuggestions(req: Request, res: Response) {
       created.push({ stop, refuel });
     }
 
+    console.log(
+      `[RefuelAdvisor] ${created.length} parada(s) de repostaje creadas para trip ${tripId}.`,
+    );
     return res.status(201).json({ created });
   } catch (error) {
     console.error("❌ Error en applyRefuelSuggestions:", error);

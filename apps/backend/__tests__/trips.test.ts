@@ -14,7 +14,7 @@ describe("INTEGRACIÓN REAL - Viajes", () => {
       // Backup: Borrado directo
       await supabase.from("trip").delete().eq("id", createdTripId);
     }
-  });
+  }, 15000);
 
   it("Debe crear un viaje real asociado al usuario fijo", async () => {
     const tripData = {
