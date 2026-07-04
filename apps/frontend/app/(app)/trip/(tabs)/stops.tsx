@@ -74,12 +74,10 @@ export default function StopsScreen() {
         const intermediate = stops
             .filter(s => s.type !== 'origen' && s.type !== 'destino')
             .sort((a, b) => {
-                const dateA = a.estimated_arrival ? new Date(a.estimated_arrival).getTime() : null;
-                const dateB = b.estimated_arrival ? new Date(b.estimated_arrival).getTime() : null;
-                if (dateA && dateB) return dateA - dateB;
-                if (dateA) return -1;
-                if (dateB) return 1;
-                // Fallback: ordenar por (day, position) para stops sin hora (ej. repostajes)
+                // Ordenar por (day, position): refleja el orden real del itinerario
+                // establecido por reorganizePositions y createStop en el backend.
+                // Esto garantiza que stops sin estimated_arrival (ej. repostajes)
+                // aparezcan en su posición correcta y no al final.
                 const dayDiff = ((a as any).day ?? 1) - ((b as any).day ?? 1);
                 if (dayDiff !== 0) return dayDiff;
                 return ((a as any).position ?? 999) - ((b as any).position ?? 999);

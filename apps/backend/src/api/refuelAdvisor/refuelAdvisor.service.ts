@@ -2,7 +2,6 @@ import {
   getAllStopsInATrip,
   createRefuelStop,
   recalculateTripSegments,
-  reorganizePositions,
 } from "../itinerary/itinerary.service.js";
 import { getVehiclesInTrip } from "../trips/trips.service.js";
 import { supabase } from "../../supabase.js";
@@ -312,29 +311,8 @@ export async function autoInsertRefuelStops(tripId: number): Promise<void> {
       const afterStop = stops.find(
         (s: any) => s.id === suggestion.insertAfterStopId,
       ) as any;
-      const beforeStop = stops.find(
-        (s: any) => s.id === suggestion.insertBeforeStopId,
-      ) as any;
       const day: number = afterStop?.day ?? 1;
       const position: number = (afterStop?.position ?? 1) + 1;
-
-      // Calcular estimated_arrival interpolado entre afterStop y beforeStop.
-      // Sin este campo, el frontend ordena el stop al final de las intermedias
-      // (porque sort por estimated_arrival pone null al final).
-      let estimated_arrival: string | undefined;
-      const afterMs = afterStop?.estimated_arrival
-        ? new Date(afterStop.estimated_arrival).getTime()
-        : null;
-      const beforeMs = beforeStop?.estimated_arrival
-        ? new Date(beforeStop.estimated_arrival).getTime()
-        : null;
-      if (afterMs && beforeMs && afterMs < beforeMs) {
-        estimated_arrival = new Date(
-          Math.round((afterMs + beforeMs) / 2),
-        ).toISOString();
-      } else if (afterMs) {
-        estimated_arrival = new Date(afterMs + 30 * 60 * 1000).toISOString();
-      }
 
       const stopData: any = {
         name: best.name,
@@ -344,7 +322,6 @@ export async function autoInsertRefuelStops(tripId: number): Promise<void> {
         day,
         position,
         trip_id: tripId,
-        ...(estimated_arrival ? { estimated_arrival } : {}),
       };
 
       const refuelData: any = {
@@ -353,16 +330,16 @@ export async function autoInsertRefuelStops(tripId: number): Promise<void> {
 
       await createRefuelStop(stopData, refuelData, tripId);
       console.log(
-        `⛽ [RefuelAdvisor] Parada de repostaje creada automáticamente: "${best.name}" (trip ${tripId}, día ${day}, pos ${position}${estimated_arrival ? `, arrival ~${estimated_arrival.slice(11, 16)}` : ""})`,
+        `⛽ [RefuelAdvisor] Parada de repostaje creada automáticamente: "${best.name}" (trip ${tripId}, día ${day}, pos ${position})`,
       );
     }
 
-    // Reorganizar posiciones (el estimated_arrival interpolado garantiza el orden correcto)
-    // y recalcular distancias de segmentos para que el frontend muestre valores actualizados.
-    await reorganizePositions(tripId);
+    // Recalcular distancias de segmentos para que el frontend muestre valores actualizados.
+    // No llamar a reorganizePositions aquí: ya se llamó antes de autoInsertRefuelStops y
+    // volvería a ordenar por estimated_arrival, mandando los stops sin hora al final.
     await recalculateTripSegments(tripId);
     console.log(
-      `⛽ [RefuelAdvisor] Posiciones y segmentos recalculados tras insertar repostajes para trip ${tripId}`,
+      `⛽ [RefuelAdvisor] Segmentos de ruta recalculados tras insertar repostajes para trip ${tripId}`,
     );
   } catch (err) {
     // No-op: el repostaje automático nunca debe romper el flujo principal
