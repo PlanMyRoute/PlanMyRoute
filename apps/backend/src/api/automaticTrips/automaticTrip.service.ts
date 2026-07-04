@@ -16,6 +16,7 @@ import {
   estimateRoadDistanceKm,
   ROAD_FACTOR,
 } from "../../utils/geolocation.js";
+import { ailog } from "../../utils/debugLog.js";
 
 type Coord = { lat: number; lng: number };
 
@@ -582,8 +583,13 @@ export async function requestItineraryToLLM(
       throw new Error("La IA no devolvió un JSON válido");
     }
 
-    console.log("\n📑 Respuesta de la IA (JSON parseado):");
-    console.log(JSON.stringify(itinerary, null, 2));
+    const latencyS = ((Date.now() - startedAt) / 1000).toFixed(1);
+    console.log(
+      `⏱  Latencia IA: ${latencyS}s · tokens ${usage?.promptTokenCount ?? "?"}→${usage?.candidatesTokenCount ?? "?"}`,
+    );
+
+    ailog("\n📑 Respuesta de la IA (JSON parseado):");
+    ailog(JSON.stringify(itinerary, null, 2));
 
     // Validar estructura usando la función del prompt
     if (!validateItineraryResponse(itinerary)) {
@@ -617,6 +623,15 @@ export async function requestItineraryToLLM(
     }
 
     recordOutcome("success", { qualityFlags });
+
+    console.log(
+      "\n============================================================",
+    );
+    console.log("🤖 IA COMPLETADA · itinerario válido → construyendo el viaje");
+    console.log(
+      "============================================================\n",
+    );
+
     return itinerary;
   } catch (err) {
     console.error("Error llamando a Gemini:", err);

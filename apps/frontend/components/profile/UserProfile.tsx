@@ -33,12 +33,12 @@ import { useRouter } from "expo-router";
 import { useState } from "react";
 import {
   FlatList,
-  Image,
   Modal,
   ScrollView,
   TouchableOpacity,
   View,
 } from "react-native";
+import { CachedImage } from "@/components/ui/CachedImage";
 import { ProfileHeaderSkeleton } from "@/components/profile/ProfileHeaderSkeleton";
 
 interface UserProfileProps {
@@ -273,7 +273,7 @@ export default function UserProfile({
               onPress={isOwnProfile ? handleProfilePicturePress : undefined}
               className="relative"
             >
-              <Image
+              <CachedImage
                 accessibilityLabel={`Foto de perfil de ${displayName}`}
                 source={{ uri: profile.user.img || DEFAULT_PROFILE_PIC }}
                 className="w-[100px] h-[100px] rounded-full border-4 border-primary"
@@ -500,7 +500,7 @@ export default function UserProfile({
                         router.push(ROUTES.userProfile(u.username));
                       }}
                     >
-                      <Image
+                      <CachedImage
                         source={{ uri: avatarUri }}
                         className="w-11 h-11 rounded-full border-2 border-primary/30"
                       />

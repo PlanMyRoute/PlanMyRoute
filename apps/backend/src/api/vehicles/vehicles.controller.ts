@@ -2,181 +2,61 @@
 import { Request, Response } from "express";
 import * as VehicleService from "./vehicles.service.js";
 import * as CarQuery from "./carquery.service.js";
+import { asyncHandler } from "../../utils/errors.js";
 
 /**
  * Obtiene todos los vehículos de un usuario
  */
-export const getUserVehicles = async (
-  req: Request,
-  res: Response,
-): Promise<void> => {
+export const getUserVehicles = asyncHandler(async (req, res) => {
   const { userId } = req.params as Record<string, string>;
-  try {
-    const vehicles = await VehicleService.getUserVehicles(userId);
-    res.json(vehicles);
-  } catch (error) {
-    const err = error as Error;
-    if (err.message.includes("No se encontró")) {
-      res.status(404).json({ error: err.message });
-    } else if (
-      err.message.includes("no tiene permiso") ||
-      err.message.includes("Solo el propietario")
-    ) {
-      res.status(403).json({ error: err.message });
-    } else if (
-      err.message.includes("Ya sigues") ||
-      err.message.includes("EXISTS") ||
-      err.message.includes("ya existe")
-    ) {
-      res.status(409).json({ error: err.message });
-    } else {
-      res.status(500).json({ error: err.message });
-    }
-  }
-};
+  const vehicles = await VehicleService.getUserVehicles(userId);
+  res.json(vehicles);
+});
 
 /**
  * Obtiene un vehículo por su ID
  */
-export const getVehicleFromId = async (
-  req: Request,
-  res: Response,
-): Promise<void> => {
+export const getVehicleFromId = asyncHandler(async (req, res) => {
   const { vehicleId } = req.params as Record<string, string>;
-  try {
-    const vehicle = await VehicleService.getVehicleFromId(vehicleId);
-    res.json(vehicle);
-  } catch (error) {
-    const err = error as Error;
-    if (err.message.includes("No se encontró")) {
-      res.status(404).json({ error: err.message });
-    } else if (
-      err.message.includes("no tiene permiso") ||
-      err.message.includes("Solo el propietario")
-    ) {
-      res.status(403).json({ error: err.message });
-    } else if (
-      err.message.includes("Ya sigues") ||
-      err.message.includes("EXISTS") ||
-      err.message.includes("ya existe")
-    ) {
-      res.status(409).json({ error: err.message });
-    } else {
-      res.status(500).json({ error: err.message });
-    }
-  }
-};
+  const vehicle = await VehicleService.getVehicleFromId(vehicleId);
+  res.json(vehicle);
+});
 
 /**
  * Crea un nuevo vehículo para un usuario
  */
-export const createVehicle = async (
-  req: Request,
-  res: Response,
-): Promise<void> => {
+export const createVehicle = asyncHandler(async (req, res) => {
   const { userId } = req.params as Record<string, string>;
   const payload = req.body;
-
-  try {
-    const vehicle = await VehicleService.createVehicle(userId, payload);
-    res.status(201).json(vehicle);
-  } catch (error) {
-    const err = error as Error;
-    if (err.message === "VEHICLE_LIMIT_REACHED") {
-      res
-        .status(403)
-        .json({ error: "Has alcanzado el límite máximo de 3 vehículos" });
-    } else if (err.message.includes("No se encontró")) {
-      res.status(404).json({ error: err.message });
-    } else if (
-      err.message.includes("no tiene permiso") ||
-      err.message.includes("Solo el propietario")
-    ) {
-      res.status(403).json({ error: err.message });
-    } else if (
-      err.message.includes("Ya sigues") ||
-      err.message.includes("EXISTS") ||
-      err.message.includes("ya existe")
-    ) {
-      res.status(409).json({ error: err.message });
-    } else {
-      res.status(500).json({ error: err.message });
-    }
-  }
-};
+  const vehicle = await VehicleService.createVehicle(userId, payload);
+  res.status(201).json(vehicle);
+});
 
 /**
  * Actualiza un vehículo existente
  */
-export const updateVehicle = async (
-  req: Request,
-  res: Response,
-): Promise<void> => {
+export const updateVehicle = asyncHandler(async (req, res) => {
   const { userId, vehicleId } = req.params as Record<string, string>;
   const payload = req.body;
-
-  try {
-    const vehicle = await VehicleService.updateVehicle(
-      vehicleId,
-      userId,
-      payload,
-    );
-    res.json(vehicle);
-  } catch (error) {
-    const err = error as Error;
-    if (err.message.includes("No se encontró")) {
-      res.status(404).json({ error: err.message });
-    } else if (
-      err.message.includes("no tiene permiso") ||
-      err.message.includes("Solo el propietario") ||
-      err.message.includes("no pertenece")
-    ) {
-      res.status(403).json({ error: err.message });
-    } else if (
-      err.message.includes("Ya sigues") ||
-      err.message.includes("EXISTS") ||
-      err.message.includes("ya existe")
-    ) {
-      res.status(409).json({ error: err.message });
-    } else {
-      res.status(500).json({ error: err.message });
-    }
-  }
-};
+  const vehicle = await VehicleService.updateVehicle(
+    vehicleId,
+    userId,
+    payload,
+  );
+  res.json(vehicle);
+});
 
 /**
  * Elimina un vehículo
  */
-export const deleteVehicle = async (
-  req: Request,
-  res: Response,
-): Promise<void> => {
+export const deleteVehicle = asyncHandler(async (req, res) => {
   const { userId, vehicleId } = req.params as Record<string, string>;
+  await VehicleService.deleteVehicle(vehicleId, userId);
+  res.status(204).send();
+});
 
-  try {
-    await VehicleService.deleteVehicle(vehicleId, userId);
-    res.status(204).send();
-  } catch (error) {
-    const err = error as Error;
-    if (err.message.includes("No se encontró")) {
-      res.status(404).json({ error: err.message });
-    } else if (
-      err.message.includes("no tiene permiso") ||
-      err.message.includes("Solo el propietario")
-    ) {
-      res.status(403).json({ error: err.message });
-    } else if (
-      err.message.includes("Ya sigues") ||
-      err.message.includes("EXISTS") ||
-      err.message.includes("ya existe")
-    ) {
-      res.status(409).json({ error: err.message });
-    } else {
-      res.status(500).json({ error: err.message });
-    }
-  }
-};
-
+// CarQuery: fallback intencionado a resultados vacíos si el servicio externo falla,
+// por eso no usan asyncHandler ni propagan el error.
 export const getCarQueryMakes = async (
   _req: Request,
   res: Response,

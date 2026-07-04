@@ -2,7 +2,8 @@ import { MicrotextDark, TextRegular, Title3Semibold } from '@/components/customE
 import { SkeletonBox } from '@/components/customElements/SkeletonBox';
 import { Ionicons } from '@expo/vector-icons';
 import { Stop } from '@planmyroute/types';
-import { Image, Linking, Platform, TouchableOpacity, View } from 'react-native';
+import { Linking, Platform, TouchableOpacity, View } from 'react-native';
+import { CachedImage } from '@/components/ui/CachedImage';
 
 interface StopGuideItemProps {
     stop: Stop;
@@ -80,6 +81,8 @@ export function StopGuideItem({
                                     onPress={() => onEdit(stop)}
                                     className="w-8 h-8 rounded-full bg-neutral/10 items-center justify-center"
                                     activeOpacity={0.7}
+                                    accessibilityRole="button"
+                                    accessibilityLabel={`Editar parada ${stop.name}`}
                                 >
                                     <Ionicons name="pencil-outline" size={15} color="#202020" />
                                 </TouchableOpacity>
@@ -87,6 +90,8 @@ export function StopGuideItem({
                                     onPress={() => onDelete(stop.id, stop.name)}
                                     className="w-8 h-8 rounded-full bg-neutral/10 items-center justify-center"
                                     activeOpacity={0.7}
+                                    accessibilityRole="button"
+                                    accessibilityLabel={`Eliminar parada ${stop.name}`}
                                 >
                                     <Ionicons name="trash-outline" size={15} color="#EF4444" />
                                 </TouchableOpacity>
@@ -133,6 +138,8 @@ export function StopGuideItem({
                                 onPress={() => openDirections(stop)}
                                 activeOpacity={0.75}
                                 className="flex-row items-center gap-1.5 self-start bg-dark/5 px-3 py-1.5 rounded-full"
+                                accessibilityRole="button"
+                                accessibilityLabel={`Cómo llegar a ${stop.name}`}
                             >
                                 <Ionicons name="navigate-outline" size={13} color="#202020" />
                                 <MicrotextDark>Indicaciones</MicrotextDark>
@@ -143,10 +150,9 @@ export function StopGuideItem({
                         {showSkeleton ? (
                             <SkeletonBox width={80} height={80} borderRadius={12} />
                         ) : (
-                            <Image
+                            <CachedImage
                                 source={{ uri: imageUrl }}
                                 style={{ width: 80, height: 80, borderRadius: 12 }}
-                                resizeMode="cover"
                             />
                         )}
                     </View>

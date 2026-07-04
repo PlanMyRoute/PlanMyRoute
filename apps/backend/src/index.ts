@@ -94,7 +94,13 @@ app.use("/api/events/:eventId/chat", eventChatRoutes);
 // Este middleware DEBE ir al final de todo
 app.use(
   (
-    err: Error & { statusCode?: number; status?: number },
+    err: Error & {
+      statusCode?: number;
+      status?: number;
+      code?: string;
+      details?: unknown;
+      expose?: boolean;
+    },
     req: Request,
     res: Response,
     next: NextFunction,
@@ -109,11 +115,16 @@ app.use(
     }
 
     const statusCode = err.statusCode ?? err.status ?? 500;
+    // Solo exponemos el mensaje en errores de cliente (4xx) marcados como
+    // exponibles. En 5xx respondemos genérico para no filtrar detalles internos
+    // (nombres de tablas, constraints de Supabase, etc.).
+    const canExpose = err.expose ?? statusCode < 500;
 
-    // AL CLIENTE (ZAP/Postman/App) le respondemos genérico para no dar pistas
+    // Respuesta con el mismo shape que consume el frontend: { error, code? }
     res.status(statusCode).json({
-      status: "error",
-      message: statusCode === 500 ? "Error interno del servidor" : err.message,
+      error: canExpose ? err.message : "Error interno del servidor",
+      ...(err.code ? { code: err.code } : {}),
+      ...(canExpose && err.details ? { details: err.details } : {}),
       // Solo mostramos el stack trace si NO estamos en producción
       ...(process.env.NODE_ENV !== "production" && { stack: err.stack }),
     });

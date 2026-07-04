@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { QueryClientProvider } from '@tanstack/react-query';
+import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
 import { useFonts } from 'expo-font';
 import { Slot } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
@@ -14,7 +15,7 @@ import { AlertProvider } from '../context/AlertContext';
 import { AuthProvider } from '../context/AuthContext';
 import { SubscriptionProvider } from '../context/SubscriptionContext';
 import '../index.css';
-import { queryClient } from '../services/queryClient';
+import { queryClient, asyncStoragePersister, PERSIST_MAX_AGE, PERSIST_BUSTER } from '../services/queryClient';
 
 const IGNORED_LOG_SUBSTRINGS: string[] = [
   'ImagePicker.MediaTypeOptions',
@@ -137,19 +138,38 @@ export default function RootLayout() {
     return null;
   }
 
+  const appTree = (
+    <AuthProvider>
+      <SubscriptionProvider>
+        <AlertProvider>
+          <Slot />
+          <Toast config={toastConfig} />
+        </AlertProvider>
+      </SubscriptionProvider>
+    </AuthProvider>
+  );
+
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
-        <QueryClientProvider client={queryClient}>
-          <AuthProvider>
-            <SubscriptionProvider>
-              <AlertProvider>
-                <Slot />
-                <Toast config={toastConfig} />
-              </AlertProvider>
-            </SubscriptionProvider>
-          </AuthProvider>
-        </QueryClientProvider>
+        {asyncStoragePersister ? (
+          // Nativo: caché persistida en AsyncStorage (arranque instantáneo + offline).
+          <PersistQueryClientProvider
+            client={queryClient}
+            persistOptions={{
+              persister: asyncStoragePersister,
+              maxAge: PERSIST_MAX_AGE,
+              buster: PERSIST_BUSTER,
+            }}
+          >
+            {appTree}
+          </PersistQueryClientProvider>
+        ) : (
+          // Web: caché solo en memoria.
+          <QueryClientProvider client={queryClient}>
+            {appTree}
+          </QueryClientProvider>
+        )}
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );

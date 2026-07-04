@@ -236,6 +236,7 @@ export async function generateAutomaticTrip(req: Request, res: Response) {
       throw err;
     }
     const tripId = tripWithItinerary.trip.id!;
+    console.log(`✅ Viaje creado (id ${tripId}) — generando itinerario...`);
 
     // 2. Responder inmediatamente — el frontend navega al viaje sin esperar a la IA
     res
@@ -338,6 +339,9 @@ async function generateItineraryInBackground(
     `⚙️ [Background] Iniciando enriquecimiento de ${allStopIds.length} paradas para trip ${tripId}...`,
   );
   await enrichStopsForTrip(allStopIds, tripId);
+  console.log(
+    `✨ [Background] Enriquecimiento (fotos + precios) completado para trip ${tripId}`,
+  );
 
   await TripService.update(String(tripId), {
     generation_status: "ready",

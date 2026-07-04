@@ -3,7 +3,8 @@ import { useSearchUsers } from '@/hooks/users/useSearchUsers';
 import { Ionicons } from '@expo/vector-icons';
 import { User } from '@planmyroute/types';
 import { useMemo, useState } from 'react';
-import { ActivityIndicator, Image, ScrollView, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, ScrollView, TouchableOpacity, View } from 'react-native';
+import { CachedImage } from '@/components/ui/CachedImage';
 import CustomInput from './CustomInput';
 import { MicrotextDark, TextRegular } from './CustomText';
 
@@ -89,7 +90,7 @@ export const UserSearchInput = ({
                                     onPress={() => handleUserClick(user)}
                                     className="flex-row items-center px-4 py-3 active:bg-neutral-gray/5"
                                 >
-                                    <Image
+                                    <CachedImage
                                         source={{
                                             uri: user.img || `https://ui-avatars.com/api/?name=${user.username}&background=FFD54D&color=202020&size=100`
                                         }}

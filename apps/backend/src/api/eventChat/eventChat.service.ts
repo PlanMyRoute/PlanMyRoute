@@ -1,4 +1,5 @@
 import { supabase } from "../../supabase.js";
+import { BadRequestError } from "../../utils/errors.js";
 
 const TABLE = "event_chat_message";
 const PAGE_SIZE = 50;
@@ -57,9 +58,9 @@ export const sendMessage = async (
   message: string,
 ) => {
   const trimmed = message.trim();
-  if (!trimmed) throw new Error("El mensaje no puede estar vacío");
+  if (!trimmed) throw new BadRequestError("El mensaje no puede estar vacío");
   if (trimmed.length > MAX_MESSAGE_LENGTH)
-    throw new Error(
+    throw new BadRequestError(
       `El mensaje es demasiado largo (máx. ${MAX_MESSAGE_LENGTH} caracteres)`,
     );
 

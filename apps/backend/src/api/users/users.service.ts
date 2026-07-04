@@ -1,6 +1,7 @@
 import { supabase } from "../../supabase.js";
 import { User } from "@planmyroute/types";
 import { getIsPremium } from "../subscriptions/subscriptions.service.js";
+import { ConflictError, NotFoundError } from "../../utils/errors.js";
 
 const USER_TABLE_NAME = "user";
 const TRAVELERS_TABLE_NAME = "travelers";
@@ -23,7 +24,7 @@ export const getById = async (id: string) => {
   }
 
   if (!data) {
-    throw new Error(`No se encontró ningún usuario con el id: ${id}`);
+    throw new NotFoundError(`No se encontró ningún usuario con el id: ${id}`);
   }
 
   return data;
@@ -46,7 +47,7 @@ export const getByUsername = async (username: string) => {
   }
 
   if (!data) {
-    throw new Error(
+    throw new NotFoundError(
       `No se encontró ningún usuario con el username: ${username}`,
     );
   }
@@ -160,7 +161,9 @@ export const create = async (userData: User) => {
 
   if (error) {
     if (error.code === "23505" && error.message.includes("username")) {
-      throw new Error("USERNAME_ALREADY_TAKEN");
+      throw new ConflictError("El nombre de usuario ya está en uso", {
+        code: "USERNAME_ALREADY_TAKEN",
+      });
     }
     throw new Error(`Error al crear el usuario: ${error.message}`);
   }
@@ -184,13 +187,15 @@ export const update = async (id: string, userData: Partial<User>) => {
 
   if (error) {
     if (error.code === "23505" && error.message.includes("username")) {
-      throw new Error("USERNAME_ALREADY_TAKEN");
+      throw new ConflictError("El nombre de usuario ya está en uso", {
+        code: "USERNAME_ALREADY_TAKEN",
+      });
     }
     throw new Error(`Error al actualizar el usuario: ${error.message}`);
   }
 
   if (!data) {
-    throw new Error(`No se encontró ningún usuario con el id: ${id}`);
+    throw new NotFoundError(`No se encontró ningún usuario con el id: ${id}`);
   }
 
   return data;
@@ -210,7 +215,7 @@ export const deleteUser = async (id: string) => {
     .maybeSingle();
 
   if (!existingUser) {
-    throw new Error(`No se encontró ningún usuario con el id: ${id}`);
+    throw new NotFoundError(`No se encontró ningún usuario con el id: ${id}`);
   }
 
   const { error } = await supabase.from(USER_TABLE_NAME).delete().eq("id", id);
@@ -330,7 +335,9 @@ export const getUserPreferences = async (userId: string) => {
   }
 
   if (!data) {
-    throw new Error(`No se encontró ningún usuario con el id: ${userId}`);
+    throw new NotFoundError(
+      `No se encontró ningún usuario con el id: ${userId}`,
+    );
   }
 
   return {
@@ -376,7 +383,9 @@ export const updateUserPreferences = async (
   }
 
   if (!data) {
-    throw new Error(`No se encontró ningún usuario con el id: ${userId}`);
+    throw new NotFoundError(
+      `No se encontró ningún usuario con el id: ${userId}`,
+    );
   }
 
   return data;
@@ -404,7 +413,9 @@ export const updatePushToken = async (
   }
 
   if (!data) {
-    throw new Error(`No se encontró ningún usuario con el id: ${userId}`);
+    throw new NotFoundError(
+      `No se encontró ningún usuario con el id: ${userId}`,
+    );
   }
 
   return data;

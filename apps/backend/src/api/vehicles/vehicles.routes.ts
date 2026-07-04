@@ -1,10 +1,10 @@
 // src/api/vehicles/vehicles.routes.ts
-import { Router } from 'express';
-import * as VehicleController from './vehicles.controller.js';
-import { verifyToken, requireSameUser } from '../../middleware/auth.js';
+import { Router } from "express";
+import * as VehicleController from "./vehicles.controller.js";
+import { verifyToken, requireSameUser } from "../../middleware/auth.js";
 
 const router = Router();
-const BASE_PATH = '/users/:userId/vehicles';
+const BASE_PATH = "/users/:userId/vehicles";
 
 // Obtener todos los vehículos de un usuario (versión pública para colaboradores)
 // Esta ruta permite que cualquier usuario autenticado vea los vehículos de otros usuarios
@@ -12,20 +12,44 @@ const BASE_PATH = '/users/:userId/vehicles';
 router.get(BASE_PATH, verifyToken, VehicleController.getUserVehicles);
 
 // Obtener un vehículo por su ID
-router.get(`${BASE_PATH}/:vehicleId`, verifyToken, requireSameUser, VehicleController.getVehicleFromId);
+router.get(
+  `${BASE_PATH}/:vehicleId`,
+  verifyToken,
+  requireSameUser,
+  VehicleController.getVehicleFromId,
+);
 
 // Crear un nuevo vehículo
-router.post(BASE_PATH, verifyToken, requireSameUser, VehicleController.createVehicle);
+router.post(
+  BASE_PATH,
+  verifyToken,
+  requireSameUser,
+  VehicleController.createVehicle,
+);
 
 // Actualizar un vehículo
-router.patch(`${BASE_PATH}/:vehicleId`, verifyToken, requireSameUser, VehicleController.updateVehicle);
+router.patch(
+  `${BASE_PATH}/:vehicleId`,
+  verifyToken,
+  requireSameUser,
+  VehicleController.updateVehicle,
+);
 
 // Eliminar un vehículo
-router.delete(`${BASE_PATH}/:vehicleId`, verifyToken, requireSameUser, VehicleController.deleteVehicle);
+router.delete(
+  `${BASE_PATH}/:vehicleId`,
+  verifyToken,
+  requireSameUser,
+  VehicleController.deleteVehicle,
+);
 
 // CarQuery proxy (authenticated but not user-scoped)
-router.get('/carquery/makes', verifyToken, VehicleController.getCarQueryMakes);
-router.get('/carquery/models', verifyToken, VehicleController.getCarQueryModels);
-router.get('/carquery/specs', verifyToken, VehicleController.getCarQuerySpecs);
+router.get("/carquery/makes", verifyToken, VehicleController.getCarQueryMakes);
+router.get(
+  "/carquery/models",
+  verifyToken,
+  VehicleController.getCarQueryModels,
+);
+router.get("/carquery/specs", verifyToken, VehicleController.getCarQuerySpecs);
 
 export default router;

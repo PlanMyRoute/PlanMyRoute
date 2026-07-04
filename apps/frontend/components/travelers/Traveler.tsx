@@ -6,7 +6,8 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { User } from "@planmyroute/types";
 import { useState } from "react";
-import { Image, Modal, TouchableOpacity, View } from "react-native";
+import { Modal, TouchableOpacity, View } from "react-native";
+import { CachedImage } from "@/components/ui/CachedImage";
 
 type TravelerProps = {
   user: User;
@@ -84,7 +85,7 @@ const Traveler = ({
     <>
       <View className="flex-row items-center justify-between p-4 bg-white rounded-2xl border border-neutral-gray/20">
         <View className="flex-row items-center gap-3 flex-1">
-          <Image
+          <CachedImage
             source={{
               uri:
                 user.img ||

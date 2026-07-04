@@ -3,6 +3,11 @@ import { supabase } from "../../supabase.js";
 import { Trip, CollaboratorRole } from "@planmyroute/types";
 import * as ItineraryService from "../itinerary/itinerary.service.js";
 import { dlog } from "../../utils/debugLog.js";
+import {
+  BadRequestError,
+  ForbiddenError,
+  NotFoundError,
+} from "../../utils/errors.js";
 
 type TravelerWithUser = {
   user: {
@@ -43,7 +48,7 @@ export const getById = async (id: number): Promise<Trip> => {
 
   if (!data) {
     console.warn("⚠️ [TripService.getById] No trip found for id:", id);
-    throw new Error(`No se encontró ningún viaje con el id: ${id}`);
+    throw new NotFoundError(`No se encontró ningún viaje con el id: ${id}`);
   }
 
   dlog("✅ [TripService.getById] Trip found:", {
@@ -215,7 +220,7 @@ export const update = async (
   }
 
   if (!data) {
-    throw new Error(`No se encontró ningún viaje con el id: ${id}`);
+    throw new NotFoundError(`No se encontró ningún viaje con el id: ${id}`);
   }
 
   return data;
@@ -235,7 +240,7 @@ export const deleteTrip = async (id: string) => {
     .maybeSingle();
 
   if (!existingTrip) {
-    throw new Error(`No se encontró ningún viaje con el id: ${id}`);
+    throw new NotFoundError(`No se encontró ningún viaje con el id: ${id}`);
   }
 
   const { error } = await supabase.from(TABLE_NAME).delete().eq("id", id);
@@ -360,7 +365,7 @@ export const removeUserFromTrip = async (userId: string, tripId: number) => {
   }
 
   if (!existing) {
-    throw new Error("El usuario no es parte de este viaje");
+    throw new BadRequestError("El usuario no es parte de este viaje");
   }
 
   // No permitir que el owner se elimine a sí mismo si es el único owner
@@ -378,7 +383,7 @@ export const removeUserFromTrip = async (userId: string, tripId: number) => {
     }
 
     if (owners && owners.length === 1) {
-      throw new Error(
+      throw new BadRequestError(
         "No puedes salir del viaje siendo el único propietario. Transfiere la propiedad primero o elimina el viaje.",
       );
     }
@@ -425,7 +430,7 @@ export const changeUserRole = async (
   }
 
   if (!existing) {
-    throw new Error("El usuario no es parte de este viaje");
+    throw new BadRequestError("El usuario no es parte de este viaje");
   }
 
   // No permitir cambiar el rol del único owner
@@ -443,7 +448,7 @@ export const changeUserRole = async (
     }
 
     if (owners && owners.length === 1) {
-      throw new Error(
+      throw new BadRequestError(
         "No puedes cambiar el rol del único propietario. Asigna otro propietario primero.",
       );
     }
@@ -549,10 +554,21 @@ export const removeVehicleFromTrip = async (
 // =============== HELPER FUNCTIONS ===============
 
 const GENERIC_IMAGE_URL =
-  "https://images.unsplash.com/photo-1488646953014-85cb44e25828?w=800";
+  "https://images.unsplash.com/photo-1488646953014-85cb44e25828?w=1000&q=70&fm=webp&fit=crop";
 
 // In-memory cache: destination name → Unsplash URL (lives as long as the server process)
 const imageCache = new Map<string, string>();
+
+/**
+ * Construye una URL de imagen de portada optimizada a partir de `urls.raw` de
+ * Unsplash (que acepta parámetros Imgix). Servimos WebP a ~1000px de ancho y
+ * calidad 70 en lugar de `urls.regular` (~1080px JPEG, sin compresión extra):
+ * mucho menos peso para las cards sin pérdida visible.
+ */
+function buildOptimizedUnsplashUrl(rawUrl: string): string {
+  // Las URLs `raw` siempre incluyen un query string (?ixid=…), así que añadimos con &.
+  return `${rawUrl}&w=1000&q=70&fm=webp&fit=crop`;
+}
 
 /**
  * Llama a la API de Unsplash para obtener una URL de imagen basada en el destino.
@@ -592,7 +608,10 @@ async function getCoverImageUrl(destinationName?: string): Promise<string> {
     const data = await response.json();
 
     if (data.results && data.results.length > 0) {
-      const url: string = data.results[0].urls.regular;
+      const raw: string | undefined = data.results[0].urls?.raw;
+      const url = raw
+        ? buildOptimizedUnsplashUrl(raw)
+        : data.results[0].urls.regular;
       imageCache.set(cacheKey, url);
       return url;
     }
@@ -785,7 +804,7 @@ export const getTripOwner = async (tripId: number) => {
   }
 
   if (!data) {
-    throw new Error(
+    throw new NotFoundError(
       `No se encontró el propietario del viaje con id: ${tripId}`,
     );
   }
@@ -794,7 +813,7 @@ export const getTripOwner = async (tripId: number) => {
   const user = Array.isArray(data.user) ? data.user[0] : data.user;
 
   if (!user) {
-    throw new Error(
+    throw new NotFoundError(
       `No se encontró información del usuario propietario del viaje con id: ${tripId}`,
     );
   }
@@ -810,6 +829,30 @@ export const getTripOwner = async (tripId: number) => {
  * @param response - Objeto con la respuesta: {started?: boolean, completed?: boolean}
  * @returns Resultado de la operación
  */
+/**
+ * Verifica que la notificación existe, es de tipo 'trip_status_check' y
+ * pertenece al viaje indicado. Evita que el owner marque como leída/aceptada
+ * una notificación arbitraria (de otro viaje u otro tipo) pasando su id.
+ */
+export const assertStatusCheckNotification = async (
+  tripId: number,
+  notificationId: string,
+): Promise<void> => {
+  const { data, error } = await supabase
+    .from("notifications")
+    .select("id, type, related_trip_id")
+    .eq("id", notificationId)
+    .maybeSingle();
+
+  if (error || !data) {
+    throw new NotFoundError("No se encontró la notificación");
+  }
+
+  if (data.type !== "trip_status_check" || data.related_trip_id !== tripId) {
+    throw new ForbiddenError("La notificación no corresponde a este viaje");
+  }
+};
+
 export const respondToStatusCheck = async (
   tripId: number,
   notificationId: string,
@@ -829,14 +872,17 @@ export const respondToStatusCheck = async (
     .single();
 
   if (travelerError || !travelerData) {
-    throw new Error(`No se encontró el usuario en el viaje`);
+    throw new NotFoundError(`No se encontró el usuario en el viaje`);
   }
 
   if (travelerData.user_role !== "owner") {
-    throw new Error(
+    throw new ForbiddenError(
       `Solo el propietario del viaje puede responder a estas notificaciones`,
     );
   }
+
+  // 1b. Verificar que la notificación es de este viaje y del tipo correcto
+  await assertStatusCheckNotification(tripId, notificationId);
 
   // 2. Obtener el viaje actual
   const { data: tripData, error: tripError } = await supabase
@@ -846,7 +892,7 @@ export const respondToStatusCheck = async (
     .single();
 
   if (tripError || !tripData) {
-    throw new Error(
+    throw new NotFoundError(
       `No se encontró el viaje: ${tripError?.message || "Sin datos"}`,
     );
   }
@@ -860,7 +906,7 @@ export const respondToStatusCheck = async (
   if (response.started !== undefined) {
     // Respuesta para inicio de viaje
     if (trip.status !== "planning") {
-      throw new Error(
+      throw new ForbiddenError(
         `El viaje no está en estado 'planning'. Estado actual: ${trip.status}`,
       );
     }
@@ -893,7 +939,7 @@ export const respondToStatusCheck = async (
   } else if (response.completed !== undefined) {
     // Respuesta para finalización de viaje
     if (trip.status !== "going") {
-      throw new Error(
+      throw new ForbiddenError(
         `El viaje no está en estado 'going'. Estado actual: ${trip.status}`,
       );
     }
@@ -942,7 +988,7 @@ export const respondToStatusCheck = async (
   return {
     success: true,
     tripId,
-    newStatus: newStatus || trip.trip_status,
+    newStatus: newStatus || trip.status,
     actionStatus,
     message:
       actionStatus === "accepted"

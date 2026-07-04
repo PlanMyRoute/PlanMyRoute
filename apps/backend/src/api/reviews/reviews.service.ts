@@ -1,4 +1,9 @@
 import { supabase } from "../../supabase.js";
+import {
+  BadRequestError,
+  ForbiddenError,
+  NotFoundError,
+} from "../../utils/errors.js";
 
 const TABLE_NAME = "trip_reviews";
 const REVIEW_WINDOW_DAYS = 14;
@@ -97,13 +102,15 @@ export const createReview = async (
 ) => {
   // Validar rating
   if (rating < 1 || rating > 5) {
-    throw new Error("La calificación debe estar entre 1 y 5");
+    throw new BadRequestError("La calificación debe estar entre 1 y 5");
   }
 
   // Verificar permisos
   const { canReview, reason } = await canUserReviewTrip(tripId, userId);
   if (!canReview) {
-    throw new Error(reason || "No puedes crear una reseña para este viaje");
+    throw new ForbiddenError(
+      reason || "No puedes crear una reseña para este viaje",
+    );
   }
 
   // Crear la reseña
@@ -139,7 +146,7 @@ export const updateReview = async (
     updates.rating !== undefined &&
     (updates.rating < 1 || updates.rating > 5)
   ) {
-    throw new Error("La calificación debe estar entre 1 y 5");
+    throw new BadRequestError("La calificación debe estar entre 1 y 5");
   }
 
   // Verificar que la reseña pertenece al usuario
@@ -150,11 +157,11 @@ export const updateReview = async (
     .maybeSingle();
 
   if (fetchError || !existing) {
-    throw new Error("Reseña no encontrada");
+    throw new NotFoundError("Reseña no encontrada");
   }
 
   if (existing.user_id !== userId) {
-    throw new Error("No tienes permiso para editar esta reseña");
+    throw new ForbiddenError("No tienes permiso para editar esta reseña");
   }
 
   // Actualizar
@@ -184,11 +191,11 @@ export const deleteReview = async (reviewId: string, userId: string) => {
     .maybeSingle();
 
   if (fetchError || !existing) {
-    throw new Error("Reseña no encontrada");
+    throw new NotFoundError("Reseña no encontrada");
   }
 
   if (existing.user_id !== userId) {
-    throw new Error("No tienes permiso para eliminar esta reseña");
+    throw new ForbiddenError("No tienes permiso para eliminar esta reseña");
   }
 
   // Eliminar

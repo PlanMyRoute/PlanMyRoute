@@ -6,6 +6,7 @@ import {
   FuelType,
   TablesUpdate,
 } from "@planmyroute/types";
+import { ForbiddenError, NotFoundError } from "../../utils/errors.js";
 
 const TABLE_NAME = "vehicle";
 /** Número máximo de vehículos por usuario (plan gratuito) */
@@ -55,7 +56,7 @@ export const getVehicleFromId = async (vehicleId: string): Promise<Vehicle> => {
   }
 
   if (!data) {
-    throw new Error("No se encontró el vehículo");
+    throw new NotFoundError("No se encontró el vehículo");
   }
 
   return data;
@@ -76,7 +77,9 @@ export const createVehicle = async (
   if (countError)
     throw new Error(`Error al verificar vehículos: ${countError.message}`);
   if ((count ?? 0) >= MAX_VEHICLES_PER_USER)
-    throw new Error("VEHICLE_LIMIT_REACHED");
+    throw new ForbiddenError("Has alcanzado el límite máximo de 3 vehículos", {
+      code: "VEHICLE_LIMIT_REACHED",
+    });
 
   const { data, error } = await supabase
     .from(TABLE_NAME)
@@ -116,7 +119,7 @@ export const updateVehicle = async (
     .single();
 
   if (checkError || !existingVehicle) {
-    throw new Error("Vehículo no encontrado o no pertenece al usuario");
+    throw new NotFoundError("Vehículo no encontrado o no pertenece al usuario");
   }
 
   const { data, error } = await supabase
