@@ -28,6 +28,8 @@ export default function MapScreen() {
     const [routeCoordinates, setRouteCoordinates] = useState<{ latitude: number; longitude: number }[]>([]);
     const [selectedDay, setSelectedDay] = useState<number | null>(null);
     const [localStops, setLocalStops] = useState<Stop[]>([]);
+    const [returnRouteCoordinates, setReturnRouteCoordinates] = useState<{ latitude: number; longitude: number }[]>([]);
+    const [legFilter, setLegFilter] = useState<'all' | 'outbound' | 'return'>('all');
 
     const { addingEventId, addEventAsStop } = useAddEventAsStop(currentTripId);
     const { events: nearbyEvents, isLoading: loadingNearbyEvents } = useNearbyRouteEvents(
@@ -36,17 +38,18 @@ export default function MapScreen() {
         { enabled: eventsLayerVisible },
     );
 
-    // Ordenar paradas
+    // Ordenar paradas por (day, type dentro del día, position)
     useEffect(() => {
         if (!stops) return;
+        const typeOrder: Record<string, number> = { origen: 0, intermedia: 1, destino: 2 };
         const sorted = [...stops].sort((a, b) => {
-            const typeOrder: Record<string, number> = { origen: 0, intermedia: 1, destino: 2 };
-            const diff = (typeOrder[a.type] ?? 1) - (typeOrder[b.type] ?? 1);
-            if (diff !== 0) return diff;
-            if (a.estimated_arrival && b.estimated_arrival) {
-                return new Date(a.estimated_arrival).getTime() - new Date(b.estimated_arrival).getTime();
-            }
-            return a.order - b.order;
+            const dayA = (a as any).day ?? 1;
+            const dayB = (b as any).day ?? 1;
+            if (dayA !== dayB) return dayA - dayB;
+            const tA = typeOrder[a.type] ?? 1;
+            const tB = typeOrder[b.type] ?? 1;
+            if (tA !== tB) return tA - tB;
+            return ((a as any).position ?? a.order ?? 0) - ((b as any).position ?? b.order ?? 0);
         });
         setLocalStops(sorted);
     }, [stops]);
@@ -75,35 +78,103 @@ export default function MapScreen() {
         return map;
     }, [localStops]);
 
-    // Paradas visibles según día seleccionado
-    const visibleStops = useMemo(() => {
-        if (selectedDay === null) return localStops;
-        return dayGroups.get(selectedDay) ?? [];
-    }, [localStops, selectedDay, dayGroups]);
+    // Solo viajes con circular=true muestran el filtro ida/vuelta
+    const isCircular = !!(currentTrip?.circular);
 
-    // Calcular ruta para paradas visibles
+    // Punto de giro: día central derivado de las paradas reales
+    const midDay = useMemo(() => {
+        if (!isCircular) return null;
+        const days = Array.from(dayGroups.keys());
+        if (days.length === 0) return null;
+        return Math.ceil(Math.max(...days) / 2);
+    }, [isCircular, dayGroups]);
+
+    // Paradas visibles según día y/o tramo seleccionado
+    // La última parada de midDay es Gijón (creada por createCircularMidpointStop al final del día).
+    // Es el pivot: fin de ida y comienzo de vuelta.
+    const lastMidDayPos = useMemo(() => {
+        if (!isCircular || midDay === null) return 0;
+        const midDayStops = dayGroups.get(midDay) ?? [];
+        return midDayStops.length > 0
+            ? Math.max(...midDayStops.map(s => (s as any).position ?? 0))
+            : 0;
+    }, [isCircular, midDay, dayGroups]);
+
+    const visibleStops = useMemo(() => {
+        let base = selectedDay === null ? localStops : (dayGroups.get(selectedDay) ?? []);
+        if (isCircular && midDay !== null && legFilter !== 'all' && selectedDay === null) {
+            if (legFilter === 'outbound') {
+                // Ida: origen → Gijón (todos los stops hasta el último de midDay)
+                base = base.filter(s => ((s as any).day ?? 1) <= midDay);
+            } else {
+                // Vuelta: Gijón (último stop de midDay) → destino
+                base = base.filter(s => {
+                    const d = (s as any).day ?? 1;
+                    const pos = (s as any).position ?? 0;
+                    return d > midDay || (d === midDay && pos === lastMidDayPos);
+                });
+            }
+        }
+        return base;
+    }, [localStops, selectedDay, dayGroups, isCircular, midDay, legFilter, lastMidDayPos]);
+
+    // Al seleccionar un día concreto, resetear el filtro de tramo
+    useEffect(() => {
+        if (selectedDay !== null) setLegFilter('all');
+    }, [selectedDay]);
+
+    // Calcular ruta OSRM — dos tramos separados en viajes circulares
     const stopsKey = useMemo(() => visibleStops.map(s => s.id).join(','), [visibleStops]);
 
     useEffect(() => {
         const valid = visibleStops.filter(s => s.coordinates?.latitude && s.coordinates?.longitude);
-        if (valid.length < 2) { setRouteCoordinates([]); return; }
+        if (valid.length < 2) { setRouteCoordinates([]); setReturnRouteCoordinates([]); return; }
         let cancelled = false;
+
+        const fetchRoute = async (stops: typeof valid) => {
+            const coords = stops.map(s => `${s.coordinates.longitude},${s.coordinates.latitude}`).join(';');
+            const res = await fetch(`https://router.project-osrm.org/route/v1/driving/${coords}?overview=full&geometries=geojson`);
+            if (!res.ok) return [];
+            const data = await res.json();
+            return (data.routes?.[0]?.geometry?.coordinates ?? []).map((c: number[]) => ({
+                latitude: c[1], longitude: c[0],
+            }));
+        };
+
         (async () => {
             try {
-                const coords = valid.map(s => `${s.coordinates.longitude},${s.coordinates.latitude}`).join(';');
-                const res = await fetch(`https://router.project-osrm.org/route/v1/driving/${coords}?overview=full&geometries=geojson`);
-                if (!res.ok || cancelled) return;
-                const data = await res.json();
-                const route = data.routes?.[0];
-                if (route?.geometry?.coordinates) {
-                    setRouteCoordinates(route.geometry.coordinates.map((c: number[]) => ({
-                        latitude: c[1], longitude: c[0],
-                    })));
+                if (isCircular && midDay !== null && selectedDay === null && legFilter === 'all') {
+                    // Vista "Todo": dos polylines — ida (oscuro) y vuelta (azul)
+                    const outbound = valid.filter(s => ((s as any).day ?? 1) <= midDay);
+                    const lastPos = Math.max(0, ...valid
+                        .filter(s => ((s as any).day ?? 1) === midDay)
+                        .map(s => (s as any).position ?? 0));
+                    const ret = valid.filter(s => {
+                        const d = (s as any).day ?? 1;
+                        const pos = (s as any).position ?? 0;
+                        return d > midDay || (d === midDay && pos === lastPos);
+                    });
+                    const [outCoords, retCoords] = await Promise.all([
+                        outbound.length >= 2 ? fetchRoute(outbound) : Promise.resolve([]),
+                        ret.length >= 2      ? fetchRoute(ret)      : Promise.resolve([]),
+                    ]);
+                    if (cancelled) return;
+                    setRouteCoordinates(outCoords);
+                    setReturnRouteCoordinates(retCoords);
+                } else {
+                    // Filtro específico (ida o vuelta) o vista por día: una sola polyline
+                    const coords = await fetchRoute(valid);
+                    if (cancelled) return;
+                    setRouteCoordinates(coords);
+                    setReturnRouteCoordinates([]);
                 }
-            } catch { setRouteCoordinates([]); }
+            } catch {
+                setRouteCoordinates([]);
+                setReturnRouteCoordinates([]);
+            }
         })();
         return () => { cancelled = true; };
-    }, [stopsKey]);
+    }, [stopsKey, isCircular, midDay, selectedDay, legFilter]);
 
     // Determinar estado de cada pin
     const now = new Date();
@@ -162,14 +233,25 @@ export default function MapScreen() {
     foundNext = false; // reset antes de calcular markers
     const stopMarkers = visibleStops
         .filter(s => s.coordinates?.latitude && s.coordinates?.longitude)
-        .map((stop, index) => ({
-            id: stop.id.toString(),
-            coordinate: { latitude: stop.coordinates.latitude, longitude: stop.coordinates.longitude },
-            title: stop.name,
-            description: stop.address || '',
-            number: index + 1,
-            pinState: getPinState(stop),
-        }));
+        .map((stop, index) => {
+            const stopDay = (stop as any).day ?? 1;
+            const leg = (() => {
+                if (!isCircular || midDay === null || selectedDay !== null) return undefined;
+                if (legFilter === 'outbound') return 'outbound' as const;
+                if (legFilter === 'return') return 'return' as const;
+                // Vista "Todo": color por día
+                return (stopDay <= midDay ? 'outbound' : 'return') as 'outbound' | 'return';
+            })();
+            return {
+                id: stop.id.toString(),
+                coordinate: { latitude: stop.coordinates.latitude, longitude: stop.coordinates.longitude },
+                title: stop.name,
+                description: stop.address || '',
+                number: index + 1,
+                pinState: getPinState(stop),
+                leg,
+            };
+        });
 
     const eventMarkers = eventsLayerVisible
         ? (nearbyEvents ?? [])
@@ -225,6 +307,34 @@ export default function MapScreen() {
                     onSelect={setSelectedDay}
                     totalStops={localStops.length}
                 />
+                {/* Filtro de tramo — solo viajes circulares (ida y vuelta) */}
+                {isCircular && selectedDay === null && (
+                    <View style={{ flexDirection: 'row', paddingHorizontal: 16, paddingBottom: 10, gap: 8 }}>
+                        {(['all', 'outbound', 'return'] as const).map(f => {
+                            const label = f === 'all' ? 'Todo' : f === 'outbound' ? '→ Ida' : '← Vuelta';
+                            const active = legFilter === f;
+                            return (
+                                <Pressable
+                                    key={f}
+                                    onPress={() => setLegFilter(f)}
+                                    style={({ pressed }) => ({
+                                        paddingHorizontal: 14,
+                                        paddingVertical: 6,
+                                        borderRadius: 20,
+                                        backgroundColor: active ? '#202020' : '#F5F5F5',
+                                        borderWidth: 1,
+                                        borderColor: active ? '#202020' : '#E0E0E0',
+                                        opacity: pressed ? 0.75 : 1,
+                                    })}
+                                >
+                                    <MicrotextDark style={{ color: active ? '#FFD54D' : '#666666', fontWeight: active ? '700' : '400' }}>
+                                        {label}
+                                    </MicrotextDark>
+                                </Pressable>
+                            );
+                        })}
+                    </View>
+                )}
             </View>
 
             {/* Mapa */}
@@ -233,6 +343,7 @@ export default function MapScreen() {
                     initialRegion={initialRegion}
                     markers={markers}
                     routeCoordinates={routeCoordinates}
+                    returnRouteCoordinates={returnRouteCoordinates}
                     visitedUpToIndex={visitedUpToIndex}
                     onMarkerPress={(id) => {
                         if (id.startsWith(EVENT_MARKER_PREFIX)) {

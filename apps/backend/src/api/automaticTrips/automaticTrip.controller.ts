@@ -343,6 +343,9 @@ async function generateItineraryInBackground(
     `✨ [Background] Enriquecimiento (fotos + precios) completado para trip ${tripId}`,
   );
 
+  await ItineraryService.recalculateArrivalTimesFromRoute(tripId);
+  console.log(`🕐 [Background] Tiempos de llegada recalculados para trip ${tripId}`);
+
   await TripService.update(String(tripId), {
     generation_status: "ready",
   } as any);

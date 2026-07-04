@@ -16,6 +16,7 @@ interface MapComponentProps {
     initialRegion: MapRegion;
     markers?: MapMarker[];
     routeCoordinates?: Array<{ latitude: number; longitude: number }>;
+    returnRouteCoordinates?: Array<{ latitude: number; longitude: number }>;
     visitedUpToIndex?: number;
     onMarkerPress?: (markerId: string) => void;
     userLocation?: MapUserLocation | null;
@@ -25,6 +26,7 @@ export const MapComponent = forwardRef<MapRef, MapComponentProps>(({
     initialRegion,
     markers = [],
     routeCoordinates = [],
+    returnRouteCoordinates,
     visitedUpToIndex,
     onMarkerPress,
     userLocation,
@@ -39,7 +41,7 @@ export const MapComponent = forwardRef<MapRef, MapComponentProps>(({
         },
     }));
 
-    const mapHtml = generateMapHTML(initialRegion, markers, routeCoordinates, visitedUpToIndex, userLocation, 'webview');
+    const mapHtml = generateMapHTML(initialRegion, markers, routeCoordinates, visitedUpToIndex, userLocation, 'webview', returnRouteCoordinates);
 
     const handleMessage = (event: any) => {
         try {

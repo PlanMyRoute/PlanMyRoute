@@ -16,6 +16,7 @@ interface MapComponentProps {
   initialRegion: MapRegion;
   markers?: MapMarker[];
   routeCoordinates?: Array<{ latitude: number; longitude: number }>;
+  returnRouteCoordinates?: Array<{ latitude: number; longitude: number }>;
   visitedUpToIndex?: number;
   onMarkerPress?: (markerId: string) => void;
   userLocation?: MapUserLocation | null;

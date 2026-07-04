@@ -2,6 +2,7 @@ import {
   getAllStopsInATrip,
   createRefuelStop,
   recalculateTripSegments,
+  recalculateArrivalTimesFromRoute,
 } from "../itinerary/itinerary.service.js";
 import { getVehiclesInTrip } from "../trips/trips.service.js";
 import { supabase } from "../../supabase.js";
@@ -340,6 +341,10 @@ export async function autoInsertRefuelStops(tripId: number): Promise<void> {
     await recalculateTripSegments(tripId);
     console.log(
       `⛽ [RefuelAdvisor] Segmentos de ruta recalculados tras insertar repostajes para trip ${tripId}`,
+    );
+    await recalculateArrivalTimesFromRoute(tripId);
+    console.log(
+      `⛽ [RefuelAdvisor] Tiempos de llegada recalculados tras insertar repostajes para trip ${tripId}`,
     );
   } catch (err) {
     // No-op: el repostaje automático nunca debe romper el flujo principal

@@ -158,19 +158,21 @@ export const createTripWithRelations = async (
       ...vehiclePromises,
     ]);
 
-    // 5. Crear paradas de origen y destino en paralelo
-    await Promise.all([
-      ItineraryService.createStopOrigin(
-        origin,
-        newTrip,
-        cleanTripData.start_time,
-      ),
-      ItineraryService.createStopDestination(
-        destination,
-        newTrip,
-        cleanTripData.end_time,
-      ),
-    ]);
+    // 5. Crear paradas de origen y destino en paralelo.
+    // Circular: destino = origen (regresa a Valencia), Gijón = punto de giro intermedio.
+    // No circular: destino = destino seleccionado (Gijón).
+    if (cleanTripData.circular) {
+      await Promise.all([
+        ItineraryService.createStopOrigin(origin, newTrip, cleanTripData.start_time),
+        ItineraryService.createStopDestination(origin, newTrip, cleanTripData.end_time),
+        ItineraryService.createCircularMidpointStop(destination, newTrip),
+      ]);
+    } else {
+      await Promise.all([
+        ItineraryService.createStopOrigin(origin, newTrip, cleanTripData.start_time),
+        ItineraryService.createStopDestination(destination, newTrip, cleanTripData.end_time),
+      ]);
+    }
 
     // 6. Crear paradas obligatorias intermedias (si las hay)
     const hasMandatoryStops =

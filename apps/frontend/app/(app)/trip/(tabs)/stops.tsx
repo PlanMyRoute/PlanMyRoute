@@ -22,14 +22,6 @@ import { ActivityIndicator, ScrollView, Text, TouchableOpacity, View } from 'rea
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CachedImage } from '@/components/ui/CachedImage';
 
-function timeDiffStr(fromStop: any, toStop: any): string | undefined {
-    if (!fromStop?.estimated_arrival || !toStop?.estimated_arrival) return undefined;
-    const diff = new Date(toStop.estimated_arrival).getTime() - new Date(fromStop.estimated_arrival).getTime();
-    if (diff <= 0) return undefined;
-    const h = Math.floor(diff / 3_600_000);
-    const m = Math.round((diff % 3_600_000) / 60_000);
-    return h > 0 ? `${h}h ${m}min` : `${m}min`;
-}
 
 export default function StopsScreen() {
     const router = useRouter();
@@ -42,13 +34,15 @@ export default function StopsScreen() {
     const isGenerating = generationStatus === 'generating';
     const isFailed = generationStatus === 'failed';
 
-    // Poll el trip cada 3s mientras se generan paradas, para detectar cuando termina
-    const { data: polledTrip } = useTrips(isGenerating ? currentTripId : null, {
+    // Poll el trip cada 3s mientras se generan paradas, para detectar cuando termina.
+    // Siempre pasamos currentTripId (no null) para que useTrips devuelva el trip individual
+    // del cache y no el array completo de viajes del usuario cuando isGenerating=false.
+    const { data: polledTrip } = useTrips(currentTripId, {
         enabled: isGenerating && !!currentTripId,
-        refetchInterval: 3000,
+        refetchInterval: isGenerating ? 3000 : false,
     });
     useEffect(() => {
-        if (polledTrip && (polledTrip as any).generation_status !== 'generating') {
+        if (polledTrip && !Array.isArray(polledTrip) && (polledTrip as any).generation_status !== 'generating') {
             setCurrentTrip(polledTrip as any);
             queryClient.invalidateQueries({ queryKey: ['stops', currentTripId] });
         }
@@ -382,7 +376,7 @@ export default function StopsScreen() {
                                             canEdit={canEditStop && !access.isGuest && !access.isCompleted}
                                             isEnriching={isGenerating}
                                             legDistanceKm={metrics?.legs?.[i]?.km}
-                                            legDurationStr={timeDiffStr(group[i], group[i + 1]) ?? metrics?.legs?.[i]?.dur}
+                                            legDurationStr={metrics?.legs?.[i]?.dur}
                                             onEdit={handleOpenEditStop}
                                             onDelete={handleDeleteStop}
                                         />

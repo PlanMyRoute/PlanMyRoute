@@ -20,6 +20,7 @@ export interface MapMarker {
     number?: number;
     pinState?: PinState;
     segment?: string;
+    leg?: 'outbound' | 'return';
 }
 
 export interface MapRegion {
@@ -38,8 +39,18 @@ export interface MapRef {
     recenterTo: (lat: number, lng: number) => void;
 }
 
+export const OUTBOUND_COLOR = '#202020';
+export const RETURN_COLOR   = '#1D6FA4';
+
 // Colores y tamaños por estado del pin (paradas de viaje)
-export function pinConfig(state: PinState): { bg: string; text: string; w: number; h: number } {
+export function pinConfig(state: PinState, leg?: 'outbound' | 'return'): { bg: string; text: string; w: number; h: number } {
+    if (leg === 'return') {
+        switch (state) {
+            case 'visited': return { bg: '#999999', text: '#FFFFFF', w: 24, h: 30 };
+            case 'next':    return { bg: RETURN_COLOR, text: '#FFFFFF', w: 34, h: 42 };
+            default:        return { bg: RETURN_COLOR, text: '#FFFFFF', w: 28, h: 36 };
+        }
+    }
     switch (state) {
         case 'visited': return { bg: '#999999', text: '#FFFFFF', w: 24, h: 30 };
         case 'next':    return { bg: '#FFD54D', text: '#202020', w: 34, h: 42 };
@@ -66,6 +77,7 @@ export function generateMapHTML(
     visitedUpToIndex?: number,
     userLocation?: MapUserLocation | null,
     transport: MapTransport = 'webview',
+    returnRouteCoordinates?: Array<{ latitude: number; longitude: number }>,
 ): string {
     const postMessageJS = transport === 'iframe'
         ? `function postToHost(msg) { window.parent.postMessage(JSON.stringify(msg), '*'); }`
@@ -112,7 +124,7 @@ export function generateMapHTML(
                     ">${segCfg.icon}</span>
                 </div>`;
             } else {
-                const cfg = pinConfig(m.pinState ?? 'standard');
+                const cfg = pinConfig(m.pinState ?? 'standard', m.leg);
                 const fontSize = cfg.w <= 24 ? 10 : cfg.w <= 28 ? 11 : 13;
                 const borderWidth = m.pinState === 'next' ? 3 : 2;
                 const borderColor = m.pinState === 'next' ? '#202020' : '#FFFFFF';
@@ -148,7 +160,7 @@ export function generateMapHTML(
                 });
                 var marker${idx} = L.marker(
                     [${m.coordinate.latitude}, ${m.coordinate.longitude}],
-                    { icon: icon${idx} }
+                    { icon: icon${idx}, zIndexOffset: ${m.number !== undefined ? (10000 - m.number) : 0} }
                 ).addTo(map);
                 marker${idx}.on('click', function() {
                     postToHost({ type: 'markerPress', markerId: '${m.id}' });
@@ -160,18 +172,28 @@ export function generateMapHTML(
     let routeJS = '';
     if (routeCoordinates.length > 1) {
         const allCoords = JSON.stringify(routeCoordinates.map(c => [c.latitude, c.longitude]));
+        const hasReturn = returnRouteCoordinates && returnRouteCoordinates.length > 1;
+        const returnCoords = hasReturn
+            ? JSON.stringify(returnRouteCoordinates!.map(c => [c.latitude, c.longitude]))
+            : null;
+
         if (visitedUpToIndex !== undefined && visitedUpToIndex > 0 && visitedUpToIndex < routeCoordinates.length) {
             const visitedCoords = JSON.stringify(routeCoordinates.slice(0, visitedUpToIndex + 1).map(c => [c.latitude, c.longitude]));
             const futureCoords = JSON.stringify(routeCoordinates.slice(visitedUpToIndex).map(c => [c.latitude, c.longitude]));
             routeJS = `
                 L.polyline(${visitedCoords}, {color:'#999999',weight:4,opacity:0.7}).addTo(map);
-                var futureLine = L.polyline(${futureCoords}, {color:'#202020',weight:4}).addTo(map);
+                var futureLine = L.polyline(${futureCoords}, {color:'${OUTBOUND_COLOR}',weight:4}).addTo(map);
+                ${hasReturn ? `L.polyline(${returnCoords}, {color:'${RETURN_COLOR}',weight:4}).addTo(map);` : ''}
                 map.fitBounds(L.polyline(${allCoords}).getBounds(), {padding:[50,50]});
             `;
         } else {
             routeJS = `
-                var polyline = L.polyline(${allCoords}, {color:'#202020',weight:4}).addTo(map);
-                map.fitBounds(polyline.getBounds(), {padding:[50,50]});
+                var outboundLine = L.polyline(${allCoords}, {color:'${OUTBOUND_COLOR}',weight:4}).addTo(map);
+                ${hasReturn ? `L.polyline(${returnCoords}, {color:'${RETURN_COLOR}',weight:4}).addTo(map);` : ''}
+                ${hasReturn
+                    ? `map.fitBounds(L.featureGroup([outboundLine, L.polyline(${returnCoords})]).getBounds(), {padding:[50,50]});`
+                    : `map.fitBounds(outboundLine.getBounds(), {padding:[50,50]});`
+                }
             `;
         }
     }

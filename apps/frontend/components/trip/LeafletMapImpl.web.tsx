@@ -12,6 +12,7 @@ interface MapComponentProps {
     initialRegion: MapRegion;
     markers?: MapMarker[];
     routeCoordinates?: Array<{ latitude: number; longitude: number }>;
+    returnRouteCoordinates?: Array<{ latitude: number; longitude: number }>;
     visitedUpToIndex?: number;
     onMarkerPress?: (markerId: string) => void;
     userLocation?: MapUserLocation | null;
@@ -21,6 +22,7 @@ const LeafletMapImpl = forwardRef<MapRef, MapComponentProps>(({
     initialRegion,
     markers = [],
     routeCoordinates = [],
+    returnRouteCoordinates,
     visitedUpToIndex,
     onMarkerPress,
     userLocation,
@@ -52,7 +54,7 @@ const LeafletMapImpl = forwardRef<MapRef, MapComponentProps>(({
         return () => window.removeEventListener('message', handleMessage);
     }, [onMarkerPress]);
 
-    const html = generateMapHTML(initialRegion, markers, routeCoordinates, visitedUpToIndex, userLocation, 'iframe');
+    const html = generateMapHTML(initialRegion, markers, routeCoordinates, visitedUpToIndex, userLocation, 'iframe', returnRouteCoordinates);
 
     return (
         <View style={styles.container}>

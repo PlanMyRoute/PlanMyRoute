@@ -449,11 +449,7 @@ export const createStopDestination = async (
       (end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24),
     );
     const totalDays = Math.max(1, diffDays + 1);
-    // Circular: destino en el punto de giro (mitad del viaje)
-    // No circular: destino en el último día
-    destinationDay = (trip as any).circular
-      ? Math.ceil(totalDays / 2)
-      : totalDays;
+    destinationDay = totalDays;
   }
 
   const destinationDate = trip.start_date
@@ -477,6 +473,39 @@ export const createStopDestination = async (
     estimated_arrival: estimatedArrival,
     order: 2,
     day: destinationDay,
+  };
+
+  return await createStop(stopData, trip.id!);
+};
+
+/**
+ * Crea la parada de punto de giro para viajes circulares.
+ * Aparece como "intermedia" en el día central del viaje y sirve como ancla
+ * visual/geográfica del destino intermedio (ej. Gijón en Valencia↔Gijón↔Valencia).
+ */
+export const createCircularMidpointStop = async (
+  midpoint: string,
+  trip: Trip,
+) => {
+  let midDay = 1;
+  if (trip.start_date && trip.end_date) {
+    const start = new Date(trip.start_date);
+    const end = new Date(trip.end_date);
+    start.setHours(0, 0, 0, 0);
+    end.setHours(0, 0, 0, 0);
+    const diffDays = Math.round(
+      (end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24),
+    );
+    midDay = Math.ceil(Math.max(1, diffDays + 1) / 2);
+  }
+
+  const stopData: any = {
+    name: midpoint,
+    address: midpoint,
+    description: `Punto de giro del viaje circular: ${midpoint}`,
+    coordinates: await getCoordinatesForAddress(midpoint),
+    type: "intermedia" as Stop["type"],
+    day: midDay,
   };
 
   return await createStop(stopData, trip.id!);
@@ -2075,6 +2104,75 @@ export const recalculateTripSegments = async (tripId: number) => {
     .from("trip")
     .update({ total_distance_meters: totalMeters })
     .eq("id", tripId);
+};
+
+const AVG_SPEED_KMH = 90;
+const STOP_DURATION_REGULAR_MS = 60 * 60_000;
+const STOP_DURATION_REFUEL_MS = 15 * 60_000;
+
+/**
+ * Recalcula estimated_arrival de todas las paradas usando distancias reales
+ * (distance_to_next_meters × ROAD_FACTOR / AVG_SPEED_KMH).
+ * Debe llamarse DESPUÉS de recalculateTripSegments para que las distancias estén frescas.
+ * Día 1 empieza a la hora start_time del viaje (o 09:00 si no hay). Días siguientes: 09:00.
+ */
+export const recalculateArrivalTimesFromRoute = async (tripId: number): Promise<void> => {
+  const stops = await getAllStopsInATrip(tripId);
+  if (!stops || stops.length === 0) return;
+
+  const trip = await TripService.getById(tripId);
+  const ordered = orderStopsByDayAndPosition(stops as any[]);
+
+  const startDate = (trip as any)?.start_date ? new Date((trip as any).start_date) : new Date();
+  const startTimeStr: string | null = (trip as any)?.start_time ?? null;
+
+  const updates: Array<{ id: number; estimated_arrival: string }> = [];
+  let cursor: Date | null = null;
+  let currentDay: number | null = null;
+
+  for (let i = 0; i < ordered.length; i++) {
+    const stop = ordered[i] as any;
+    const stopDay = stop.day ?? 1;
+
+    if (stopDay !== currentDay) {
+      currentDay = stopDay;
+      const dayDate = new Date(startDate);
+      dayDate.setDate(dayDate.getDate() + (stopDay - 1));
+
+      if (stopDay === 1 && startTimeStr) {
+        const parts = startTimeStr.split(":").map(Number);
+        dayDate.setHours(parts[0] ?? 9, parts[1] ?? 0, 0, 0);
+      } else {
+        dayDate.setHours(9, 0, 0, 0);
+      }
+      cursor = dayDate;
+    }
+
+    updates.push({ id: stop.id, estimated_arrival: cursor!.toISOString() });
+
+    const nextStop = ordered[i + 1] as any | undefined;
+    const sameDay = nextStop != null && (nextStop.day ?? 1) === stopDay;
+
+    let stopDurationMs = 0;
+    if (stop.type === "intermedia") {
+      const isRefuel = Array.isArray(stop.refuel) && stop.refuel.length > 0;
+      stopDurationMs = isRefuel ? STOP_DURATION_REFUEL_MS : STOP_DURATION_REGULAR_MS;
+    }
+
+    let driveTimeMs = 0;
+    if (sameDay && stop.distance_to_next_meters != null) {
+      const roadKm = (stop.distance_to_next_meters / 1000) * geolocation.ROAD_FACTOR;
+      driveTimeMs = (roadKm / AVG_SPEED_KMH) * 3_600_000;
+    }
+
+    cursor = new Date(cursor!.getTime() + stopDurationMs + driveTimeMs);
+  }
+
+  await Promise.all(
+    updates.map(({ id, estimated_arrival }) =>
+      supabase.from(STOP_TABLE).update({ estimated_arrival }).eq("id", id),
+    ),
+  );
 };
 
 /**
