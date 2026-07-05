@@ -17,6 +17,13 @@ const SAFETY_RESERVE_PCT = 0.15;
 const SEARCH_RADII_M = [10_000, 25_000, 50_000];
 // Número máximo de candidatos por punto de repostaje
 const MAX_CANDIDATES = 5;
+// Precios por defecto por tipo de combustible (€/L o €/kWh para eléctrico)
+const DEFAULT_FUEL_PRICE: Record<string, number> = {
+  gasoline: 1.75,
+  diesel: 1.65,
+  LPG: 0.92,
+  electric: 0.28,
+};
 
 type FuelType = "diesel" | "gasoline" | "electric" | "LPG";
 
@@ -298,6 +305,7 @@ export async function autoInsertRefuelStops(tripId: number): Promise<void> {
     const vehicleRows = await getVehiclesInTrip(tripId);
     const vehicle = (vehicleRows[0] as any)?.vehicle;
     const fuelType: string | null = vehicle?.type_fuel ?? null;
+    const tankCapacity: number | null = vehicle?.fuel_tank_capacity ?? null;
 
     for (const suggestion of suggestions) {
       const best = suggestion.candidates[0];
@@ -325,8 +333,19 @@ export async function autoInsertRefuelStops(tripId: number): Promise<void> {
         trip_id: tripId,
       };
 
+      // Calcular litros necesarios para llenar el depósito desde el nivel actual
+      const fuelAtGap = tankCapacity !== null
+        ? tankCapacity * (suggestion.fuelLevelPctAtGap / 100)
+        : null;
+      const liters = tankCapacity !== null && fuelAtGap !== null
+        ? Math.round((tankCapacity - fuelAtGap) * 10) / 10
+        : null;
+      const pricePerUnit = fuelType ? (DEFAULT_FUEL_PRICE[fuelType] ?? null) : null;
+
       const refuelData: any = {
         fuel_type: fuelType,
+        ...(liters !== null && { liters }),
+        ...(pricePerUnit !== null && { price_per_unit: pricePerUnit }),
       };
 
       await createRefuelStop(stopData, refuelData, tripId);
