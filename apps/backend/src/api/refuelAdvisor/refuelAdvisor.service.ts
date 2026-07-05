@@ -166,7 +166,7 @@ async function getExistingRefuelStopIds(tripId: number): Promise<Set<number>> {
 export async function suggestRefuelStops(
   tripId: number,
 ): Promise<RefuelSuggestion[]> {
-  console.log(`[RefuelAdvisor] Analizando itinerario trip ${tripId}...`);
+  console.log(`\n⛽ [Trip ${tripId}] Iniciando asesor de repostaje...`);
   const stops = await getAllStopsInATrip(tripId);
   if (stops.length < 2) {
     console.log(
@@ -191,10 +191,7 @@ export async function suggestRefuelStops(
   if (!tankCapacity || !avgConsumption || !fuelType) return [];
 
   console.log(
-    `[RefuelAdvisor] Vehículo detectado: ${vehicle.brand ?? ""} ${vehicle.model ?? ""} | ${fuelType} | depósito: ${tankCapacity}L | consumo: ${avgConsumption}L/100km`,
-  );
-  console.log(
-    `[RefuelAdvisor] Simulando consumo en ${stops.length} paradas (reserva de seguridad: ${Math.round(SAFETY_RESERVE_PCT * 100)}%)...`,
+    `⛽ [Trip ${tripId}] Vehículo: ${vehicle.brand ?? ""} ${vehicle.model ?? ""} · ${fuelType} · ${tankCapacity}L · ${avgConsumption}L/100km · simulando ${stops.length} paradas`,
   );
 
   const existingRefuelIds = await getExistingRefuelStopIds(tripId);
@@ -233,12 +230,6 @@ export async function suggestRefuelStops(
 
       const searchPoint = interpolateCoords(fromCoords, toCoords, fraction);
 
-      console.log(
-        `[RefuelAdvisor] ⚠️  Combustible insuficiente: "${fromStop.name ?? `stop#${fromStop.id}`}" → "${toStop.name ?? `stop#${toStop.id}`}" ` +
-          `(${roadKm.toFixed(1)} km | necesita ${fuelNeeded.toFixed(1)}L | queda ${currentFuel.toFixed(1)}L | autonomía útil: ${safeKm.toFixed(1)} km). ` +
-          `Buscando gasolineras en (${searchPoint.lat.toFixed(4)}, ${searchPoint.lng.toFixed(4)})...`,
-      );
-
       let candidates: GasStationCandidate[] = [];
       try {
         candidates = await searchNearbyStations(
@@ -246,9 +237,10 @@ export async function suggestRefuelStops(
           searchPoint.lng,
           fuelType,
         );
+        const best = candidates[0];
         console.log(
-          `[RefuelAdvisor] ${candidates.length} candidato(s) encontrado(s)` +
-            (candidates[0] ? `: "${candidates[0].name}" (rating: ${candidates[0].rating ?? "N/A"})` : ""),
+          `⚠  [Trip ${tripId}] Gap: "${fromStop.name ?? `stop#${fromStop.id}`}" → "${toStop.name ?? `stop#${toStop.id}`}" · ${roadKm.toFixed(1)} km · queda ${currentFuel.toFixed(1)}L` +
+            (best ? ` → "${best.name}" seleccionada (rating: ${best.rating ?? "N/A"})` : " → sin gasolinera encontrada"),
         );
       } catch (err) {
         console.error(
@@ -276,9 +268,6 @@ export async function suggestRefuelStops(
     }
   }
 
-  console.log(
-    `[RefuelAdvisor] Análisis completo — ${suggestions.length} parada(s) de repostaje sugerida(s) para trip ${tripId}.`,
-  );
   return suggestions;
 }
 
@@ -289,9 +278,6 @@ export async function suggestRefuelStops(
  * Diseñado para uso no-bloqueante (fire-and-forget desde controllers).
  */
 export async function autoInsertRefuelStops(tripId: number): Promise<void> {
-  console.log(
-    `⛽ [RefuelAdvisor] Iniciando inserción automática de repostaje para trip ${tripId}...`,
-  );
   try {
     const suggestions = await suggestRefuelStops(tripId);
     if (suggestions.length === 0) {
@@ -350,21 +336,13 @@ export async function autoInsertRefuelStops(tripId: number): Promise<void> {
 
       await createRefuelStop(stopData, refuelData, tripId);
       console.log(
-        `⛽ [RefuelAdvisor] Parada de repostaje creada automáticamente: "${best.name}" (trip ${tripId}, día ${day}, pos ${position})`,
+        `⛽ [Trip ${tripId}] "${best.name}" insertada (día ${day}, pos ${position})`,
       );
     }
 
-    // Recalcular distancias de segmentos para que el frontend muestre valores actualizados.
-    // No llamar a reorganizePositions aquí: ya se llamó antes de autoInsertRefuelStops y
-    // volvería a ordenar por estimated_arrival, mandando los stops sin hora al final.
     await recalculateTripSegments(tripId);
-    console.log(
-      `⛽ [RefuelAdvisor] Segmentos de ruta recalculados tras insertar repostajes para trip ${tripId}`,
-    );
     await recalculateArrivalTimesFromRoute(tripId);
-    console.log(
-      `⛽ [RefuelAdvisor] Tiempos de llegada recalculados tras insertar repostajes para trip ${tripId}`,
-    );
+    console.log(`✅ [Trip ${tripId}] ${suggestions.length} parada(s) de repostaje insertadas automáticamente\n`);
   } catch (err) {
     // No-op: el repostaje automático nunca debe romper el flujo principal
     console.error(

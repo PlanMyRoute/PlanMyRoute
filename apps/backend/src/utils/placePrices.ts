@@ -81,18 +81,15 @@ export async function getPlacePrice(
     searchUrl.searchParams.append("keyword", name);
     searchUrl.searchParams.append("key", GOOGLE_PLACES_API_KEY);
 
-    console.log(`🔍 Buscando información de precio para: "${name}"`);
-
     const searchResponse = await fetch(searchUrl.toString());
     const searchData: PlacesSearchResponse = await searchResponse.json();
 
     if (searchData.status !== "OK" && searchData.status !== "ZERO_RESULTS") {
-      console.warn(`⚠️ Error en Places API (search): ${searchData.status}`);
+      console.warn(`⚠️ Places API (search) error: ${searchData.status}`);
       return null;
     }
 
     if (!searchData.results || searchData.results.length === 0) {
-      console.log(`⚠️ No se encontraron resultados para: "${name}"`);
       return null;
     }
 
@@ -147,7 +144,6 @@ export async function getPlacePrice(
       place_id: placeId,
     };
 
-    console.log(`✅ Información de precio obtenida:`, priceInfo);
     return priceInfo;
   } catch (error) {
     console.error(

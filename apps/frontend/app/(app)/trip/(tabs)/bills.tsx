@@ -4,6 +4,9 @@ import { useAuth } from '@/context/AuthContext';
 import { useTripContext } from '@/context/TripContext';
 import { useAccommodationCostByTrip, useActivityCostByTrip, useRefuelCostByTrip } from '@/hooks/useItinerary';
 import { Ionicons } from '@expo/vector-icons';
+import { useFocusEffect } from '@react-navigation/native';
+import { useQueryClient } from '@tanstack/react-query';
+import { useCallback } from 'react';
 import { ScrollView, View } from 'react-native';
 
 interface CostRowProps {
@@ -31,6 +34,16 @@ function CostRow({ icon, label, subtitle, amount }: CostRowProps) {
 export default function BillsScreen() {
     const { tripId } = useTripContext();
     const { token } = useAuth();
+    const queryClient = useQueryClient();
+
+    useFocusEffect(
+        useCallback(() => {
+            if (!tripId) return;
+            queryClient.invalidateQueries({ queryKey: ['refuelCostByTrip', tripId] });
+            queryClient.invalidateQueries({ queryKey: ['accommodationCostByTrip', tripId] });
+            queryClient.invalidateQueries({ queryKey: ['activityCostByTrip', tripId] });
+        }, [tripId, queryClient])
+    );
 
     const { data: refuelData, isLoading: refuelLoading } = useRefuelCostByTrip(tripId as string, { enabled: !!tripId, token: token ?? undefined });
     const { data: accommodationData, isLoading: accommodationLoading } = useAccommodationCostByTrip(tripId as string, { enabled: !!tripId, token: token ?? undefined });
