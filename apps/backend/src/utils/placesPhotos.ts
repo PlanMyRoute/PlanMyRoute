@@ -52,18 +52,15 @@ function extractPhotoFromResults(
   }
 
   if (!searchData.results || searchData.results.length === 0) {
-    console.log(`No se encontraron resultados para: "${queryLabel}"`);
     return null;
   }
 
   const firstPlace = searchData.results[0];
 
   if (!firstPlace.photos || firstPlace.photos.length === 0) {
-    console.log(`El lugar "${firstPlace.name}" no tiene fotos disponibles`);
     return null;
   }
 
-  console.log(`✅ Foto encontrada para "${queryLabel}": ${firstPlace.name}`);
   return buildGooglePhotoUrl(firstPlace.photos[0].photo_reference);
 }
 
@@ -97,10 +94,6 @@ export async function searchPlacePhoto(
     searchUrl.searchParams.append("keyword", name);
     searchUrl.searchParams.append("key", GOOGLE_PLACES_API_KEY);
 
-    console.log(
-      `Buscando foto para: "${name}" en (${coordinates.latitude}, ${coordinates.longitude})`,
-    );
-
     const searchResponse = await fetch(searchUrl.toString());
     const searchData: PlacesSearchResponse = await searchResponse.json();
 
@@ -132,12 +125,9 @@ export async function searchPlacePhotoByQuery(
     searchUrl.searchParams.append("query", query);
     searchUrl.searchParams.append("key", GOOGLE_PLACES_API_KEY);
 
-    console.log(`Buscando foto por texto: "${query}"`);
-
     const searchResponse = await fetch(searchUrl.toString());
     const searchData: PlacesSearchResponse = await searchResponse.json();
 
-    // Extraer foto del primer resultado
     return extractPhotoFromResults(searchData, query);
   } catch (error) {
     console.error("Error al buscar foto del lugar:", error);
@@ -402,39 +392,18 @@ export async function searchPlacePhotoSmart(
   address?: string,
   radius: number = 100,
 ): Promise<string | null> {
-  console.log(`🎯 Búsqueda con Google Places para: "${name}"`);
-
-  // Verificar si Google Places está configurado
   if (!GOOGLE_PLACES_API_KEY) {
     console.warn("⚠️ GOOGLE_PLACES_API_KEY no está configurada en .env");
-    console.warn(
-      "📝 Configura GOOGLE_PLACES_API_KEY=tu_api_key en el archivo .env",
-    );
-    console.warn("🔗 Obtén tu API key en: https://console.cloud.google.com/");
     return null;
   }
 
-  let photoUrl: string | null = null;
+  const photoUrl = await searchPlacePhoto(name, coordinates, radius);
+  if (photoUrl) return photoUrl;
 
-  // 1. Intentar búsqueda por coordenadas
-  photoUrl = await searchPlacePhoto(name, coordinates, radius);
-
-  if (photoUrl) {
-    console.log(`✅ Foto obtenida de Google Places (búsqueda por coordenadas)`);
-    return photoUrl;
-  }
-
-  // 2. Intentar búsqueda por texto si hay dirección
   if (address) {
-    const searchQuery = `${name}, ${address}`;
-    photoUrl = await searchPlacePhotoByQuery(searchQuery);
-
-    if (photoUrl) {
-      console.log(`✅ Foto obtenida de Google Places (búsqueda por texto)`);
-      return photoUrl;
-    }
+    const byText = await searchPlacePhotoByQuery(`${name}, ${address}`);
+    if (byText) return byText;
   }
 
-  console.log(`❌ No se encontró foto para: "${name}"`);
   return null;
 }

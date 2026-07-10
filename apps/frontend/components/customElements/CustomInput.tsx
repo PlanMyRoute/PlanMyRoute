@@ -41,9 +41,9 @@ export const CustomInput: React.FC<CustomInputProps> = ({
   };
 
   const fontSizeStyles = {
-    small: { fontFamily: "Urbanist-Medium", fontSize: 14 },
-    medium: { fontFamily: "Urbanist-Medium", fontSize: 15 },
-    large: { fontFamily: "Urbanist-Medium", fontSize: 16 },
+    small: { fontFamily: "Urbanist-Medium", fontSize: 14, color: '#202020' },
+    medium: { fontFamily: "Urbanist-Medium", fontSize: 15, color: '#202020' },
+    large: { fontFamily: "Urbanist-Medium", fontSize: 16, color: '#202020' },
   };
 
   const isButton = !!onPress;

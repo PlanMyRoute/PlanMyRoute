@@ -740,7 +740,7 @@ export default function CreateWizardScreen() {
                                 </View>
 
                                 <View className="flex-row gap-4">
-                                    <View className="flex-1 items-center">
+                                    <View className="flex-1">
                                         <CustomInput
                                             value={budget.minBudgetInput}
                                             onChangeText={budget.handleMinBudgetInputChange}
@@ -750,9 +750,9 @@ export default function CreateWizardScreen() {
                                             inputClassName="text-center text-base font-semibold"
                                             rightElement={<TextRegular className="text-neutral-gray pr-3">€</TextRegular>}
                                         />
-                                        <MicrotextDark className="text-neutral-gray mt-1">Mínimo</MicrotextDark>
+                                        <MicrotextDark className="text-neutral-gray mt-1 text-center">Mínimo</MicrotextDark>
                                     </View>
-                                    <View className="flex-1 items-center">
+                                    <View className="flex-1">
                                         <CustomInput
                                             value={budget.maxBudgetInput}
                                             onChangeText={budget.handleMaxBudgetInputChange}
@@ -762,7 +762,7 @@ export default function CreateWizardScreen() {
                                             inputClassName="text-center text-base font-semibold"
                                             rightElement={<TextRegular className="text-neutral-gray pr-3">€</TextRegular>}
                                         />
-                                        <MicrotextDark className="text-neutral-gray mt-1">Máximo</MicrotextDark>
+                                        <MicrotextDark className="text-neutral-gray mt-1 text-center">Máximo</MicrotextDark>
                                     </View>
                                 </View>
                             </View>

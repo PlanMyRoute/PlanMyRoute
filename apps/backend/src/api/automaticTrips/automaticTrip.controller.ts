@@ -154,7 +154,7 @@ export async function generateAutomaticTrip(req: Request, res: Response) {
     }
 
     console.log(
-      `\n🚀 Generando viaje IA para usuario ${userId}: ${tripInput.origin} → ${tripInput.destination} (cobrados ${charged} tokens)`,
+      `\n🚀 [Trip] ${tripInput.origin} → ${tripInput.destination} | usuario ${userId.slice(0, 8)}... | ${charged} tokens cobrados`,
     );
 
     const dbInterests = await getUserInterests(userId);
@@ -286,9 +286,6 @@ async function generateItineraryInBackground(
   totalDays: number,
   enableAutoRefuel: boolean,
 ) {
-  console.log(
-    `📝 [Background] Solicitando itinerario a la IA para trip ${tripId}...`,
-  );
   const itineraryAI = await requestItineraryToLLM(
     tripInputForLLM,
     userPreferences,
@@ -318,38 +315,18 @@ async function generateItineraryInBackground(
   // Stops appear immediately in the frontend via polling.
   const allStopIds: number[] = [];
   for (const day of allDays) {
-    console.log(
-      `⚡ [Background] Fast-insert paradas del día ${day} para trip ${tripId}...`,
-    );
     const ids = await createStopsForDayFast(itineraryAI, tripId, day, totalDays);
     allStopIds.push(...ids);
   }
-  console.log(
-    `⚡ [Background] ${allStopIds.length} paradas insertadas (sin fotos/precios) para trip ${tripId}`,
-  );
 
-  // Corregir colisiones de posición: origin/destination y AI fast-inserts
-  // compiten por position=1 dentro del mismo día. Reorganizar antes de que
-  // el advisor de repostaje calcule la posición de inserción.
   await ItineraryService.reorganizePositions(tripId);
-  console.log(`🔧 [Background] Posiciones reorganizadas para trip ${tripId}`);
-
-  // Phase 2: background enrichment — photos + prices in parallel batches, then rebuild routes.
-  console.log(
-    `⚙️ [Background] Iniciando enriquecimiento de ${allStopIds.length} paradas para trip ${tripId}...`,
-  );
   await enrichStopsForTrip(allStopIds, tripId);
-  console.log(
-    `✨ [Background] Enriquecimiento (fotos + precios) completado para trip ${tripId}`,
-  );
-
   await ItineraryService.recalculateArrivalTimesFromRoute(tripId);
-  console.log(`🕐 [Background] Tiempos de llegada recalculados para trip ${tripId}`);
 
   await TripService.update(String(tripId), {
     generation_status: "ready",
   } as any);
-  console.log(`✅ [Background] Generación completa para trip ${tripId}`);
+  console.log(`✅ [Trip ${tripId}] Viaje listo\n`);
 
   if (enableAutoRefuel) {
     autoInsertRefuelStops(tripId).catch(() => {});

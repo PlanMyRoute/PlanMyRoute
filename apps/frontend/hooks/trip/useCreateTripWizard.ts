@@ -216,7 +216,7 @@ export function useCreateTripWizard({
       case 2:
         return travelers.travelerCounts.adults >= 1;
       case 3:
-        return true;
+        return !enableAutoRefuel || selectedVehicles.length > 0;
       case 4:
         return isAiTrip ? preferences.selectedInterests.length > 0 : true;
       case 5:
@@ -242,6 +242,8 @@ export function useCreateTripWizard({
       preferences.selectedInterests,
       isAiTrip,
       intermediateStops.list,
+      enableAutoRefuel,
+      selectedVehicles,
     ],
   );
 

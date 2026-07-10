@@ -354,6 +354,7 @@ export async function createStopsForDayFast(
   );
 
   const stopIds: number[] = [];
+  const stopNames: string[] = [];
 
   for (let i = 0; i < raw.length; i++) {
     const stop = raw[i];
@@ -384,7 +385,7 @@ export async function createStopsForDayFast(
           tripId,
         );
         stopIds.push(result.stop.id);
-        console.log(`⚡ Alojamiento día ${day}: ${stop.name}`);
+        stopNames.push(stop.name);
       } else {
         const result = await ItineraryService.createActivityStopFast(
           stopData,
@@ -398,13 +399,15 @@ export async function createStopsForDayFast(
           tripId,
         );
         stopIds.push(result.stop.id);
-        console.log(`⚡ Actividad día ${day}: ${stop.name}`);
+        stopNames.push(stop.name);
       }
     } catch (err) {
       console.error(`Error fast-insert día ${day} "${stop.name}":`, err);
     }
   }
 
+  if (stopNames.length > 0)
+    console.log(`📅 [Trip ${tripId}] Día ${day} → ${stopNames.join(' · ')}`);
   return stopIds;
 }
 
@@ -417,20 +420,13 @@ export async function enrichStopsForTrip(
   stopIds: number[],
   tripId: number,
 ): Promise<void> {
-  const totalBatches = Math.ceil(stopIds.length / ENRICH_CONCURRENCY);
-  console.log(
-    `⚙️ [Background] Enriqueciendo ${stopIds.length} paradas (fotos + precios) en ${totalBatches} lote(s) de hasta ${ENRICH_CONCURRENCY}...`,
-  );
+  console.log(`🖼  [Trip ${tripId}] Enriqueciendo ${stopIds.length} paradas con fotos y precios...`);
   // Paradas cuyo nombre no pudo verificarse en Google Places: candidatas a
   // alucinación factual del LLM (hotel/restaurante inexistente).
   const unverifiedPlaces: string[] = [];
 
   for (let i = 0; i < stopIds.length; i += ENRICH_CONCURRENCY) {
     const batch = stopIds.slice(i, i + ENRICH_CONCURRENCY);
-    const batchNum = Math.floor(i / ENRICH_CONCURRENCY) + 1;
-    console.log(
-      `⚙️ [Background] Lote ${batchNum}/${totalBatches} — enriqueciendo paradas [${batch.join(", ")}]`,
-    );
     const results = await Promise.allSettled(
       batch.map((id) => ItineraryService.enrichStop(id)),
     );
@@ -454,9 +450,6 @@ export async function enrichStopsForTrip(
     }).catch(() => {});
   }
 
-  console.log(
-    `⚙️ [Background] Enriquecimiento completo. Recalculando segmentos de ruta para trip ${tripId}...`,
-  );
   await ItineraryService.recalculateTripSegments(tripId);
 }
 
@@ -553,14 +546,11 @@ export async function requestItineraryToLLM(
   let raw: string;
   try {
     console.log(
-      `[AI] Enviando prompt a Gemini (${ITINERARY_GENERATOR_MODEL})...`,
+      `🤖 [Trip ${telemetry?.tripId ?? "?"}] Solicitando itinerario a Gemini (${ITINERARY_GENERATOR_MODEL})...`,
     );
     const result = await model.generateContent(prompt);
     usage = result.response.usageMetadata;
     raw = result.response.text();
-    console.log(
-      `[AI] Respuesta recibida en ${Date.now() - startedAt}ms | tokens: ${usage?.promptTokenCount ?? "?"} prompt / ${usage?.candidatesTokenCount ?? "?"} completion`,
-    );
   } catch (err) {
     const errorMessage = err instanceof Error ? err.message : String(err);
     recordOutcome("api_error", { errorMessage });
@@ -609,7 +599,7 @@ export async function requestItineraryToLLM(
 
     const latencyS = ((Date.now() - startedAt) / 1000).toFixed(1);
     console.log(
-      `⏱  Latencia IA: ${latencyS}s · tokens ${usage?.promptTokenCount ?? "?"}→${usage?.candidatesTokenCount ?? "?"}`,
+      `✅ [Trip ${telemetry?.tripId ?? "?"}] Itinerario recibido · ${latencyS}s · ${usage?.promptTokenCount ?? "?"}→${usage?.candidatesTokenCount ?? "?"} tokens`,
     );
 
     ailog("\n📑 Respuesta de la IA (JSON parseado):");
@@ -648,13 +638,7 @@ export async function requestItineraryToLLM(
 
     recordOutcome("success", { qualityFlags });
 
-    console.log(
-      "\n============================================================",
-    );
-    console.log("🤖 IA COMPLETADA · itinerario válido → construyendo el viaje");
-    console.log(
-      "============================================================\n",
-    );
+    console.log(`\n${"─".repeat(60)}\n🤖 IA COMPLETADA — construyendo itinerario para trip ${telemetry?.tripId ?? "?"}\n${"─".repeat(60)}\n`);
 
     return itinerary;
   } catch (err) {
