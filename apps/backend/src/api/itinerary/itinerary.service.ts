@@ -787,17 +787,47 @@ export const createAccommodationStopFast = async (
 };
 
 /**
- * Background enrichment: fetch Google Places photo + price for an existing stop, then UPDATE.
+ * Resultado del enriquecimiento de una parada, usado para alimentar la
+ * telemetría de calidad de la IA (Cap. 6 del TFG).
  */
-export const enrichStop = async (stopId: number): Promise<void> => {
+export interface StopEnrichmentResult {
+  stopId: number;
+  name: string | null;
+  /**
+   * `true` si Google Places pudo confirmar la existencia del lugar: encontró
+   * una foto o un `place_id` cercano coincidente con el nombre. `false` si
+   * NINGUNA de las dos búsquedas devolvió resultado, señal de una posible
+   * alucinación factual del LLM (un hotel/restaurante inexistente).
+   *
+   * Es una heurística: puede haber falsos negativos (un lugar real sin ficha
+   * en Places), por eso aguas arriba se registra como "no verificable" y no
+   * como "inexistente".
+   */
+  verified: boolean;
+}
+
+/**
+ * Background enrichment: fetch Google Places photo + price for an existing stop, then UPDATE.
+ * Devuelve además si el lugar pudo verificarse en Google Places (sin llamadas
+ * adicionales: se reutilizan las búsquedas de foto y precio ya realizadas).
+ */
+export const enrichStop = async (
+  stopId: number,
+): Promise<StopEnrichmentResult | null> => {
   const { data: stop, error: fetchErr } = await supabase
     .from(STOP_TABLE)
     .select("*")
     .eq("id", stopId)
     .single();
-  if (fetchErr || !stop) return;
+  if (fetchErr || !stop) return null;
 
   const updates: Record<string, any> = {};
+  // Una parada ya enriquecida (foto/precio/place_id previos) se da por
+  // verificada; en el flujo de generación estos campos vienen vacíos y la
+  // verificación depende del resultado de las búsquedas de abajo.
+  let verified = Boolean(
+    stop.photo_url || stop.estimated_price || stop.google_place_id,
+  );
 
   if (!stop.photo_url && stop.name) {
     try {
@@ -807,7 +837,10 @@ export const enrichStop = async (stopId: number): Promise<void> => {
         stop.address ?? undefined,
         100,
       );
-      if (photoUrl) updates.photo_url = photoUrl;
+      if (photoUrl) {
+        updates.photo_url = photoUrl;
+        verified = true;
+      }
     } catch {}
   }
 
@@ -825,6 +858,7 @@ export const enrichStop = async (stopId: number): Promise<void> => {
         updates.place_rating = priceInfo.rating;
         updates.place_reviews_count = priceInfo.reviews_count;
         updates.google_place_id = priceInfo.place_id;
+        if (priceInfo.place_id) verified = true;
       }
     } catch {}
   }
@@ -832,6 +866,8 @@ export const enrichStop = async (stopId: number): Promise<void> => {
   if (Object.keys(updates).length > 0) {
     await supabase.from(STOP_TABLE).update(updates).eq("id", stopId);
   }
+
+  return { stopId, name: stop.name ?? null, verified };
 };
 
 /**

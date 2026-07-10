@@ -9,6 +9,7 @@ import {
 } from "./prompts/itineraryGenerator.js";
 import {
   logAiGeneration,
+  mergeQualityFlagsForTrip,
   AiGenerationOutcome,
 } from "../../services/aiGenerationLogger.js";
 import {
@@ -420,16 +421,39 @@ export async function enrichStopsForTrip(
   console.log(
     `⚙️ [Background] Enriqueciendo ${stopIds.length} paradas (fotos + precios) en ${totalBatches} lote(s) de hasta ${ENRICH_CONCURRENCY}...`,
   );
+  // Paradas cuyo nombre no pudo verificarse en Google Places: candidatas a
+  // alucinación factual del LLM (hotel/restaurante inexistente).
+  const unverifiedPlaces: string[] = [];
+
   for (let i = 0; i < stopIds.length; i += ENRICH_CONCURRENCY) {
     const batch = stopIds.slice(i, i + ENRICH_CONCURRENCY);
     const batchNum = Math.floor(i / ENRICH_CONCURRENCY) + 1;
     console.log(
       `⚙️ [Background] Lote ${batchNum}/${totalBatches} — enriqueciendo paradas [${batch.join(", ")}]`,
     );
-    await Promise.allSettled(
+    const results = await Promise.allSettled(
       batch.map((id) => ItineraryService.enrichStop(id)),
     );
+    for (const r of results) {
+      if (r.status === "fulfilled" && r.value && !r.value.verified) {
+        unverifiedPlaces.push(r.value.name ?? `stop#${r.value.stopId}`);
+      }
+    }
   }
+
+  // Registrar las alucinaciones factuales como quality_flag en la métrica de
+  // generación (Cap. 6 TFG), fusionándolas con las anomalías ya detectadas en
+  // tiempo de generación (p. ej. days_out_of_range). Fire-and-forget: nunca
+  // debe interrumpir el pipeline de enriquecimiento.
+  if (unverifiedPlaces.length > 0) {
+    console.warn(
+      `⚠️ [Background] ${unverifiedPlaces.length} lugar(es) no verificable(s) en Google Places para trip ${tripId}: ${unverifiedPlaces.join(", ")}`,
+    );
+    await mergeQualityFlagsForTrip(tripId, {
+      unverified_places: unverifiedPlaces,
+    }).catch(() => {});
+  }
+
   console.log(
     `⚙️ [Background] Enriquecimiento completo. Recalculando segmentos de ruta para trip ${tripId}...`,
   );

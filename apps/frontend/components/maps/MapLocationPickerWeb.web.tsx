@@ -297,8 +297,11 @@ export function MapLocationPickerWeb({
   }, [visible]);
 
   const handleConfirm = () => {
+    // Don't call onClose here — onLocationSelect (handleMapLocationSelected
+    // in the parent) already decides how to close: hide this picker on
+    // success, or reopen the search modal if reverse geocoding failed.
+    // Calling onClose unconditionally would always reopen the search modal.
     onLocationSelect(coords, resolvedAddress ?? undefined);
-    onClose();
   };
 
   const handleCenterOnUser = () => {

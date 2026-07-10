@@ -5,7 +5,7 @@ import {
 } from "@/components/customElements/CustomText";
 import { Ionicons } from "@expo/vector-icons";
 import * as Location from "expo-location";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Modal,
@@ -282,18 +282,22 @@ export const MapLocationPicker = ({
     })();
   }, [visible]);
 
-  // Must be after hooks, before early return
-  if (Platform.OS === "web") return null;
-
   const centerLat = initialLocation?.latitude ?? DEFAULT_LAT;
   const centerLng = initialLocation?.longitude ?? DEFAULT_LNG;
   const centerZoom = initialLocation ? LOCATION_ZOOM : DEFAULT_ZOOM;
-  const htmlContent = buildMapHtml(
-    centerLat,
-    centerLng,
-    centerZoom,
-    getApiBaseUrl(),
+
+  // Memoized so the WebView's `source` prop keeps a stable reference across
+  // renders triggered by drag/geoLoading state — otherwise Android reloads
+  // the page (loadDataWithBaseURL) on every state update, resetting the map
+  // and re-triggering moveend in a loop.
+  const htmlContent = useMemo(
+    () => buildMapHtml(centerLat, centerLng, centerZoom, getApiBaseUrl()),
+    [centerLat, centerLng, centerZoom],
   );
+  const mapSource = useMemo(() => ({ html: htmlContent }), [htmlContent]);
+
+  // Must be after hooks, before early return
+  if (Platform.OS === "web") return null;
 
   const handleLoadEnd = () => {
     setIsLoading(false);
@@ -350,8 +354,11 @@ export const MapLocationPicker = ({
 
   const handleConfirm = () => {
     if (selectedCoords) {
+      // Don't call onClose here — onLocationSelect (handleMapLocationSelected
+      // in the parent) already decides how to close: hide this picker on
+      // success, or reopen the search modal if reverse geocoding failed.
+      // Calling onClose unconditionally would always reopen the search modal.
       onLocationSelect(selectedCoords, resolvedAddress ?? undefined);
-      onClose();
     }
   };
 
@@ -416,7 +423,7 @@ export const MapLocationPicker = ({
           <WebView
             ref={webViewRef}
             style={{ flex: 1 }}
-            source={{ html: htmlContent }}
+            source={mapSource}
             onLoadEnd={handleLoadEnd}
             onMessage={handleMessage}
             scrollEnabled={false}
