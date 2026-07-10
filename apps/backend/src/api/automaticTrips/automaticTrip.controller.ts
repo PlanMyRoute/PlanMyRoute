@@ -323,12 +323,16 @@ async function generateItineraryInBackground(
   await enrichStopsForTrip(allStopIds, tripId);
   await ItineraryService.recalculateArrivalTimesFromRoute(tripId);
 
+  // Los repostajes se insertan ANTES de marcar el viaje como listo: así
+  // "ready" significa itinerario completo (incluidos combustible y sus costes)
+  // y el frontend puede refrescar gastos y avisar al usuario una sola vez.
+  // autoInsertRefuelStops captura sus propios errores y nunca lanza.
+  if (enableAutoRefuel) {
+    await autoInsertRefuelStops(tripId);
+  }
+
   await TripService.update(String(tripId), {
     generation_status: "ready",
   } as any);
   console.log(`✅ [Trip ${tripId}] Viaje listo\n`);
-
-  if (enableAutoRefuel) {
-    autoInsertRefuelStops(tripId).catch(() => {});
-  }
 }

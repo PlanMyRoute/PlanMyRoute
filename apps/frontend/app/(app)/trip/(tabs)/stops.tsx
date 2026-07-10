@@ -16,9 +16,10 @@ import { TmEvent } from '@/services/eventService';
 import { Ionicons } from '@expo/vector-icons';
 import { Stop } from '@planmyroute/types';
 import { useQueryClient } from '@tanstack/react-query';
-import { useRouter } from 'expo-router';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import Toast from 'react-native-toast-message';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CachedImage } from '@/components/ui/CachedImage';
 
@@ -34,6 +35,22 @@ export default function StopsScreen() {
     const isGenerating = generationStatus === 'generating';
     const isFailed = generationStatus === 'failed';
 
+    // Toast de bienvenida al entrar a un viaje IA recién creado (día 1 listo,
+    // el resto se sigue generando). justCreated=1 lo pone el wizard al navegar.
+    const { justCreated } = useLocalSearchParams<{ justCreated?: string }>();
+    const entryToastShownRef = useRef(false);
+    useEffect(() => {
+        if (entryToastShownRef.current) return;
+        if (justCreated === '1' && isGenerating) {
+            entryToastShownRef.current = true;
+            Toast.show({
+                type: 'success',
+                text1: '¡Día 1 listo!',
+                text2: 'El resto de días se están generando…',
+            });
+        }
+    }, [justCreated, isGenerating]);
+
     // Poll el trip cada 3s mientras se generan paradas, para detectar cuando termina.
     // Siempre pasamos currentTripId (no null) para que useTrips devuelva el trip individual
     // del cache y no el array completo de viajes del usuario cuando isGenerating=false.
@@ -41,10 +58,37 @@ export default function StopsScreen() {
         enabled: isGenerating && !!currentTripId,
         refetchInterval: isGenerating ? 3000 : false,
     });
+    // Solo reaccionamos al fin de generación si la vimos EN CURSO en este
+    // montaje. Sin esta guarda, al reentrar a un viaje ya generado el efecto
+    // se dispararía con el trip cacheado (status ready) y repetiría el toast
+    // y las invalidaciones en cada entrada.
+    const wasGeneratingRef = useRef(false);
     useEffect(() => {
+        if (isGenerating) wasGeneratingRef.current = true;
+    }, [isGenerating]);
+
+    useEffect(() => {
+        if (!wasGeneratingRef.current) return;
         if (polledTrip && !Array.isArray(polledTrip) && (polledTrip as any).generation_status !== 'generating') {
+            wasGeneratingRef.current = false;
             setCurrentTrip(polledTrip as any);
             queryClient.invalidateQueries({ queryKey: ['stops', currentTripId] });
+            queryClient.invalidateQueries({ queryKey: ['trip', currentTripId, 'stops'] });
+            // Los costes se cachearon a 0 mientras se generaba el viaje (las 4
+            // tabs se montan a la vez): al terminar hay que refrescarlos o la
+            // pantalla de Gastos seguiría vacía hasta salir y volver a entrar.
+            queryClient.invalidateQueries({ queryKey: ['refuelCostByTrip', currentTripId] });
+            queryClient.invalidateQueries({ queryKey: ['accommodationCostByTrip', currentTripId] });
+            queryClient.invalidateQueries({ queryKey: ['activityCostByTrip', currentTripId] });
+            // Aviso único de viaje completo (el estado "ready" ya incluye los
+            // repostajes: el backend los inserta antes de marcarlo).
+            if ((polledTrip as any).generation_status === 'ready') {
+                Toast.show({
+                    type: 'success',
+                    text1: '¡Tu viaje está completo!',
+                    text2: 'Itinerario, fotos y gastos listos.',
+                });
+            }
         }
     }, [polledTrip, setCurrentTrip, queryClient, currentTripId]);
 

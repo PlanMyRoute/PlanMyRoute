@@ -6,9 +6,10 @@ import {
 import { apiFetch } from "@/lib/apiClient";
 import { Ionicons } from "@expo/vector-icons";
 import * as Location from "expo-location";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Modal, TouchableOpacity, View } from "react-native";
 import type { MapPickerCoords } from "./MapLocationPicker";
+import { countryMapRegion } from "@/utils/countryMapRegion";
 
 function getApiBaseUrl(): string {
   return (
@@ -185,9 +186,12 @@ export function MapLocationPickerWeb({
   onLocationSelect,
   onClose,
 }: Props) {
+  // Región por país del navegador (locale) — el mapa abre viendo el país
+  // completo, sin animaciones posteriores.
+  const countryRegion = useMemo(() => countryMapRegion(), []);
   const [coords, setCoords] = useState<MapPickerCoords>({
-    latitude: initialLocation?.latitude ?? 40.4168,
-    longitude: initialLocation?.longitude ?? -3.7038,
+    latitude: initialLocation?.latitude ?? countryRegion.lat,
+    longitude: initialLocation?.longitude ?? countryRegion.lng,
   });
   const [resolvedAddress, setResolvedAddress] = useState<string | null>(null);
   const [geoLoading, setGeoLoading] = useState(false);
@@ -243,7 +247,7 @@ export function MapLocationPickerWeb({
               type: "updateUserLocation",
               lat: userCoordsRef.current.latitude,
               lng: userCoordsRef.current.longitude,
-              flyTo: !initialLocationRef.current,
+              flyTo: false,
             });
           }
         }
@@ -259,8 +263,9 @@ export function MapLocationPickerWeb({
     };
   }, [visible]);
 
-  // Solicitar GPS al abrir el picker — igual que hace el picker nativo —
-  // para pintar el punto de ubicación del usuario y permitir centrar el mapa en él.
+  // Pintar el punto azul del usuario solo si el permiso ya está concedido
+  // (sin prompt) — igual que el picker nativo. El mapa nunca vuela solo: abre
+  // centrado en el país del usuario y solo se mueve con acciones explícitas.
   useEffect(() => {
     if (!visible) {
       mapReadyRef.current = false;
@@ -271,7 +276,7 @@ export function MapLocationPickerWeb({
 
     (async () => {
       try {
-        const { status } = await Location.requestForegroundPermissionsAsync();
+        const { status } = await Location.getForegroundPermissionsAsync();
         if (status !== "granted") return;
         const loc = await Location.getCurrentPositionAsync({
           accuracy: Location.Accuracy.Balanced,
@@ -287,11 +292,11 @@ export function MapLocationPickerWeb({
             type: "updateUserLocation",
             lat: gpsCoords.latitude,
             lng: gpsCoords.longitude,
-            flyTo: !initialLocationRef.current,
+            flyTo: false,
           });
         }
       } catch {
-        // GPS no disponible — el mapa se queda en initialLocation o la posición por defecto
+        // GPS no disponible — el mapa se queda en initialLocation o el país por defecto
       }
     })();
   }, [visible]);
@@ -310,9 +315,9 @@ export function MapLocationPickerWeb({
 
   if (!visible) return null;
 
-  const centerLat = initialLocation?.latitude ?? 40.4168;
-  const centerLng = initialLocation?.longitude ?? -3.7038;
-  const centerZoom = initialLocation ? 14 : 5;
+  const centerLat = initialLocation?.latitude ?? countryRegion.lat;
+  const centerLng = initialLocation?.longitude ?? countryRegion.lng;
+  const centerZoom = initialLocation ? 14 : countryRegion.zoom;
   const mapHtml = buildPickerHtml(
     centerLat,
     centerLng,

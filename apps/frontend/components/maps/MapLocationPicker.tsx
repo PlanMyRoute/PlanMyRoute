@@ -14,6 +14,7 @@ import {
   View,
 } from "react-native";
 import WebView, { WebViewMessageEvent } from "react-native-webview";
+import { countryMapRegion } from "@/utils/countryMapRegion";
 
 export type MapPickerCoords = { latitude: number; longitude: number };
 
@@ -26,9 +27,6 @@ type MapLocationPickerProps = {
   onClose: () => void;
 };
 
-const DEFAULT_LAT = 40.4168;
-const DEFAULT_LNG = -3.7038;
-const DEFAULT_ZOOM = 5;
 const LOCATION_ZOOM = 14;
 
 function getApiBaseUrl(): string {
@@ -227,7 +225,6 @@ export const MapLocationPicker = ({
 
   const webViewRef = useRef<WebView>(null);
   const webViewReadyRef = useRef(false);
-  const pendingFlyToRef = useRef<MapPickerCoords | null>(null);
   const userCoordsRef = useRef<MapPickerCoords | null>(null);
   const reverseDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const initialLocationRef = useRef(initialLocation);
@@ -236,7 +233,10 @@ export const MapLocationPicker = ({
     initialLocationRef.current = initialLocation;
   }, [initialLocation]);
 
-  // Auto-request GPS when picker opens
+  // Al abrir: reset de estado. Sin GPS automático ni flyTo — el mapa abre ya
+  // centrado en el país del usuario (locale del dispositivo) y no se mueve
+  // solo. Solo pintamos el punto azul si hay una posición cacheada disponible
+  // al instante (sin prompt de permisos ni espera de fix GPS).
   useEffect(() => {
     if (!visible) {
       webViewReadyRef.current = false;
@@ -248,43 +248,35 @@ export const MapLocationPicker = ({
     setIsLoading(true);
     setSelectedCoords(initialLocationRef.current ?? null);
     userCoordsRef.current = null;
-    pendingFlyToRef.current = null;
     webViewReadyRef.current = false;
 
     (async () => {
       try {
-        const { status } = await Location.requestForegroundPermissionsAsync();
+        const { status } = await Location.getForegroundPermissionsAsync();
         if (status !== "granted") return;
-        const loc = await Location.getCurrentPositionAsync({
-          accuracy: Location.Accuracy.Balanced,
-        });
+        const loc = await Location.getLastKnownPositionAsync();
+        if (!loc) return;
         const gpsCoords: MapPickerCoords = {
           latitude: loc.coords.latitude,
           longitude: loc.coords.longitude,
         };
         userCoordsRef.current = gpsCoords;
-        const shouldFly = !initialLocationRef.current;
-
         if (webViewReadyRef.current) {
-          let script = `updateUserDot(${gpsCoords.latitude}, ${gpsCoords.longitude});`;
-          if (shouldFly) {
-            script =
-              `map.flyTo([${gpsCoords.latitude}, ${gpsCoords.longitude}], ${LOCATION_ZOOM}); ` +
-              script;
-          }
-          webViewRef.current?.injectJavaScript(script + " true;");
-        } else if (shouldFly) {
-          pendingFlyToRef.current = gpsCoords;
+          webViewRef.current?.injectJavaScript(
+            `updateUserDot(${gpsCoords.latitude}, ${gpsCoords.longitude}); true;`,
+          );
         }
       } catch {
-        // GPS unavailable — map stays at initialLocation or DEFAULT
+        // Sin posición cacheada — no se pinta el punto azul
       }
     })();
   }, [visible]);
 
-  const centerLat = initialLocation?.latitude ?? DEFAULT_LAT;
-  const centerLng = initialLocation?.longitude ?? DEFAULT_LNG;
-  const centerZoom = initialLocation ? LOCATION_ZOOM : DEFAULT_ZOOM;
+  // Región por país del dispositivo (memoizada: el locale no cambia en sesión)
+  const countryRegion = useMemo(() => countryMapRegion(), []);
+  const centerLat = initialLocation?.latitude ?? countryRegion.lat;
+  const centerLng = initialLocation?.longitude ?? countryRegion.lng;
+  const centerZoom = initialLocation ? LOCATION_ZOOM : countryRegion.zoom;
 
   // Memoized so the WebView's `source` prop keeps a stable reference across
   // renders triggered by drag/geoLoading state — otherwise Android reloads
@@ -304,16 +296,34 @@ export const MapLocationPicker = ({
     webViewReadyRef.current = true;
     const u = userCoordsRef.current;
     if (!u) return;
-    const f = pendingFlyToRef.current;
-    if (f) {
-      pendingFlyToRef.current = null;
+    webViewRef.current?.injectJavaScript(
+      `updateUserDot(${u.latitude}, ${u.longitude}); true;`,
+    );
+  };
+
+  // FAB "mi ubicación": aquí sí pedimos permiso y GPS, porque es una acción
+  // explícita del usuario (único caso en que el mapa vuela a un punto).
+  const handleCenterOnUser = async () => {
+    try {
+      let coords = userCoordsRef.current;
+      if (!coords) {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status !== "granted") return;
+        const loc = await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.Balanced,
+        });
+        coords = {
+          latitude: loc.coords.latitude,
+          longitude: loc.coords.longitude,
+        };
+        userCoordsRef.current = coords;
+      }
       webViewRef.current?.injectJavaScript(
-        `map.flyTo([${f.latitude}, ${f.longitude}], ${LOCATION_ZOOM}); updateUserDot(${u.latitude}, ${u.longitude}); true;`,
+        `map.flyTo([${coords.latitude}, ${coords.longitude}], ${LOCATION_ZOOM}); ` +
+          `updateUserDot(${coords.latitude}, ${coords.longitude}); true;`,
       );
-    } else {
-      webViewRef.current?.injectJavaScript(
-        `updateUserDot(${u.latitude}, ${u.longitude}); true;`,
-      );
+    } catch {
+      // GPS no disponible — no hacemos nada
     }
   };
 
@@ -434,14 +444,7 @@ export const MapLocationPicker = ({
           />
           {/* My location FAB */}
           <TouchableOpacity
-            onPress={() => {
-              const u = userCoordsRef.current;
-              if (u) {
-                webViewRef.current?.injectJavaScript(
-                  `map.flyTo([${u.latitude}, ${u.longitude}], ${LOCATION_ZOOM}); true;`,
-                );
-              }
-            }}
+            onPress={handleCenterOnUser}
             style={{
               position: "absolute",
               right: 16,

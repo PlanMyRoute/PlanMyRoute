@@ -8,6 +8,7 @@ import type {
 } from "@planmyroute/types";
 import geocoder from "../../config/geocoder.js";
 import * as geolocation from "../../utils/geolocation.js";
+import { DEFAULT_FUEL_PRICE } from "../../utils/fuelPrices.js";
 import * as TripService from "../trips/trips.service.js";
 import { searchPlacePhotoSmart } from "../../utils/placesPhotos.js";
 import { getPlacePrice } from "../../utils/placePrices.js";
@@ -2288,12 +2289,53 @@ export const getTotalRefuelCostByUser = async (userId: string) => {
 };
 
 /**
- * Obtiene la suma total de costos de repostaje de un viaje específico
+ * Coste estimado del carburante de toda la ruta: distancia total entre paradas
+ * consecutivas (haversine × factor de carretera) × consumo medio del primer
+ * vehículo del viaje × precio por defecto del combustible.
+ * Devuelve null si el viaje no tiene vehículo con consumo/combustible definidos
+ * o menos de 2 paradas con coordenadas.
+ */
+const estimateRouteFuelCost = async (
+  tripId: number,
+): Promise<number | null> => {
+  const vehicleRows = await TripService.getVehiclesInTrip(tripId);
+  const vehicle = (vehicleRows[0] as any)?.vehicle;
+  const avgConsumption: number | null = vehicle?.avg_consumption ?? null;
+  const fuelType: string | null = vehicle?.type_fuel ?? null;
+  const pricePerUnit = fuelType ? (DEFAULT_FUEL_PRICE[fuelType] ?? null) : null;
+  if (!avgConsumption || !pricePerUnit) return null;
+
+  const stops = await getAllStopsInATrip(tripId);
+  const ordered = orderStopsByDayAndPosition(stops as any[]).filter(
+    (s: any) => s.coordinates,
+  );
+  if (ordered.length < 2) return null;
+
+  let totalKm = 0;
+  for (let i = 0; i < ordered.length - 1; i++) {
+    totalKm += geolocation.haversineKm(
+      toLatLng((ordered[i] as any).coordinates),
+      toLatLng((ordered[i + 1] as any).coordinates),
+    );
+  }
+  totalKm *= geolocation.ROAD_FACTOR;
+
+  return Math.round((totalKm / 100) * avgConsumption * pricePerUnit * 100) / 100;
+};
+
+/**
+ * Obtiene la suma total de costos de repostaje de un viaje específico,
+ * junto con el coste estimado de carburante de la ruta completa
+ * (estimated_route_cost) calculado a partir de distancia y consumo.
  * @param tripId ID del viaje
  * @returns Objeto con el total de gasto en repostajes del viaje
  */
 export const getTotalRefuelCostByTrip = async (tripId: number) => {
   try {
+    const estimatedRouteCost = await estimateRouteFuelCost(tripId).catch(
+      () => null,
+    );
+
     // Paradas del viaje (directamente por trip_id)
     const { data: stops, error: stopsError } = await supabase
       .from(STOP_TABLE)
@@ -2312,6 +2354,7 @@ export const getTotalRefuelCostByTrip = async (tripId: number) => {
         trip_id: tripId,
         total_cost: 0,
         refuel_count: 0,
+        estimated_route_cost: estimatedRouteCost,
       };
     }
 
@@ -2343,6 +2386,7 @@ export const getTotalRefuelCostByTrip = async (tripId: number) => {
       trip_id: tripId,
       total_cost: totalCost,
       refuel_count: refuels?.length || 0,
+      estimated_route_cost: estimatedRouteCost,
     };
   } catch (error) {
     console.error("Error en getTotalRefuelCostByTrip:", error);

@@ -110,7 +110,14 @@ function patchStopInCaches(
 // =============== TYPES ===============
 
 type RefuelCostByUserResponse = { user_id: string; total_cost: number; refuel_count: number; trips_count: number };
-type RefuelCostByTripResponse = { trip_id: number; total_cost: number; refuel_count: number };
+type RefuelCostByTripResponse = {
+    trip_id: number;
+    total_cost: number;
+    refuel_count: number;
+    /** Coste estimado del carburante de toda la ruta (km × consumo × precio).
+     *  null si el viaje no tiene vehículo con consumo/combustible definidos. */
+    estimated_route_cost: number | null;
+};
 type AccommodationCostByTripResponse = { trip_id: number; total_cost: number; accommodation_count: number };
 type ActivityCostByTripResponse = { trip_id: number; total_cost: number; activity_count: number };
 

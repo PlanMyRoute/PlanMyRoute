@@ -42,6 +42,8 @@ interface PlaceSearchResult {
 interface PlacesSearchResponse {
   results: PlaceSearchResult[];
   status: string;
+  /** Motivo detallado cuando status es un error (p.ej. REQUEST_DENIED por billing) */
+  error_message?: string;
 }
 
 /**
@@ -85,7 +87,10 @@ export async function getPlacePrice(
     const searchData: PlacesSearchResponse = await searchResponse.json();
 
     if (searchData.status !== "OK" && searchData.status !== "ZERO_RESULTS") {
-      console.warn(`⚠️ Places API (search) error: ${searchData.status}`);
+      console.warn(
+        `⚠️ Places API (search) error: ${searchData.status}` +
+          (searchData.error_message ? ` — ${searchData.error_message}` : ""),
+      );
       return null;
     }
 

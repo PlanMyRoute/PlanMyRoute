@@ -35,6 +35,8 @@ export const ROUTES = {
 
   // Trips
   trip: (tripId: string | number) => `/trip/${tripId}` as Href,
+  // Entrada a un viaje IA recién creado: dispara el toast "Día 1 listo"
+  tripJustCreated: (tripId: string | number) => `/trip/${tripId}?justCreated=1` as Href,
   tripCreateWizard: (tripName: string, isAi: boolean, continueDraft = false) =>
     `/trip/createWizard?tripName=${encodeURIComponent(tripName)}&isAi=${isAi}${continueDraft ? '&continueDraft=true' : ''}` as Href,
   tripEdit: (tripId: string | number) => `/trip/edit?tripId=${tripId}` as Href,

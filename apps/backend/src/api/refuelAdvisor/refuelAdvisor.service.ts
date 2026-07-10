@@ -7,6 +7,7 @@ import {
 import { getVehiclesInTrip } from "../trips/trips.service.js";
 import { supabase } from "../../supabase.js";
 import { haversineKm, ROAD_FACTOR } from "../../utils/geolocation.js";
+import { DEFAULT_FUEL_PRICE } from "../../utils/fuelPrices.js";
 
 const GOOGLE_PLACES_API_KEY =
   process.env.GOOGLE_PLACES_API_KEY || process.env.GOOGLE_API_KEY;
@@ -17,13 +18,6 @@ const SAFETY_RESERVE_PCT = 0.15;
 const SEARCH_RADII_M = [10_000, 25_000, 50_000];
 // Número máximo de candidatos por punto de repostaje
 const MAX_CANDIDATES = 5;
-// Precios por defecto por tipo de combustible (€/L o €/kWh para eléctrico)
-const DEFAULT_FUEL_PRICE: Record<string, number> = {
-  gasoline: 1.75,
-  diesel: 1.65,
-  LPG: 0.92,
-  electric: 0.28,
-};
 
 type FuelType = "diesel" | "gasoline" | "electric" | "LPG";
 

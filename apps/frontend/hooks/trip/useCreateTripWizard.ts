@@ -35,6 +35,13 @@ import {
   PremiumLimitError,
   InsufficientTokensError,
 } from "@/services/tripService";
+import { ItineraryService } from "@/services/itineraryService";
+
+/** La generación IA terminó en estado "failed" mientras esperábamos el día 1 */
+class GenerationFailedError extends Error {}
+
+const DAY_ONE_POLL_INTERVAL_MS = 2500;
+const DAY_ONE_MAX_WAIT_MS = 120_000;
 
 export type ValidationAlertConfig = {
   title: string;
@@ -584,6 +591,46 @@ export function useCreateTripWizard({
     setTimeout(() => _doSubmit(), 100);
   };
 
+  /**
+   * Espera (polling) a que el itinerario del día 1 esté persistido antes de
+   * entrar al viaje: las paradas origen/destino se crean con el trip, así que
+   * la señal es la primera parada que no sea ninguna de las dos. Lanza
+   * GenerationFailedError si el backend marca la generación como fallida.
+   * Si se supera el tiempo máximo, retorna igualmente (los skeletons del
+   * itinerario cubren la espera restante dentro del viaje).
+   */
+  const waitForDayOneStops = async (tripId: number): Promise<void> => {
+    const startedAt = Date.now();
+    let cycle = 0;
+    while (Date.now() - startedAt < DAY_ONE_MAX_WAIT_MS) {
+      await new Promise((r) => setTimeout(r, DAY_ONE_POLL_INTERVAL_MS));
+      cycle++;
+      try {
+        const stops = await ItineraryService.getStopsByTripId(String(tripId), {
+          token: token || undefined,
+        });
+        if (
+          Array.isArray(stops) &&
+          stops.some((s) => s.type !== "origen" && s.type !== "destino")
+        ) {
+          return;
+        }
+        // Cada ~3 ciclos comprobamos si la generación ha fallado
+        if (cycle % 3 === 0) {
+          const trip = await TripService.getTripById(String(tripId), {
+            token: token || undefined,
+          });
+          if ((trip as any)?.generation_status === "failed") {
+            throw new GenerationFailedError();
+          }
+        }
+      } catch (err) {
+        if (err instanceof GenerationFailedError) throw err;
+        // Error transitorio de red: seguimos esperando hasta el timeout
+      }
+    }
+  };
+
   const _doSubmit = async () => {
     if (!authUser?.id) {
       showValidationAlert({
@@ -653,18 +700,35 @@ export function useCreateTripWizard({
         invitedUsers: travelers.invitedUsers,
         tripName: tripName.trim(),
       });
-      // Navegar inmediatamente — el viaje base ya está creado,
-      // las paradas IA se generan en background con skeleton loading
+      // Viajes IA: permanecemos en la pantalla de creación (resumen animado)
+      // hasta que el día 1 del itinerario esté persistido — entrar antes
+      // mostraría un viaje vacío. Viajes manuales: navegación inmediata.
+      if (tripId && isAiTrip) {
+        await waitForDayOneStops(tripId);
+      }
       setShowAiLoader(false);
       // La generación cobró tokens en el backend: refrescamos el saldo.
       invalidateTokenBalance();
       if (tripId) {
-        router.replace(ROUTES.trip(tripId));
+        router.replace(
+          isAiTrip ? ROUTES.tripJustCreated(tripId) : ROUTES.trip(tripId),
+        );
         reset();
       }
     } catch (error: unknown) {
       setShowAiLoader(false);
-      if (error instanceof InsufficientTokensError) {
+      if (error instanceof GenerationFailedError) {
+        // La generación falló mientras esperábamos el día 1: el backend ya
+        // reembolsó los tokens (ver generateAutomaticTrip).
+        invalidateTokenBalance();
+        showValidationAlert({
+          title: "No se pudo generar el viaje",
+          message:
+            "Hubo un problema generando el itinerario. Tus tokens han sido reembolsados. Inténtalo de nuevo en unos minutos.",
+          type: "error",
+          actions: [{ text: "Entendido", onPress: hideAlert, variant: "dark" }],
+        });
+      } else if (error instanceof InsufficientTokensError) {
         showInsufficientTokensAlert(
           error.required ?? aiBaseCost,
           error.balance ?? tokenBalance,

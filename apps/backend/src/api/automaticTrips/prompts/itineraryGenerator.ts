@@ -84,9 +84,9 @@ export function buildItineraryPrompt(
 
 5. Usa direcciones reales (Ciudad, Provincia, País)
 6. Adapta el número de paradas a la duración del viaje:
-   - 1-2 días: 2-4 paradas (1 alojamiento, 1-3 actividades)
-   - 3-4 días: 4-8 paradas (2-3 alojamientos, 2-5 actividades)
-   - 5+ días: 6-12 paradas (3-5 alojamientos, 3-7 actividades)
+   - 1-2 días: 6-10 paradas (1 alojamiento, 5-9 actividades)
+   - 3-4 días: 8-12 paradas (2-3 alojamientos, 6-9 actividades)
+   - 5+ días: 10-14 paradas (3-5 alojamientos, 7-11 actividades)
 7. Incluye al menos 1 parada de comida por día como actividad (category: "restaurante")
 8. El precio de las actividades deben ser realistas para el país
 9. **VARIEDAD DE PARADAS (OBLIGATORIO)**:
@@ -189,30 +189,29 @@ Ejemplo salida en formato json
 ### REGLAS PARA LOS CAMPOS:
 
 ${(() => {
-  const sd = new Date(tripInput.start_date);
-  const ed = new Date(tripInput.end_date);
-  const totalDays = Math.max(
-    1,
-    Math.round((ed.getTime() - sd.getTime()) / 86_400_000) + 1,
-  );
-  return `🔒 REGLA ABSOLUTA SOBRE DÍAS — NO NEGOCIABLE
+      const sd = new Date(tripInput.start_date);
+      const ed = new Date(tripInput.end_date);
+      const totalDays = Math.max(
+        1,
+        Math.round((ed.getTime() - sd.getTime()) / 86_400_000) + 1,
+      );
+      return `🔒 REGLA ABSOLUTA SOBRE DÍAS — NO NEGOCIABLE
 - El viaje dura EXACTAMENTE ${totalDays} días: del Día 1 al Día ${totalDays} (ambos incluidos).
 - TODAS las paradas que generes DEBEN tener \`day\` entre 1 y ${totalDays} (inclusive).
 - JAMÁS generes paradas con day > ${totalDays}. Esto rompe la base de datos del usuario y se descartan.
 - Si tienes más ideas que las que caben, redistribúyelas dentro de los ${totalDays} días disponibles, NO añadas días extra.
 `;
-})()}
+    })()}
 
 - **day** (OBLIGATORIO): Número del día del viaje (1, 2, 3...)
   - Día 1 = fecha de salida (${tripInput.start_date})
-  - Último día = fecha de llegada al destino (${tripInput.end_date})
   - Las paradas del MISMO día deben tener horas diferentes y en orden creciente
   - Ejemplo: Día 1 → 10:00, 13:30, 18:00 | Día 2 → 09:00, 14:00
   
 - **estimated_arrival** (OBLIGATORIO): Hora de llegada en formato 24h "HH:MM"
   - CRÍTICO: Las paradas deben estar ordenadas cronológicamente (día + hora)
   - ⏰ HORA DE SALIDA DEL VIAJE: ${tripInput.start_time} (La primera parada intermedia no puede ser antes de esta hora el Día 1)
-  - ⏰ HORA LÍMITE DE LLEGADA AL DESTINO: ${tripInput.end_time} (El usuario planea llegar al destino a esta hora el último día)
+  - ⏰ HORA LÍMITE DE LLEGADA AL DESTINO: ${tripInput.end_time} (El usuario planea llegar al destino a esta hora)
   - FORMATO INCORRECTO: "10:30 AM", "10h30", "10.30"
   - FORMATO CORRECTO: "10:30", "09:15", "14:00", "21:45"
   - ⚠️ Considera tiempos de conducción realistas entre paradas (1-4 horas)
@@ -238,9 +237,8 @@ ${(() => {
   ⚠️ EVITA nombres genéricos que no existen en mapas
 
 ### VIAJE CIRCULAR (IDA Y VUELTA):
-${
-  tripInput.circular
-    ? (() => {
+${tripInput.circular
+      ? (() => {
         const sd = new Date(tripInput.start_date);
         const ed = new Date(tripInput.end_date);
         const totalDays = Math.max(
@@ -258,27 +256,26 @@ ESTRUCTURA OBLIGATORIA:
 - Las paradas de los últimos días deben estar cada vez más cerca de ${tripInput.origin}.
 `;
       })()
-    : "Este es un viaje de ida (sin vuelta al origen)."
-}
+      : "Este es un viaje de ida (sin vuelta al origen)."
+    }
 
-${
-  tripInput.mandatoryStops && tripInput.mandatoryStops.length > 0
-    ? `
+${tripInput.mandatoryStops && tripInput.mandatoryStops.length > 0
+      ? `
 ### PARADAS OBLIGATORIAS (RESTRICCIÓN ESTRICTA):
 El itinerario DEBE incluir paso por las siguientes ubicaciones en el orden indicado.
 PROHIBIDO ignorar estas paradas — el usuario ya las tiene confirmadas y son indispensables:
 ${tripInput.mandatoryStops
-  .map(
-    (s, i) =>
-      `${i + 1}. ${s.address}${s.expectedArrivalDate ? ` — llegada prevista: ${new Date(s.expectedArrivalDate).toLocaleDateString("es-ES")}` : ""}`,
-  )
-  .join("\n")}
+        .map(
+          (s, i) =>
+            `${i + 1}. ${s.address}${s.expectedArrivalDate ? ` — llegada prevista: ${new Date(s.expectedArrivalDate).toLocaleDateString("es-ES")}` : ""}`,
+        )
+        .join("\n")}
 
 Integra estas paradas como activitystop con category="parada_obligatoria" o accomodationstop según proceda.
 Asegúrate de que el orden geográfico de las paradas respeta esta secuencia.
 `
-    : ""
-}
+      : ""
+    }
 
 ### DATOS DEL VIAJE:
 - Origen: ${tripInput.origin}
@@ -289,82 +286,73 @@ Asegúrate de que el orden geográfico de las paradas respeta esta secuencia.
 
 
 ### PERFIL DE LOS VIAJEROS
-En el viaje viajan ${tripInput.n_adults} adultos${
-    (tripInput.n_children ?? 0) > 0 ? `, ${tripInput.n_children} niños` : ""
-  }${(tripInput.n_infants ?? 0) > 0 ? `, ${tripInput.n_infants} bebés` : ""}${
-    (tripInput.n_elderly ?? 0) > 0
+En el viaje viajan ${tripInput.n_adults} adultos${(tripInput.n_children ?? 0) > 0 ? `, ${tripInput.n_children} niños` : ""
+    }${(tripInput.n_infants ?? 0) > 0 ? `, ${tripInput.n_infants} bebés` : ""}${(tripInput.n_elderly ?? 0) > 0
       ? `, ${tripInput.n_elderly} personas mayores`
       : ""
-  }${(tripInput.n_pets ?? 0) > 0 ? `, ${tripInput.n_pets} mascotas` : ""}.
+    }${(tripInput.n_pets ?? 0) > 0 ? `, ${tripInput.n_pets} mascotas` : ""}.
  
 ### REGLAS ESPECÍFICAS DE PERSONALIZACIÓN
-${
-  (tripInput.n_children ?? 0) > 0
-    ? `
+${(tripInput.n_children ?? 0) > 0
+      ? `
 - REGLAS PARA NIÑOS: 
   * Prioriza paradas con espacios abiertos, parques temáticos, zoológicos, acuarios, museos interactivos de ciencia o tecnología y talleres de artesanía.
   * En 'description' de restaurantes, confirma que el ambiente es familiar y menciona si hay menú infantil u opciones sencillas (pasta, pollo).
   * Evita tramos de coche de más de 3 horas; propón descansos cada 2 horas.`
-    : ""
-}
-${
-  (tripInput.n_infants ?? 0) > 0
-    ? `
+      : ""
+    }
+${(tripInput.n_infants ?? 0) > 0
+      ? `
 - REGLAS PARA BEBÉS (RESTRICCIÓN ESTRICTA): 
   * PROHIBIDO: Lugares que requieran silencio absoluto (yoga, retiros, bibliotecas, conciertos clásicos) o inaccesibles con carrito.
   * Actividades de ritmo lento: paseos con sombra, miradores con bancos y paradas cada 1.5-2 horas para alimentación/higiene.
   * En 'description', especifica siempre si es “accesible para cochecitos / stroller-friendly” (rampas, sin escaleras).
   * Prioriza planes flexibles que no dependan de horarios rígidos de grupos extensos.`
-    : ""
-}
-${
-  (tripInput.n_elderly ?? 0) > 0
-    ? `
+      : ""
+    }
+${(tripInput.n_elderly ?? 0) > 0
+      ? `
 - REGLAS PARA PERSONAS MAYORES: 
   * Prioriza atracciones con ascensor, rampas o transporte interno (bus turístico, funicular).
   * Evita caminatas de más de 30 minutos seguidos; incluye pausas obligatorias en cafeterías o plazas con asientos.
   * En cada parada, indica si hay baños accesibles y buena disponibilidad de asientos.
   * En 'accomodationstop', el alojamiento DEBE tener ascensor obligatoriamente.`
-    : ""
-}
-${
-  (tripInput.n_pets ?? 0) > 0
-    ? `
+      : ""
+    }
+${(tripInput.n_pets ?? 0) > 0
+      ? `
 - REGLAS PARA MASCOTAS: 
   * FILTRO PET-FRIENDLY OBLIGATORIO: Todas las paradas (actividad, hotel y restaurante con terraza) deben aceptar mascotas.
   * Prioriza naturaleza: parques, senderismo sencillo, playas o riberas permitidas.
   * EVITA: Museos cerrados, spas o interiores donde el animal deba quedarse solo sin alternativa clara.`
-    : ""
-}
+      : ""
+    }
 
 ### PREFERENCIAS DEL VIAJERO:
     - Intereses: ${userPreferences.interests && userPreferences.interests.length > 0 ? userPreferences.interests.join(", ") : "No especificados"}
     - Estilo de viaje: ${userPreferences.travelStyle ? `"${userPreferences.travelStyle}"` : "No especificado"}
 
-${
-  userPreferences.travelStyle === "explorer"
-    ? `El usuario quiere explorar todo el camino, crea un itinerario que visite muchos lugares durante la travesía al destino, desviándote de la ruta más corta al destino si fuera necesario pero sin olvidar el destino final del viaje. La frase que le define sería "ciudad que piso ciudad que exploro".`
-    : userPreferences.travelStyle === "sedentary"
-      ? `El usuario prefiere solo visitar el lugar de destino, puedes añadir paradas durante el camino pero en menor cantidad, genera un itinerario centrado en la ciudad de destino y alrededores, la ruta deberá priorizar llegar cuanto antes al destino. La frase que le define sería "mejor me limito a mi destino".`
-      : userPreferences.travelStyle === "balanced"
-        ? `El usuario quiere una mezcla entre explorar lugares por el camino y el destino, genera un itinerario que mezcle un poco de exploración por el camino pero sin olvidar el destino.`
-        : ""
-}
+${userPreferences.travelStyle === "explorer"
+      ? `El usuario quiere explorar todo el camino, crea un itinerario que visite muchos lugares durante la travesía al destino, desviándote de la ruta más corta al destino si fuera necesario pero sin olvidar el destino final del viaje. La frase que le define sería "ciudad que piso ciudad que exploro".`
+      : userPreferences.travelStyle === "sedentary"
+        ? `El usuario prefiere solo visitar el lugar de destino, puedes añadir paradas durante el camino pero en menor cantidad, genera un itinerario centrado en la ciudad de destino y alrededores, la ruta deberá priorizar llegar cuanto antes al destino. La frase que le define sería "mejor me limito a mi destino".`
+        : userPreferences.travelStyle === "balanced"
+          ? `El usuario quiere una mezcla entre explorar lugares por el camino y el destino, genera un itinerario que mezcle un poco de exploración por el camino pero sin olvidar el destino.`
+          : ""
+    }
 
 ### NIVEL DE GASTO DEL VIAJERO:
-${
-  userPreferences.travelSpendingLevel === "saver"
-    ? `El viajero tiene un perfil AHORRADOR. Prioriza opciones económicas: hostales, campings, menús del día, actividades gratuitas o de bajo coste. Evita restaurantes caros y hoteles de lujo. Busca la mejor relación calidad-precio.`
-    : userPreferences.travelSpendingLevel === "luxury"
-      ? `El viajero tiene un perfil de LUJO. Prioriza experiencias premium: hoteles de 4-5 estrellas, restaurantes con estrella Michelin o alta cocina, actividades exclusivas (spa, catas, tours privados). No escatima en comodidad ni calidad.`
-      : `El viajero tiene un perfil EQUILIBRADO. Mezcla opciones económicas con algún capricho: hoteles de 2-3 estrellas, restaurantes de calidad media, combinación de actividades gratuitas y de pago moderado.`
-}
+${userPreferences.travelSpendingLevel === "saver"
+      ? `El viajero tiene un perfil AHORRADOR. Prioriza opciones económicas: hostales, campings, menús del día, actividades gratuitas o de bajo coste. Evita restaurantes caros y hoteles de lujo. Busca la mejor relación calidad-precio.`
+      : userPreferences.travelSpendingLevel === "luxury"
+        ? `El viajero tiene un perfil de LUJO. Prioriza experiencias premium: hoteles de 4-5 estrellas, restaurantes con estrella Michelin o alta cocina, actividades exclusivas (spa, catas, tours privados). No escatima en comodidad ni calidad.`
+        : `El viajero tiene un perfil EQUILIBRADO. Mezcla opciones económicas con algún capricho: hoteles de 2-3 estrellas, restaurantes de calidad media, combinación de actividades gratuitas y de pago moderado.`
+    }
 
 ### PRESUPUESTO:
-${
-  tripInput.estimated_price_min !== undefined ||
-  tripInput.estimated_price_max !== undefined
-    ? `
+${tripInput.estimated_price_min !== undefined ||
+      tripInput.estimated_price_max !== undefined
+      ? `
 El usuario ha establecido un presupuesto para el viaje:
 ${tripInput.estimated_price_min !== undefined ? `- Presupuesto mínimo: ${tripInput.estimated_price_min}€` : ""}
 ${tripInput.estimated_price_max !== undefined ? `- Presupuesto máximo: ${tripInput.estimated_price_max}€` : ""}
@@ -375,20 +363,19 @@ ${tripInput.estimated_price_max !== undefined ? `- Presupuesto máximo: ${tripIn
 - Si el presupuesto es alto (>2000€): Hoteles de 3-4 estrellas, actividades premium
 - Los precios de entrada (entry_price) y alojamiento deben ser coherentes con el presupuesto total
 `
-    : "\nNo se ha especificado un presupuesto concreto. Genera opciones de presupuesto medio-bajo (hostales, hoteles 2-3 estrellas, actividades mixtas)."
-}
+      : "\nNo se ha especificado un presupuesto concreto. Genera opciones de presupuesto medio-bajo (hostales, hoteles 2-3 estrellas, actividades mixtas)."
+    }
 
 ### ${vehicles.length === 1 ? "VEHÍCULO UTILIZADO PARA EL VIAJE:" : "VEHÍCULOS UTILIZADOS PARA EL VIAJE:"}
-${
-  vehicles.length > 0
-    ? vehicles
+${vehicles.length > 0
+      ? vehicles
         .map(
           (v) =>
             `- ${v.brand} ${v.model}, Tipo: ${v.type}, Combustible: ${v.type_fuel}, Consume medio: ${v.avg_consumption}, Capacidad total del tanque de combustible: ${v.fuel_tank_capacity}`,
         )
         .join("\n")
-    : "No se especificaron vehículos"
-}
+      : "No se especificaron vehículos"
+    }
 
 
 Genera el itinerario en formato JSON:

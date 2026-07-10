@@ -7,7 +7,7 @@ import { useEffect } from 'react';
 import { Text, TouchableOpacity, View } from 'react-native';
 
 export default function TripDetailScreen() {
-  const { tripId } = useLocalSearchParams<{ tripId: string }>();
+  const { tripId, justCreated } = useLocalSearchParams<{ tripId: string; justCreated?: string }>();
   const { setCurrentTrip, setTripId } = useTripContext();
 
   // Cargar datos del viaje para sincronizar con el contexto
@@ -41,6 +41,12 @@ export default function TripDetailScreen() {
     );
   }
 
-  // Redirigir a las tabs (Expo Router propagará el parámetro tripId automáticamente)
-  return <Redirect href={`/(app)/trip/(tabs)/stops?tripId=${tripId}`} />;
+  // Redirigir a las tabs (Expo Router propagará el parámetro tripId automáticamente).
+  // justCreated=1 viene del wizard tras crear un viaje IA y dispara el toast
+  // "Día 1 listo" en la pantalla de itinerario.
+  return (
+    <Redirect
+      href={`/(app)/trip/(tabs)/stops?tripId=${tripId}${justCreated === '1' ? '&justCreated=1' : ''}`}
+    />
+  );
 }

@@ -30,6 +30,7 @@ export const CustomInput: React.FC<CustomInputProps> = ({
   rightElement,
   onFocus,
   onBlur,
+  style,
   ...props
 }) => {
   const [isFocused, setIsFocused] = useState(false);
@@ -61,11 +62,16 @@ export const CustomInput: React.FC<CustomInputProps> = ({
     >
       <TextInput
         className={`flex-1 ${hasRightElement ? "pl-4 pr-2 py-3" : sizeStyles[size]} text-dark-black ${inputClassName}`}
+        // El style del caller se fusiona al final (gana sobre los estilos base)
+        // en lugar de dejar que {...props} sustituya el array completo y se
+        // pierdan fontFamily/color, imprescindibles para que el texto se vea
+        // de forma fiable en Android.
         style={[
           fontSizeStyles[size],
           Platform.OS === "web"
             ? { outlineStyle: "none" as any, outlineWidth: 0 }
             : {},
+          style,
         ]}
         placeholderTextColor="#999999"
         accessibilityLabel={typeof label === "string" ? label : undefined}

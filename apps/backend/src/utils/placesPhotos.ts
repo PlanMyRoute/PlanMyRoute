@@ -21,6 +21,8 @@ interface PlaceSearchResult {
 interface PlacesSearchResponse {
   results: PlaceSearchResult[];
   status: string;
+  /** Motivo detallado cuando status es un error (p.ej. REQUEST_DENIED por billing) */
+  error_message?: string;
 }
 
 /**
@@ -47,7 +49,10 @@ function extractPhotoFromResults(
   queryLabel: string,
 ): string | null {
   if (searchData.status !== "OK" && searchData.status !== "ZERO_RESULTS") {
-    console.error(`Error en Places API: ${searchData.status}`);
+    console.error(
+      `Error en Places API: ${searchData.status}` +
+        (searchData.error_message ? ` — ${searchData.error_message}` : ""),
+    );
     return null;
   }
 

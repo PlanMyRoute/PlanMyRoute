@@ -747,7 +747,10 @@ export default function CreateWizardScreen() {
                                             onBlur={budget.handleMinBudgetBlur}
                                             keyboardType="numeric"
                                             placeholder="50"
-                                            inputClassName="text-center text-base font-semibold"
+                                            // Estilo plano en vez de clases NativeWind: en Android la
+                                            // combinación font-semibold + fontFamily custom dejaba el
+                                            // texto del input invisible.
+                                            style={{ textAlign: 'center', fontFamily: 'Urbanist-SemiBold', fontSize: 16 }}
                                             rightElement={<TextRegular className="text-neutral-gray pr-3">€</TextRegular>}
                                         />
                                         <MicrotextDark className="text-neutral-gray mt-1 text-center">Mínimo</MicrotextDark>
@@ -759,7 +762,7 @@ export default function CreateWizardScreen() {
                                             onBlur={budget.handleMaxBudgetBlur}
                                             keyboardType="numeric"
                                             placeholder="1000"
-                                            inputClassName="text-center text-base font-semibold"
+                                            style={{ textAlign: 'center', fontFamily: 'Urbanist-SemiBold', fontSize: 16 }}
                                             rightElement={<TextRegular className="text-neutral-gray pr-3">€</TextRegular>}
                                         />
                                         <MicrotextDark className="text-neutral-gray mt-1 text-center">Máximo</MicrotextDark>
@@ -852,6 +855,22 @@ export default function CreateWizardScreen() {
                 visible={showAiLoader}
                 buttonCoords={wizard.buttonCoords}
                 useFlappyBird={false}
+                summary={
+                    basics.originData && basics.destinationData && basics.startDate && basics.endDate
+                        ? {
+                            origin: basics.origin,
+                            destination: basics.destination,
+                            startDate: basics.startDate,
+                            endDate: basics.endDate,
+                            travelers:
+                                travelers.travelerCounts.adults +
+                                travelers.travelerCounts.children +
+                                travelers.travelerCounts.infants +
+                                travelers.travelerCounts.elders,
+                            vehicles: selectedVehicles.length,
+                        }
+                        : null
+                }
             />
 
             {alertConfig && (

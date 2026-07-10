@@ -49,7 +49,13 @@ export default function BillsScreen() {
     const { data: accommodationData, isLoading: accommodationLoading } = useAccommodationCostByTrip(tripId as string, { enabled: !!tripId, token: token ?? undefined });
     const { data: activityData, isLoading: activityLoading } = useActivityCostByTrip(tripId as string, { enabled: !!tripId, token: token ?? undefined });
 
-    const fuelCost = refuelData?.total_cost || 0;
+    // Combustible: si hay repostajes planificados se usa su suma; si no, el
+    // coste estimado del carburante de toda la ruta (km × consumo × precio),
+    // para que el gasto en gasolina aparezca aunque el depósito cubra el viaje.
+    const hasRefuels = (refuelData?.refuel_count ?? 0) > 0;
+    const fuelCost = hasRefuels
+        ? refuelData?.total_cost || 0
+        : refuelData?.estimated_route_cost || 0;
     const accommodationCost = accommodationData?.total_cost || 0;
     const foodCost = activityData?.total_cost || 0;
     const totalCost = fuelCost + accommodationCost + foodCost;
@@ -97,7 +103,9 @@ export default function BillsScreen() {
                         <CostRow
                             icon="car-outline"
                             label="Combustible"
-                            subtitle={refuelData?.refuel_count ? `${refuelData.refuel_count} repostajes` : undefined}
+                            subtitle={hasRefuels
+                                ? `${refuelData!.refuel_count} repostaje${refuelData!.refuel_count !== 1 ? 's' : ''}`
+                                : fuelCost > 0 ? 'Estimado según ruta y consumo' : undefined}
                             amount={fuelCost}
                         />
                         <CostRow

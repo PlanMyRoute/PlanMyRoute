@@ -46,17 +46,28 @@ const allowedOrigins = (
 )
   .split(",")
   .map((o) => o.trim());
-app.use(
-  cors({
-    origin: (origin, callback) => {
-      // Requests sin origin (apps móviles nativas, Postman, curl) siempre se permiten
-      if (!origin || allowedOrigins.includes(origin))
-        return callback(null, true);
-      callback(new Error(`Origen '${origin}' no permitido por CORS`));
-    },
-    methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
-    credentials: true,
-  }),
+
+const strictCors = cors({
+  origin: (origin, callback) => {
+    // Requests sin origin (apps móviles nativas, Postman, curl) siempre se permiten
+    if (!origin || allowedOrigins.includes(origin)) return callback(null, true);
+    callback(new Error(`Origen '${origin}' no permitido por CORS`));
+  },
+  methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
+  credentials: true,
+});
+
+// Excepción: /api/places es un proxy público de geocoding (solo GET, sin
+// credenciales ni token). El picker de mapa lo consulta desde un WebView/iframe
+// cargado con `source={{ html }}`, que envía `Origin: null` y sería rechazado
+// por la lista estricta. Abrirlo no expone datos y el resto de la API mantiene
+// el CORS restrictivo.
+const openCors = cors({ origin: true, methods: ["GET"], credentials: false });
+
+app.use((req, res, next) =>
+  req.path.startsWith("/api/places")
+    ? openCors(req, res, next)
+    : strictCors(req, res, next),
 );
 
 // ==========================================
